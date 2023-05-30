@@ -1,0 +1,30 @@
+comment "{";
+comment "{*" "*}" ; 
+
+entrypoints P ;
+
+Prog.               P ::= PB [B] BEB ".";
+ProgBlock.          PB ::= "program" Ident ";" ;
+
+BegEndBlock.        BEB ::= "begin" [S] "end" ;
+
+--placeholder
+Statements.         S ::= String ;
+terminator S ";" ;
+
+rules B ::= PCB | VRB ;
+separator B "";
+
+ProcBlock.          PCB ::= "procedure" Ident ";" BEB ";" ;
+
+VarBlock.           VRB ::= "var" [VRD] ;
+VarDefinition.      VRD ::= [VRLI] ":" TYP;
+VarListIdent.       VRLI ::= Ident;
+separator nonempty VRLI "," ;
+terminator nonempty VRD ";" ;
+
+rules Boolean ::= "true" | "false" ;
+
+rules TYP ::= BaseType | CompType;  
+rules BaseType ::= "integer" | "boolean" | "real" | "char" | "string" ;
+rules CompType ::= "array" "[" Integer ".." Integer "]" "of" TYP | "^" BaseType ;
