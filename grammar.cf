@@ -1,30 +1,92 @@
 comment "{";
 comment "{*" "*}" ; 
 
-entrypoints P ;
+entrypoints P;
 
-Prog.               P ::= PB [B] BEB ".";
-ProgBlock.          PB ::= "program" Ident ";" ;
+Prog.               P ::= PBlock [DclBlock] BEBlock ".";
+ProgBlock.          PBlock ::= "program" Ident ";" ;
 
-BegEndBlock.        BEB ::= "begin" [S] "end" ;
+BegEndBlock.        BEBlock ::= "begin" [BegEndStmt] "end" ;
 
---placeholder
-Statements.         S ::= String ;
-terminator S ";" ;
+rules               BegEndStmt ::= Stmt ";" | DclBlock;
+separator BegEndStmt "";
 
-rules B ::= PCB | VRB ;
-separator B "";
+StmtComp.           Stmt ::= BEBlock ;
+StmtAssign.         Stmt ::= LEXPR ":=" REXPR;
+StmtCall.           Stmt ::= Call ;
+StmtSelect.         Stmt ::= SelStmt ;
+StmtIter.           Stmt ::= IterStmt;
 
-ProcBlock.          PCB ::= "procedure" Ident ";" BEB ";" ;
+StmtIf.             SelStmt ::= "if" REXPR "then" Stmt ;
+StmtIfElse.         SelStmt ::= "if" REXPR "then" Stmt "else" Stmt;
 
-VarBlock.           VRB ::= "var" [VRD] ;
-VarDefinition.      VRD ::= [VRLI] ":" TYP;
-VarListIdent.       VRLI ::= Ident;
-separator nonempty VRLI "," ;
-terminator nonempty VRD ";" ;
+StmtWhileDo.        IterStmt ::= "while" REXPR "do" Stmt;
 
-rules Boolean ::= "true" | "false" ;
+rules               DclBlock ::= PcBlock | VrBlock | FcBlock ;
+separator DclBlock "";
 
-rules TYP ::= BaseType | CompType;  
-rules BaseType ::= "integer" | "boolean" | "real" | "char" | "string" ;
-rules CompType ::= "array" "[" Integer ".." Integer "]" "of" TYP | "^" BaseType ;
+ProcBlock.          PcBlock ::= "procedure" Ident Prms ";" BEBlock ";";
+FuncBlock.          FcBlock ::= "function" Ident Prms ":" Type ";" BEBlock ";" ;
+
+Params.             Prms ::= "(" [Prm] ")";
+NoParams.           Prms ::= ;
+Param.              Prm ::= [VRI] ":" Type;
+separator nonempty Prm "," ;
+
+CallArgs.           Call ::= Ident "(" [REXPR] ")";
+rules               Call ::= ReadDefProc "(" LEXPR ")" | WriteDefProc "(" REXPR ")"; 
+separator REXPR ",";
+
+VarBlock.           VrBlock ::= "var" [VrDef] ;
+VarDefinition.      VrDef ::= [VRI] ":" Type;
+VarId.              VRI ::= Ident ;
+separator nonempty VRI "," ;
+terminator nonempty VrDef ";" ;
+
+rules               Boolean ::= "true" | "false" ;
+
+rules               Type ::= BaseType | CompType;  
+rules               BaseType ::= "integer" | "boolean" | "real" | "char" | "string" ;
+rules               CompType ::= "array" "[" Integer ".." Integer "]" "of" Type | "^" BaseType ;
+
+rules               ReadDefProc ::= "readInt"  | "readChar" | "readReal" | "readString" ;
+rules               WriteDefProc ::= "writeInt" | "writeChar" | "writeReal" | "writeString" ;
+
+coercions REXPR 12;
+
+Or.                 REXPR ::= REXPR "or" REXPR1;
+And.                REXPR1 ::= REXPR1 "and" REXPR2;
+Not.                REXPR2 ::= "not" REXPR3;
+
+Eq.                 REXPR3 ::= REXPR4 "=" REXPR4 ;
+NotEq.              REXPR3 ::= REXPR4 "<>" REXPR4;
+LessT.              REXPR3 ::= REXPR4 "<" REXPR4;
+EqLessT.            REXPR3 ::= REXPR4 "<=" REXPR4;
+GreatT.             REXPR3 ::= REXPR4 ">" REXPR4;
+EqGreatT.           REXPR3 ::= REXPR4 ">=" REXPR4;
+
+Sub.                REXPR4 ::= REXPR4 "-" REXPR5;
+Add.                REXPR5 ::= REXPR5 "+" REXPR6;
+Div.                REXPR6 ::= REXPR6 "/" REXPR7;
+Mul.                REXPR7 ::= REXPR7 "*" REXPR8;
+Mod.                REXPR8 ::= REXPR8 "mod" REXPR9;
+
+Negation.           REXPR9 ::= "-" REXPR10;
+
+Reference.          REXPR9 ::= "^" LEXPR;
+
+Int.                REXPR10 ::= Integer;
+String.             REXPR10 ::= String;
+Char.               REXPR10 ::= Char;
+Real.               REXPR10 ::= Double;
+Bool.               REXPR10 ::= Boolean;
+
+ExprCall.           REXPR11 ::= Call;
+
+LExpression.        REXPR12 ::= LEXPR;
+
+--Dereference.      LEXPR ::= REXPR "^" ;
+BaseLExpr.          LEXPR ::= BLEXPR;
+
+Identifier.         BLEXPR ::= Ident;
+ArrayElem.          BLEXPR ::= BLEXPR "[" REXPR "]";
