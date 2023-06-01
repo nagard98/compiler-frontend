@@ -72,8 +72,8 @@ Mul.                REXPR7 ::= REXPR7 "*" REXPR8;
 Mod.                REXPR8 ::= REXPR8 "mod" REXPR9;
 
 Negation.           REXPR9 ::= "-" REXPR10;
-
-Reference.          REXPR9 ::= "^" LEXPR;
+Reference.          REXPR9 ::= "@" REXPR10;
+Dereference.        REXPR9 ::= REXPR10 "^";
 
 Int.                REXPR10 ::= Integer;
 String.             REXPR10 ::= String;
@@ -85,7 +85,6 @@ ExprCall.           REXPR11 ::= Call;
 
 LExpression.        REXPR12 ::= LEXPR;
 
---Dereference.      LEXPR ::= REXPR "^" ;
 BaseLExpr.          LEXPR ::= BLEXPR;
 
 Identifier.         BLEXPR ::= Ident;
