@@ -21,9 +21,16 @@ cabal.project.local
 cabal.project.local~
 .HTF/
 .ghc.environment.*
-*.hs
 *.bak
 TestGrammar
 *.x
 *.y
 *.txt
+*.info
+AbsGrammar.hs
+ErrM.hs
+LexGrammar.hs
+ParGrammar.hs
+PrintGrammar.hs
+SkelGrammar.hs
+TestGrammar.hs

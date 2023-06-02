@@ -1,0 +1,5 @@
+program Hello;
+    var myVar : integer;
+begin
+    myVar := 10;
+end.
