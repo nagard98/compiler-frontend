@@ -16,11 +16,15 @@ StmtAssign.         Stmt ::= LEXPR ":=" REXPR;
 StmtCall.           Stmt ::= Call ;
 StmtSelect.         Stmt ::= SelStmt ;
 StmtIter.           Stmt ::= IterStmt;
+StmtReturn.         Stmt ::= Return;
 
 StmtIf.             SelStmt ::= "if" REXPR "then" Stmt ;
 StmtIfElse.         SelStmt ::= "if" REXPR "then" Stmt "else" Stmt;
 
 StmtWhileDo.        IterStmt ::= "while" REXPR "do" Stmt;
+StmtRepeat.         IterStmt ::= "repeat" Stmt "until" REXPR;
+
+Ret.                Return ::= "return" REXPR;
 
 rules               DclBlock ::= PcBlock | VrBlock | FcBlock ;
 separator DclBlock "";
@@ -34,7 +38,6 @@ Param.              Prm ::= [VRI] ":" Type;
 separator nonempty Prm "," ;
 
 CallArgs.           Call ::= Ident "(" [REXPR] ")";
-rules               Call ::= ReadDefProc "(" LEXPR ")" | WriteDefProc "(" REXPR ")"; 
 separator REXPR ",";
 
 VarBlock.           VrBlock ::= "var" [VrDef] ;
@@ -48,9 +51,6 @@ rules               Boolean ::= "true" | "false" ;
 rules               Type ::= BaseType | CompType;  
 rules               BaseType ::= "integer" | "boolean" | "real" | "char" | "string" ;
 rules               CompType ::= "array" "[" Integer ".." Integer "]" "of" Type | "^" BaseType ;
-
-rules               ReadDefProc ::= "readInt"  | "readChar" | "readReal" | "readString" ;
-rules               WriteDefProc ::= "writeInt" | "writeChar" | "writeReal" | "writeString" ;
 
 coercions REXPR 12;
 

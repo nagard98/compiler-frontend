@@ -23,8 +23,6 @@ cabal.project.local~
 .ghc.environment.*
 *.bak
 TestGrammar
-*.x
-*.y
 *.txt
 *.info
 AbsGrammar.hs
