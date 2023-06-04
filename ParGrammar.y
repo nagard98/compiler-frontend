@@ -50,28 +50,29 @@ import LexGrammar
   'begin'     { PT _ (TS _ 25) }
   'boolean'   { PT _ (TS _ 26) }
   'char'      { PT _ (TS _ 27) }
-  'do'        { PT _ (TS _ 28) }
-  'else'      { PT _ (TS _ 29) }
-  'end'       { PT _ (TS _ 30) }
-  'false'     { PT _ (TS _ 31) }
-  'function'  { PT _ (TS _ 32) }
-  'if'        { PT _ (TS _ 33) }
-  'integer'   { PT _ (TS _ 34) }
-  'mod'       { PT _ (TS _ 35) }
-  'not'       { PT _ (TS _ 36) }
-  'of'        { PT _ (TS _ 37) }
-  'or'        { PT _ (TS _ 38) }
-  'procedure' { PT _ (TS _ 39) }
-  'program'   { PT _ (TS _ 40) }
-  'real'      { PT _ (TS _ 41) }
-  'repeat'    { PT _ (TS _ 42) }
-  'return'    { PT _ (TS _ 43) }
-  'string'    { PT _ (TS _ 44) }
-  'then'      { PT _ (TS _ 45) }
-  'true'      { PT _ (TS _ 46) }
-  'until'     { PT _ (TS _ 47) }
-  'var'       { PT _ (TS _ 48) }
-  'while'     { PT _ (TS _ 49) }
+  'const'     { PT _ (TS _ 28) }
+  'do'        { PT _ (TS _ 29) }
+  'else'      { PT _ (TS _ 30) }
+  'end'       { PT _ (TS _ 31) }
+  'false'     { PT _ (TS _ 32) }
+  'function'  { PT _ (TS _ 33) }
+  'if'        { PT _ (TS _ 34) }
+  'integer'   { PT _ (TS _ 35) }
+  'mod'       { PT _ (TS _ 36) }
+  'not'       { PT _ (TS _ 37) }
+  'of'        { PT _ (TS _ 38) }
+  'or'        { PT _ (TS _ 39) }
+  'procedure' { PT _ (TS _ 40) }
+  'program'   { PT _ (TS _ 41) }
+  'real'      { PT _ (TS _ 42) }
+  'repeat'    { PT _ (TS _ 43) }
+  'return'    { PT _ (TS _ 44) }
+  'string'    { PT _ (TS _ 45) }
+  'then'      { PT _ (TS _ 46) }
+  'true'      { PT _ (TS _ 47) }
+  'until'     { PT _ (TS _ 48) }
+  'var'       { PT _ (TS _ 49) }
+  'while'     { PT _ (TS _ 50) }
   L_Ident     { PT _ (TV $$)   }
   L_charac    { PT _ (TC $$)   }
   L_doubl     { PT _ (TD $$)   }
@@ -141,6 +142,7 @@ DclBlock
   : PcBlock { AbsGrammar.DclBlockPcBlock $1 }
   | VrBlock { AbsGrammar.DclBlockVrBlock $1 }
   | FcBlock { AbsGrammar.DclBlockFcBlock $1 }
+  | CsBlock { AbsGrammar.DclBlockCsBlock $1 }
 
 ListDclBlock :: { [AbsGrammar.DclBlock] }
 ListDclBlock
@@ -160,7 +162,7 @@ Prms
   | {- empty -} { AbsGrammar.NoParams }
 
 Prm :: { AbsGrammar.Prm }
-Prm : Modality ListVRI ':' Type { AbsGrammar.Param $1 $2 $4 }
+Prm : Modality ListIdElem ':' Type { AbsGrammar.Param $1 $2 $4 }
 
 Modality :: { AbsGrammar.Modality }
 Modality
@@ -183,17 +185,28 @@ VrBlock :: { AbsGrammar.VrBlock }
 VrBlock : 'var' ListVrDef { AbsGrammar.VarBlock $2 }
 
 VrDef :: { AbsGrammar.VrDef }
-VrDef : ListVRI ':' Type { AbsGrammar.VarDefinition $1 $3 }
-
-VRI :: { AbsGrammar.VRI }
-VRI : Ident { AbsGrammar.VarId $1 }
-
-ListVRI :: { [AbsGrammar.VRI] }
-ListVRI : VRI { (:[]) $1 } | VRI ',' ListVRI { (:) $1 $3 }
+VrDef : ListIdElem ':' Type { AbsGrammar.VarDefinition $1 $3 }
 
 ListVrDef :: { [AbsGrammar.VrDef] }
 ListVrDef
   : VrDef ';' { (:[]) $1 } | VrDef ';' ListVrDef { (:) $1 $3 }
+
+CsBlock :: { AbsGrammar.CsBlock }
+CsBlock : 'const' ListCsDef { AbsGrammar.ConstBlock $2 }
+
+CsDef :: { AbsGrammar.CsDef }
+CsDef : IdElem '=' Literal { AbsGrammar.ConstDefinition $1 $3 }
+
+ListCsDef :: { [AbsGrammar.CsDef] }
+ListCsDef
+  : CsDef ';' { (:[]) $1 } | CsDef ';' ListCsDef { (:) $1 $3 }
+
+IdElem :: { AbsGrammar.IdElem }
+IdElem : Ident { AbsGrammar.IdElement $1 }
+
+ListIdElem :: { [AbsGrammar.IdElem] }
+ListIdElem
+  : IdElem { (:[]) $1 } | IdElem ',' ListIdElem { (:) $1 $3 }
 
 Boolean :: { AbsGrammar.Boolean }
 Boolean
@@ -262,13 +275,7 @@ REXPR9
   | REXPR10 '^' { AbsGrammar.Dereference $1 }
 
 REXPR10 :: { AbsGrammar.REXPR }
-REXPR10
-  : REXPR11 { $1 }
-  | Integer { AbsGrammar.Int $1 }
-  | String { AbsGrammar.String $1 }
-  | Char { AbsGrammar.Char $1 }
-  | Double { AbsGrammar.Real $1 }
-  | Boolean { AbsGrammar.Bool $1 }
+REXPR10 : REXPR11 { $1 } | Literal { AbsGrammar.ExprLiteral $1 }
 
 REXPR11 :: { AbsGrammar.REXPR }
 REXPR11 : REXPR12 { $1 } | Call { AbsGrammar.ExprCall $1 }
@@ -284,6 +291,14 @@ BLEXPR :: { AbsGrammar.BLEXPR }
 BLEXPR
   : Ident { AbsGrammar.Identifier $1 }
   | BLEXPR '[' REXPR ']' { AbsGrammar.ArrayElem $1 $3 }
+
+Literal :: { AbsGrammar.Literal }
+Literal
+  : Integer { AbsGrammar.LiteralInteger $1 }
+  | String { AbsGrammar.LiteralString $1 }
+  | Char { AbsGrammar.LiteralChar $1 }
+  | Double { AbsGrammar.LiteralDouble $1 }
+  | Boolean { AbsGrammar.LiteralBoolean $1 }
 
 {
 

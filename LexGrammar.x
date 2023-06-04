@@ -28,7 +28,7 @@ $u = [. \n]          -- universal: any character
 
 -- Symbols and non-identifier-like reserved words
 
-@rsyms = \. | \; | \: \= | \: | \( | \) | \, | \[ | \. \. | \] | \^ | \= | \< \> | \< | \< \= | \> | \> \= | \- | \+ | \/ | \* | \@
+@rsyms = \. | \; | \: \= | \: | \( | \) | \, | \= | \[ | \. \. | \] | \^ | \< \> | \< | \< \= | \> | \> \= | \- | \+ | \/ | \* | \@
 
 :-
 
@@ -166,31 +166,32 @@ eitherResIdent tv s = treeFind resWords
 -- | The keywords and symbols of the language organized as binary search tree.
 resWords :: BTree
 resWords =
-  b "begin" 25
+  b "boolean" 26
     (b "<" 13
        (b "." 7
           (b "+" 4
              (b ")" 2 (b "(" 1 N N) (b "*" 3 N N)) (b "-" 6 (b "," 5 N N) N))
           (b ":" 10 (b "/" 9 (b ".." 8 N N) N) (b ";" 12 (b ":=" 11 N N) N)))
-       (b "@" 19
-          (b "=" 16
-             (b "<>" 15 (b "<=" 14 N N) N) (b ">=" 18 (b ">" 17 N N) N))
-          (b "^" 22
-             (b "]" 21 (b "[" 20 N N) N) (b "array" 24 (b "and" 23 N N) N))))
-    (b "or" 38
-       (b "function" 32
-          (b "else" 29
-             (b "char" 27 (b "boolean" 26 N N) (b "do" 28 N N))
-             (b "false" 31 (b "end" 30 N N) N))
-          (b "mod" 35
-             (b "integer" 34 (b "if" 33 N N) N) (b "of" 37 (b "not" 36 N N) N)))
-       (b "string" 44
-          (b "real" 41
-             (b "program" 40 (b "procedure" 39 N N) N)
-             (b "return" 43 (b "repeat" 42 N N) N))
-          (b "until" 47
-             (b "true" 46 (b "then" 45 N N) N)
-             (b "while" 49 (b "var" 48 N N) N))))
+       (b "[" 20
+          (b ">" 17
+             (b "<>" 15 (b "<=" 14 N N) (b "=" 16 N N))
+             (b "@" 19 (b ">=" 18 N N) N))
+          (b "and" 23
+             (b "^" 22 (b "]" 21 N N) N) (b "begin" 25 (b "array" 24 N N) N))))
+    (b "or" 39
+       (b "function" 33
+          (b "else" 30
+             (b "const" 28 (b "char" 27 N N) (b "do" 29 N N))
+             (b "false" 32 (b "end" 31 N N) N))
+          (b "mod" 36
+             (b "integer" 35 (b "if" 34 N N) N) (b "of" 38 (b "not" 37 N N) N)))
+       (b "string" 45
+          (b "real" 42
+             (b "program" 41 (b "procedure" 40 N N) N)
+             (b "return" 44 (b "repeat" 43 N N) N))
+          (b "until" 48
+             (b "true" 47 (b "then" 46 N N) N)
+             (b "while" 50 (b "var" 49 N N) N))))
   where
   b s n = B bs (TS bs n)
     where
