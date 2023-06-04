@@ -160,7 +160,12 @@ Prms
   | {- empty -} { AbsGrammar.NoParams }
 
 Prm :: { AbsGrammar.Prm }
-Prm : ListVRI ':' Type { AbsGrammar.Param $1 $3 }
+Prm : Modality ListVRI ':' Type { AbsGrammar.Param $1 $2 $4 }
+
+Modality :: { AbsGrammar.Modality }
+Modality
+  : 'var' { AbsGrammar.Modality_var }
+  | {- empty -} { AbsGrammar.Modality1 }
 
 ListPrm :: { [AbsGrammar.Prm] }
 ListPrm : Prm { (:[]) $1 } | Prm ',' ListPrm { (:) $1 $3 }

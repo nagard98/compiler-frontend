@@ -34,7 +34,8 @@ FuncBlock.          FcBlock ::= "function" Ident Prms ":" Type ";" BEBlock ";" ;
 
 Params.             Prms ::= "(" [Prm] ")";
 NoParams.           Prms ::= ;
-Param.              Prm ::= [VRI] ":" Type;
+Param.              Prm ::= Modality [VRI] ":" Type;
+rules               Modality ::= "var" | {-empty-};
 separator nonempty Prm "," ;
 
 CallArgs.           Call ::= Ident "(" [REXPR] ")";
