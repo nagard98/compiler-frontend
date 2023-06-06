@@ -16,13 +16,17 @@ StmtAssign.         Stmt ::= LEXPR ":=" REXPR;
 StmtCall.           Stmt ::= Call ;
 StmtSelect.         Stmt ::= SelStmt ;
 StmtIter.           Stmt ::= IterStmt;
+StmtReturn.         Stmt ::= Return;
 
 StmtIf.             SelStmt ::= "if" REXPR "then" Stmt ;
 StmtIfElse.         SelStmt ::= "if" REXPR "then" Stmt "else" Stmt;
 
 StmtWhileDo.        IterStmt ::= "while" REXPR "do" Stmt;
+StmtRepeat.         IterStmt ::= "repeat" Stmt "until" REXPR;
 
-rules               DclBlock ::= PcBlock | VrBlock | FcBlock ;
+Ret.                Return ::= "return" REXPR;
+
+rules               DclBlock ::= PcBlock | VrBlock | FcBlock | CsBlock;
 separator DclBlock "";
 
 ProcBlock.          PcBlock ::= "procedure" Ident Prms ";" BEBlock ";";
@@ -30,27 +34,31 @@ FuncBlock.          FcBlock ::= "function" Ident Prms ":" Type ";" BEBlock ";" ;
 
 Params.             Prms ::= "(" [Prm] ")";
 NoParams.           Prms ::= ;
-Param.              Prm ::= [VRI] ":" Type;
+Param.              Prm ::= Modality [IdElem] ":" Type;
+rules               Modality ::= "var" | {-empty-};
 separator nonempty Prm "," ;
 
 CallArgs.           Call ::= Ident "(" [REXPR] ")";
-rules               Call ::= ReadDefProc "(" LEXPR ")" | WriteDefProc "(" REXPR ")"; 
 separator REXPR ",";
 
 VarBlock.           VrBlock ::= "var" [VrDef] ;
-VarDefinition.      VrDef ::= [VRI] ":" Type;
-VarId.              VRI ::= Ident ;
-separator nonempty VRI "," ;
+VarDefinition.      VrDef ::= [IdElem] ":" Type;
 terminator nonempty VrDef ";" ;
+
+ConstBlock.         CsBlock ::= "const" [CsDef];
+--TODO: valutare quali tipi possono essere costanti
+--TODO: forse possibile iniziallizzare con una costante prima definita; possiamo valutare più tardi; [NON FONDAMENTALE]
+ConstDefinition.    CsDef ::= IdElem "=" Literal;
+terminator nonempty CsDef ";";
+
+IdElement.          IdElem ::= Ident;
+separator nonempty IdElem ",";
 
 rules               Boolean ::= "true" | "false" ;
 
 rules               Type ::= BaseType | CompType;  
 rules               BaseType ::= "integer" | "boolean" | "real" | "char" | "string" ;
 rules               CompType ::= "array" "[" Integer ".." Integer "]" "of" Type | "^" BaseType ;
-
-rules               ReadDefProc ::= "readInt"  | "readChar" | "readReal" | "readString" ;
-rules               WriteDefProc ::= "writeInt" | "writeChar" | "writeReal" | "writeString" ;
 
 coercions REXPR 12;
 
@@ -72,21 +80,18 @@ Mul.                REXPR7 ::= REXPR7 "*" REXPR8;
 Mod.                REXPR8 ::= REXPR8 "mod" REXPR9;
 
 Negation.           REXPR9 ::= "-" REXPR10;
+Reference.          REXPR9 ::= "@" REXPR10;
+Dereference.        REXPR9 ::= REXPR10 "^";
 
-Reference.          REXPR9 ::= "^" LEXPR;
-
-Int.                REXPR10 ::= Integer;
-String.             REXPR10 ::= String;
-Char.               REXPR10 ::= Char;
-Real.               REXPR10 ::= Double;
-Bool.               REXPR10 ::= Boolean;
+ExprLiteral.        REXPR10 ::= Literal;
 
 ExprCall.           REXPR11 ::= Call;
 
 LExpression.        REXPR12 ::= LEXPR;
 
---Dereference.      LEXPR ::= REXPR "^" ;
 BaseLExpr.          LEXPR ::= BLEXPR;
 
 Identifier.         BLEXPR ::= Ident;
 ArrayElem.          BLEXPR ::= BLEXPR "[" REXPR "]";
+
+rules Literal ::= Integer | String | Char | Double | Boolean ;

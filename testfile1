@@ -1,0 +1,6 @@
+program Hello;
+var myVar : integer;
+const x = 'a'; y=333;z=2.3;
+begin
+    myVar := 10;
+end.
