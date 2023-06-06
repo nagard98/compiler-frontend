@@ -126,8 +126,8 @@ Stmt
 
 SelStmt :: { AbsGrammar.SelStmt }
 SelStmt
-  : 'if' REXPR 'then' Stmt { AbsGrammar.StmtIf $2 $4 }
-  | 'if' REXPR 'then' Stmt 'else' Stmt { AbsGrammar.StmtIfElse $2 $4 $6 }
+  : 'if' REXPR 'then' Stmt %shift { AbsGrammar.StmtIf $2 $4 }
+  | 'if' REXPR 'then' Stmt 'else' Stmt %shift { AbsGrammar.StmtIfElse $2 $4 $6 }
 
 IterStmt :: { AbsGrammar.IterStmt }
 IterStmt
@@ -241,6 +241,7 @@ REXPR1
 REXPR2 :: { AbsGrammar.REXPR }
 REXPR2 : REXPR3 { $1 } | 'not' REXPR3 { AbsGrammar.UnaryExpression AbsGrammar.Not $2 }
 
+
 REXPR3 :: { AbsGrammar.REXPR }
 REXPR3
   : REXPR4 { $1 }
@@ -266,6 +267,7 @@ REXPR7 : REXPR8 { $1 } | REXPR7 '*' REXPR8 { AbsGrammar.BinaryExpression AbsGram
 REXPR8 :: { AbsGrammar.REXPR }
 REXPR8
   : REXPR9 { $1 } | REXPR8 'mod' REXPR9 { AbsGrammar.BinaryExpression AbsGrammar.Mod $1 $3 }
+
 
 REXPR9 :: { AbsGrammar.REXPR }
 REXPR9
