@@ -23,12 +23,6 @@ cabal.project.local~
 .ghc.environment.*
 *.bak
 TestGrammar
-*.txt
 *.info
-AbsGrammar.hs
-ErrM.hs
 LexGrammar.hs
 ParGrammar.hs
-PrintGrammar.hs
-SkelGrammar.hs
-TestGrammar.hs
