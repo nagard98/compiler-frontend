@@ -20,6 +20,8 @@ test: compile
 	./TestGrammar < testfile1
 	@echo "******** TESTING GRAMMAR ON FILE testfile2"
 	./TestGrammar < testfile2
+	@echo "******** TESTING GRAMMAR ON FILE testfile3"
+	./TestGrammar < testfile3
 
 clean:
 	rm -f info

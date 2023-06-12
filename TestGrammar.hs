@@ -12,17 +12,18 @@ import Prelude
   , Show, show
   , IO, (>>), (>>=), mapM_, putStrLn
   , FilePath
-  , getContents, readFile
+  , getContents, readFile, print
   )
 import System.Environment ( getArgs )
 import System.Exit        ( exitFailure )
 import Control.Monad      ( when )
 
-import AbsGrammar   ()
+import AbsGrammar   (P)
 import LexGrammar   ( Token, mkPosToken )
 import ParGrammar   ( pP, myLexer )
 import PrintGrammar ( Print, printTree )
 import SkelGrammar  ()
+import TypeChecker ( parseTree )
 
 type Err        = Either String
 type ParseFun a = [Token] -> Err a
@@ -31,10 +32,10 @@ type Verbosity  = Int
 putStrV :: Verbosity -> String -> IO ()
 putStrV v s = when (v > 1) $ putStrLn s
 
-runFile :: (Print a, Show a) => Verbosity -> ParseFun a -> FilePath -> IO ()
+runFile :: Verbosity -> ParseFun P -> FilePath -> IO ()
 runFile v p f = putStrLn f >> readFile f >>= run v p
 
-run :: (Print a, Show a) => Verbosity -> ParseFun a -> String -> IO ()
+run :: Verbosity -> ParseFun P -> String -> IO ()
 run v p s =
   case p ts of
     Left err -> do
@@ -46,6 +47,10 @@ run v p s =
     Right tree -> do
       putStrLn "\nParse Successful!"
       showTree v tree
+      putStrLn "\nTYPE CHECKING STARTING..."
+      putStrLn "\nThe environment is:"
+      let result = parseTree tree
+      do print result
   where
   ts = myLexer s
   showPosToken ((l,c),t) = concat [ show l, ":", show c, "\t", show t ]

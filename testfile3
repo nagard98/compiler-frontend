@@ -1,0 +1,12 @@
+{In this file we want to test a basic example of type checking execution}
+{1. type of a, b and c must be saved in a data structure}
+{2. when evaluating a * b we have to check if their types are compatibile}
+{3. check if resulting type of a*b is compatibile with c}
+
+program Hello3;
+var a, b, c : integer;
+begin
+  a := 2;
+  b := 5;
+  c := a * b;
+end.
