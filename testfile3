@@ -4,9 +4,9 @@
 {3. check if resulting type of a*b is compatibile with c}
 
 program Hello3;
-var a, b, c : integer;
+var a, c : integer;
 begin
-  a := 2;
+  a := 2.5555;
   b := 5;
   c := a * b;
 end.

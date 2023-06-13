@@ -48,9 +48,11 @@ run v p s =
       putStrLn "\nParse Successful!"
       showTree v tree
       putStrLn "\nTYPE CHECKING STARTING..."
+      let (env, errors) = parseTree tree
       putStrLn "\nThe environment is:"
-      let result = parseTree tree
-      do print result
+      print env
+      putStrLn "\nThe errors/warnings are :"
+      print errors
   where
   ts = myLexer s
   showPosToken ((l,c),t) = concat [ show l, ":", show c, "\t", show t ]
