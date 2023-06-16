@@ -1,6 +1,8 @@
 program Hello;
 var myVar : integer;
+var myBoolVar : boolean;
 const x = 'a'; y=333;z=2.3;
 begin
     myVar := 10;
+    myBoolVar := false;
 end.

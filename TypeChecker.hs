@@ -29,21 +29,20 @@ parseTree (Prog _ dclBlock beBlock) = parseBEBlock beBlock (parseDclBlock dclBlo
 
 -- Navigates syntax tree and saves info about variables type (declared in a Declaration block) in the global environment
 -- Output (for now): the Env with info about variable types
--- TODO: save correct info about position ((int, int) with rowIndex and colIndex) where variable was declared. can we get it from the parser?
 parseDclBlock:: [DclBlock] -> Env -> Env
 parseDclBlock (x:xs) env =  case x of
-    DclBlockVrBlock (VarBlock [VarDefinition vars varType]) -> populateEnv (extractNames vars) varType env
+    DclBlockVrBlock (VarBlock [VarDefinition vars varType]) -> populateEnv (extractInfo vars) varType env
     _ -> env
     where
-        extractNames :: [IdElem] -> [String]
+        extractInfo :: [IdElem] -> [(Position,String)]
         -- e.g. [IdElement (Ident "a"),IdElement (Ident "b")] -> ["a", "b"]
-        extractNames (x:xs) = case x of IdElement (Ident id) -> id:extractNames xs
-        extractNames [] = []
+        extractInfo (x:xs) = case x of IdElement (TokIdent info) -> info:extractInfo xs
+        extractInfo [] = []
 
         -- savese info about variables type in env 
-        populateEnv :: [String] -> Type -> Env -> Env
+        populateEnv :: [(Position,String)] -> Type -> Env -> Env
         populateEnv [] _ env = env
-        populateEnv (v:varNames) t env = populateEnv varNames t (Map.insert v (VarType (-1, -1) t) env)
+        populateEnv (v:varNames) t env = populateEnv varNames t (Map.insert (snd v) (VarType (fst v) t) env)
 
 -- parse the begin-end block and check the statements for type errors
 parseBEBlock:: BEBlock -> (Env, Errors) -> (Env, Errors)
@@ -52,7 +51,7 @@ parseBEBlock (BegEndBlock statements) (env, errors) = parseStatements statements
         parseStatements:: [BegEndStmt] -> (Env, Errors) -> (Env, Errors)
         parseStatements [] (env, errors) = (env, [])
         parseStatements (s:statements) (env, errors) = case s of
-            BegEndStmt1 (StmtAssign (BaseLExpr (Identifier (Ident id))) (ExprLiteral literal)) -> 
+            BegEndStmt1 (StmtAssign (BaseLExpr (Identifier (TokIdent (_,id) ))) (ExprLiteral literal)) -> 
                 parseStatements statements (parseAssignment id literal (env, errors))
             _ -> (env, errors) -- TODO: parse other type of statemets here
 

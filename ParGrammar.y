@@ -81,20 +81,25 @@ import LexGrammar
 
 %%
 
-Ident :: { AbsGrammar.Ident }
-Ident  : L_Ident { AbsGrammar.Ident $1 }
+Ident :: { AbsGrammar.TokIdent }
+Ident  : L_Ident { AbsGrammar.TokIdent (mkPosToken $1) }
 
-Char    :: { Char }
-Char     : L_charac { (read $1) :: Char }
+Char    :: { AbsGrammar.TokChar }
+Char     : L_charac { AbsGrammar.TokChar (mkPosToken $1) }
 
-Double  :: { Double }
-Double   : L_doubl  { (read $1) :: Double }
+Double  :: { AbsGrammar.TokDouble }
+Double   : L_doubl  { AbsGrammar.TokDouble (mkPosToken $1) }
 
-Integer :: { Integer }
-Integer  : L_integ  { (read $1) :: Integer }
+Integer :: { AbsGrammar.TokInteger }
+Integer  : L_integ  { AbsGrammar.TokInteger (mkPosToken $1) }
 
-String  :: { String }
-String   : L_quoted { $1 }
+String  :: { AbsGrammar.TokString }
+String   : L_quoted { AbsGrammar.TokString (mkPosToken $1) }
+
+Boolean :: { AbsGrammar.TokBoolean }
+Boolean
+  : 'true' { AbsGrammar.TokBoolean (mkPosToken $1) }
+  | 'false' { AbsGrammar.TokBoolean (mkPosToken $1) }
 
 P :: { AbsGrammar.P }
 P : PBlock ListDclBlock BEBlock '.' { AbsGrammar.Prog $1 $2 $3 }
@@ -207,11 +212,6 @@ IdElem : Ident { AbsGrammar.IdElement $1 }
 ListIdElem :: { [AbsGrammar.IdElem] }
 ListIdElem
   : IdElem { (:[]) $1 } | IdElem ',' ListIdElem { (:) $1 $3 }
-
-Boolean :: { AbsGrammar.Boolean }
-Boolean
-  : 'true' { AbsGrammar.Boolean_true }
-  | 'false' { AbsGrammar.Boolean_false }
 
 Type :: { AbsGrammar.Type }
 Type

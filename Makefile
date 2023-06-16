@@ -7,14 +7,14 @@ compile-par-lex:
 	alex --ghc LexGrammar.x
 	happy --ghc --coerce --array --info ParGrammar.y
 
-test-no-bnfc: compile-par-lex
+test-no-bnfc:
 	ghc TestGrammar.hs
 	@echo "******** TESTING GRAMMAR ON FILE testfile1"
 	./TestGrammar < testfile1
 	@echo "******** TESTING GRAMMAR ON FILE testfile2"
 	./TestGrammar < testfile2
 
-test: compile
+test:
 	ghc TestGrammar.hs
 	@echo "******** TESTING GRAMMAR ON FILE testfile1"
 	./TestGrammar < testfile1

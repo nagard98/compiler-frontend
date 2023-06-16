@@ -7,18 +7,30 @@
 
 module AbsGrammar where
 
-import Prelude (Char, Double, Integer, String)
+import Prelude (Char, Double, Integer, Int, String)
 import qualified Prelude as C (Eq, Ord, Show, Read)
 import qualified Data.String
 
--- Custom type to keep track of row and col numbers in Environment
--- TODO: understand if there is a better way to implement this feature (Can we perhaps understand it from the parser?)
-type Position = (Integer, Integer)
+type Position = (Int, Int)
+
+-- New types that store token position
+newtype TokIdent = TokIdent (Position, String)
+  deriving (C.Eq, C.Ord, C.Show, C.Read)
+newtype TokChar = TokChar (Position, String)
+  deriving (C.Eq, C.Ord, C.Show, C.Read)
+newtype TokDouble = TokDouble (Position, String)
+  deriving (C.Eq, C.Ord, C.Show, C.Read)
+newtype TokInteger = TokInteger (Position, String)
+  deriving (C.Eq, C.Ord, C.Show, C.Read)
+newtype TokString = TokString (Position, String)
+  deriving (C.Eq, C.Ord, C.Show, C.Read)
+newtype TokBoolean = TokBoolean (Position, String)
+  deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data P = Prog PBlock [DclBlock] BEBlock
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data PBlock = ProgBlock Ident
+data PBlock = ProgBlock TokIdent
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data BEBlock = BegEndBlock [BegEndStmt]
@@ -52,10 +64,10 @@ data DclBlock
     | DclBlockCsBlock CsBlock
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data PcBlock = ProcBlock Ident Prms BEBlock
+data PcBlock = ProcBlock TokIdent Prms BEBlock
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data FcBlock = FuncBlock Ident Prms Type BEBlock
+data FcBlock = FuncBlock TokIdent Prms Type BEBlock
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Prms = Params [Prm] | NoParams
@@ -67,7 +79,7 @@ data Prm = Param Modality [IdElem] Type
 data Modality = Modality_var | Modality1
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data Call = CallArgs Ident [REXPR]
+data Call = CallArgs TokIdent [REXPR]
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data VrBlock = VarBlock [VrDef]
@@ -82,10 +94,7 @@ data CsBlock = ConstBlock [CsDef]
 data CsDef = ConstDefinition IdElem Literal
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data IdElem = IdElement Ident
-  deriving (C.Eq, C.Ord, C.Show, C.Read)
-
-data Boolean = Boolean_true | Boolean_false
+data IdElem = IdElement TokIdent
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Type = TypeBaseType BaseType | TypeCompType CompType
@@ -99,7 +108,7 @@ data BaseType
     | BaseType_string
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data CompType = CompType1 Integer Integer Type | CompType2 BaseType
+data CompType = CompType1 TokInteger TokInteger Type | CompType2 BaseType
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data REXPR
@@ -118,17 +127,14 @@ data UnaryOperator = Not | Negation | Reference | Dereference deriving (C.Eq, C.
 data LEXPR = BaseLExpr BLEXPR
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data BLEXPR = Identifier Ident | ArrayElem BLEXPR REXPR
+data BLEXPR = Identifier TokIdent | ArrayElem BLEXPR REXPR
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Literal
-    = LiteralInteger Integer
-    | LiteralString String
-    | LiteralChar Char
-    | LiteralDouble Double
-    | LiteralBoolean Boolean
+    = LiteralInteger TokInteger
+    | LiteralString TokString
+    | LiteralChar TokChar
+    | LiteralDouble TokDouble
+    | LiteralBoolean TokBoolean
   deriving (C.Eq, C.Ord, C.Show, C.Read)
-
-newtype Ident = Ident String
-  deriving (C.Eq, C.Ord, C.Show, C.Read, Data.String.IsString)
 

@@ -138,8 +138,19 @@ instance Print Integer where
 instance Print Double where
   prt _ x = doc (shows x)
 
-instance Print AbsGrammar.Ident where
-  prt _ (AbsGrammar.Ident i) = doc $ showString i
+instance Print AbsGrammar.TokIdent where
+  prt _ (AbsGrammar.TokIdent (_,i)) = doc $ showString i
+instance Print AbsGrammar.TokChar where
+  prt _ (AbsGrammar.TokChar (_,i)) = doc $ showString i
+instance Print AbsGrammar.TokDouble where
+  prt _ (AbsGrammar.TokDouble (_,i)) = doc $ showString i
+instance Print AbsGrammar.TokInteger where
+  prt _ (AbsGrammar.TokInteger (_,i)) = doc $ showString i
+instance Print AbsGrammar.TokString where
+  prt _ (AbsGrammar.TokString (_,i)) = doc $ showString i
+instance Print AbsGrammar.TokBoolean where
+  prt _ (AbsGrammar.TokBoolean (_,i)) = doc $ showString i
+
 instance Print AbsGrammar.P where
   prt i = \case
     AbsGrammar.Prog pblock dclblocks beblock -> prPrec i 0 (concatD [prt 0 pblock, prt 0 dclblocks, prt 0 beblock, doc (showString ".")])
@@ -266,10 +277,10 @@ instance Print [AbsGrammar.IdElem] where
   prt _ [x] = concatD [prt 0 x]
   prt _ (x:xs) = concatD [prt 0 x, doc (showString ","), prt 0 xs]
 
-instance Print AbsGrammar.Boolean where
-  prt i = \case
-    AbsGrammar.Boolean_true -> prPrec i 0 (concatD [doc (showString "true")])
-    AbsGrammar.Boolean_false -> prPrec i 0 (concatD [doc (showString "false")])
+--instance Print AbsGrammar.Boolean where
+--  prt i = \case
+--    AbsGrammar.Boolean_true -> prPrec i 0 (concatD [doc (showString "true")])
+--    AbsGrammar.Boolean_false -> prPrec i 0 (concatD [doc (showString "false")])
 
 instance Print AbsGrammar.Type where
   prt i = \case
@@ -324,7 +335,7 @@ instance Print AbsGrammar.BLEXPR where
 instance Print AbsGrammar.Literal where
   prt i = \case
     AbsGrammar.LiteralInteger n -> prPrec i 0 (concatD [prt 0 n])
-    AbsGrammar.LiteralString str -> prPrec i 0 (concatD [printString str])
+    AbsGrammar.LiteralString str -> prPrec i 0 (concatD [prt 0 str])
     AbsGrammar.LiteralChar c -> prPrec i 0 (concatD [prt 0 c])
     AbsGrammar.LiteralDouble d -> prPrec i 0 (concatD [prt 0 d])
     AbsGrammar.LiteralBoolean boolean -> prPrec i 0 (concatD [prt 0 boolean])
