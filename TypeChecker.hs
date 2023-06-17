@@ -51,16 +51,27 @@ parseBEBlock (BegEndBlock statements) (env, errors) = parseStatements statements
         parseStatements:: [BegEndStmt] -> (Env, Errors) -> (Env, Errors)
         parseStatements [] (env, errors) = (env, [])
         parseStatements (s:statements) (env, errors) = case s of
-            BegEndStmt1 (StmtAssign (BaseLExpr (Identifier (TokIdent (_,id) ))) (ExprLiteral literal)) -> 
+            BegEndStmt1 (StmtAssign (BaseLExpr (Identifier id)) (ExprLiteral literal)) ->
                 parseStatements statements (parseAssignment id literal (env, errors))
             _ -> (env, errors) -- TODO: parse other type of statemets here
 
         -- check if literal type matches with the one saved in the environment. 
         -- If it doesn't return current environment and a new error message
-        parseAssignment:: String -> Literal -> (Env, Errors) -> (Env, Errors)
-        parseAssignment id literal (env, errors) = case Map.lookup id env of
-            Just (VarType p t) -> if t == TypeBaseType (getTypeFromLiteral literal) then (env, errors) else (env, "Type mismatch":errors)
-            Nothing -> (env, "Variable not declared":errors)
+        parseAssignment:: TokIdent -> Literal -> (Env, Errors) -> (Env, Errors)
+        parseAssignment (TokIdent (idPos, idVal)) literal (env, errors) = case Map.lookup idVal env of
+            Just (VarType envPos envType) ->
+                -- TODO: now if types are different an error is thrown, but casting should be performed for compatibile types!
+                if envType == TypeBaseType (getTypeFromLiteral literal)
+                    then (env, errors)
+                    else (env,
+                        ("Error at " ++ show idPos ++ 
+                        ". Incompatible types: you can't assign a value of type " ++ 
+                        show (getTypeFromLiteral literal) ++ " to " ++ idVal ++ 
+                        " because it has type " ++ show envType) :errors)
+            Nothing -> (env,
+                        ("Error at " ++ show idPos ++ 
+                        ". Unknown identifier: " ++ idVal ++ 
+                        " is used but has never been declared."):errors)
             where
                 getTypeFromLiteral:: Literal -> BaseType
                 getTypeFromLiteral (LiteralInteger _) = BaseType_integer

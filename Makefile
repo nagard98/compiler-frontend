@@ -5,6 +5,7 @@ compile:
 	@# TODO: compile main file here when we will have one
 
 test:
+	ghc TestGrammar.hs
 	@echo "******** TESTING GRAMMAR ON FILE testfile1"
 	./TestGrammar < testfile1
 	@echo "******** TESTING GRAMMAR ON FILE testfile2"
