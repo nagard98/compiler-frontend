@@ -16,15 +16,28 @@ emptyErrors = []
 -- Needed for modelling how data of the map entries in Env should be
 -- E.g. variable types: the key is the name of the variable, data created using VarType constructor
 -- TODO: create new constructors as needed
-data EnvData = VarType Position Type
+data EnvData = VarType Position Type |
+               DefaultProc Type
 
 -- make EnvData printable
 instance Show EnvData where
-    show (VarType p t) = "at " ++ show p ++ " of type " ++ show t
+    show (VarType p t) = " at " ++ show p ++ " of type " ++ show t
+    show (DefaultProc t) = " default procedure of type " ++ show t
 
+-- Initial environment with default procedures
+-- TODO: le procedure "write" quale tipo devono restituire?
+defaultEnv = foldl1 (Map.union) [ Map.singleton "writeInt" (DefaultProc (TypeBaseType BaseType_integer) ), 
+                                  Map.singleton "writeReal" (DefaultProc (TypeBaseType BaseType_integer) ), 
+                                  Map.singleton "writeChar" (DefaultProc (TypeBaseType BaseType_integer) ), 
+                                  Map.singleton "writeString" (DefaultProc (TypeBaseType BaseType_integer) ), 
+                                  Map.singleton "readInt" (DefaultProc (TypeBaseType BaseType_integer) ), 
+                                  Map.singleton "readReal" (DefaultProc (TypeBaseType BaseType_real) ), 
+                                  Map.singleton "readChar" (DefaultProc (TypeBaseType BaseType_char) ), 
+                                  Map.singleton "readString" (DefaultProc (TypeBaseType BaseType_string) )]
 
+-- Type Checking starting point
 parseTree :: P -> (Env, Errors)
-parseTree (Prog _ dclBlock beBlock) = parseBEBlock beBlock (parseDclBlock dclBlock emptyEnv, emptyErrors)
+parseTree (Prog _ dclBlock beBlock) = parseBEBlock beBlock (parseDclBlock dclBlock defaultEnv, emptyErrors)
 
 
 -- Navigates syntax tree and saves info about variables type (declared in a Declaration block) in the global environment
