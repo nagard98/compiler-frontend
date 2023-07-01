@@ -41,15 +41,15 @@ separator nonempty Prm "," ;
 CallArgs.           Call ::= Ident "(" [EXPR] ")";
 separator EXPR ",";
 
-VarBlock.           VrBlock ::= "var" [VrDef] ;
+VarBlock.           VrBlock ::= "var" [VrDef] ";";
 VarDefinition.      VrDef ::= [IdElem] ":" Type;
-terminator nonempty VrDef ";" ;
+separator nonempty VrDef "," ;
 
-ConstBlock.         CsBlock ::= "const" [CsDef];
+ConstBlock.         CsBlock ::= "const" [CsDef] ";";
 --TODO: valutare quali tipi possono essere costanti
 --TODO: forse possibile iniziallizzare con una costante prima definita; possiamo valutare più tardi; [NON FONDAMENTALE]
 ConstDefinition.    CsDef ::= IdElem "=" Literal;
-terminator nonempty CsDef ";";
+separator nonempty CsDef ",";
 
 IdElement.          IdElem ::= Ident;
 separator nonempty IdElem ",";

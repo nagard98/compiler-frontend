@@ -187,24 +187,24 @@ ListEXPR
   | EXPR ',' ListEXPR { (:) $1 $3 }
 
 VrBlock :: { AbsGrammar.VrBlock }
-VrBlock : 'var' ListVrDef { AbsGrammar.VarBlock $2 }
+VrBlock : 'var' ListVrDef ';' { AbsGrammar.VarBlock $2 }
 
 VrDef :: { AbsGrammar.VrDef }
 VrDef : ListIdElem ':' Type { AbsGrammar.VarDefinition $1 $3 }
 
 ListVrDef :: { [AbsGrammar.VrDef] }
 ListVrDef
-  : VrDef ';' { (:[]) $1 } | VrDef ';' ListVrDef { (:) $1 $3 }
+  : VrDef { (:[]) $1 } | VrDef ',' ListVrDef { (:) $1 $3 }
 
 CsBlock :: { AbsGrammar.CsBlock }
-CsBlock : 'const' ListCsDef { AbsGrammar.ConstBlock $2 }
+CsBlock : 'const' ListCsDef ";" { AbsGrammar.ConstBlock $2 }
 
 CsDef :: { AbsGrammar.CsDef }
 CsDef : IdElem '=' Literal { AbsGrammar.ConstDefinition $1 $3 }
 
 ListCsDef :: { [AbsGrammar.CsDef] }
 ListCsDef
-  : CsDef ';' { (:[]) $1 } | CsDef ';' ListCsDef { (:) $1 $3 }
+  : CsDef { (:[]) $1 } | CsDef ',' ListCsDef { (:) $1 $3 }
 
 IdElem :: { AbsGrammar.IdElem }
 IdElem : Ident { AbsGrammar.IdElement $1 }
