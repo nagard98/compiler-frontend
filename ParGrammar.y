@@ -123,7 +123,7 @@ ListBegEndStmt
 Stmt :: { AbsGrammar.Stmt }
 Stmt
   : BEBlock { AbsGrammar.StmtComp $1 }
-  | LEXPR ':=' REXPR { AbsGrammar.StmtAssign $1 $3 }
+  | EXPR ':=' EXPR { AbsGrammar.StmtAssign $1 $3 }
   | Call { AbsGrammar.StmtCall $1 }
   | SelStmt { AbsGrammar.StmtSelect $1 }
   | IterStmt { AbsGrammar.StmtIter $1 }
@@ -131,16 +131,16 @@ Stmt
 
 SelStmt :: { AbsGrammar.SelStmt }
 SelStmt
-  : 'if' REXPR 'then' Stmt %shift { AbsGrammar.StmtIf $2 $4 }
-  | 'if' REXPR 'then' Stmt 'else' Stmt %shift { AbsGrammar.StmtIfElse $2 $4 $6 }
+  : 'if' EXPR 'then' Stmt { AbsGrammar.StmtIf $2 $4 }
+  | 'if' EXPR 'then' Stmt 'else' Stmt { AbsGrammar.StmtIfElse $2 $4 $6 }
 
 IterStmt :: { AbsGrammar.IterStmt }
 IterStmt
-  : 'while' REXPR 'do' Stmt { AbsGrammar.StmtWhileDo $2 $4 }
-  | 'repeat' Stmt 'until' REXPR { AbsGrammar.StmtRepeat $2 $4 }
+  : 'while' EXPR 'do' Stmt { AbsGrammar.StmtWhileDo $2 $4 }
+  | 'repeat' Stmt 'until' EXPR { AbsGrammar.StmtRepeat $2 $4 }
 
 Return :: { AbsGrammar.Return }
-Return : 'return' REXPR { AbsGrammar.Ret $2 }
+Return : 'return' EXPR { AbsGrammar.Ret $2 }
 
 DclBlock :: { AbsGrammar.DclBlock }
 DclBlock
@@ -178,13 +178,13 @@ ListPrm :: { [AbsGrammar.Prm] }
 ListPrm : Prm { (:[]) $1 } | Prm ',' ListPrm { (:) $1 $3 }
 
 Call :: { AbsGrammar.Call }
-Call : Ident '(' ListREXPR ')' { AbsGrammar.CallArgs $1 $3 }
+Call : Ident '(' ListEXPR ')' { AbsGrammar.CallArgs $1 $3 }
 
-ListREXPR :: { [AbsGrammar.REXPR] }
-ListREXPR
+ListEXPR :: { [AbsGrammar.EXPR] }
+ListEXPR
   : {- empty -} { [] }
-  | REXPR { (:[]) $1 }
-  | REXPR ',' ListREXPR { (:) $1 $3 }
+  | EXPR { (:[]) $1 }
+  | EXPR ',' ListEXPR { (:) $1 $3 }
 
 VrBlock :: { AbsGrammar.VrBlock }
 VrBlock : 'var' ListVrDef { AbsGrammar.VarBlock $2 }
@@ -231,68 +231,63 @@ CompType
   : 'array' '[' Integer '..' Integer ']' 'of' Type { AbsGrammar.CompType1 $3 $5 $8 }
   | '^' BaseType { AbsGrammar.CompType2 $2 }
 
-REXPR :: { AbsGrammar.REXPR }
-REXPR : REXPR1 { $1 } | REXPR 'or' REXPR1 { AbsGrammar.BinaryExpression AbsGrammar.Or $1 $3 }
+EXPR :: { AbsGrammar.EXPR }
+EXPR : EXPR1 { $1 } | EXPR 'or' EXPR1 { AbsGrammar.BinaryExpression AbsGrammar.Or $1 $3 }
 
-REXPR1 :: { AbsGrammar.REXPR }
-REXPR1
-  : REXPR2 { $1 } | REXPR1 'and' REXPR2 { AbsGrammar.BinaryExpression AbsGrammar.And $1 $3 }
+EXPR1 :: { AbsGrammar.EXPR }
+EXPR1 : EXPR2 { $1 } | EXPR1 'and' EXPR2 { AbsGrammar.BinaryExpression AbsGrammar.And $1 $3 }
 
-REXPR2 :: { AbsGrammar.REXPR }
-REXPR2 : REXPR3 { $1 } | 'not' REXPR3 { AbsGrammar.UnaryExpression AbsGrammar.Not $2 }
+EXPR2 :: { AbsGrammar.EXPR }
+EXPR2 : EXPR3 { $1 } | 'not' EXPR3 { AbsGrammar.UnaryExpression AbsGrammar.Not $2 }
 
+EXPR3 :: { AbsGrammar.EXPR }
+EXPR3
+  : EXPR4 { $1 }
+  | EXPR4 '=' EXPR4 { AbsGrammar.BinaryExpression AbsGrammar.Eq $1 $3 }
+  | EXPR4 '<>' EXPR4 { AbsGrammar.BinaryExpression AbsGrammar.NotEq $1 $3 }
+  | EXPR4 '<' EXPR4 { AbsGrammar.BinaryExpression AbsGrammar.LessT $1 $3 }
+  | EXPR4 '<=' EXPR4 { AbsGrammar.BinaryExpression AbsGrammar.EqLessT $1 $3 }
+  | EXPR4 '>' EXPR4 { AbsGrammar.BinaryExpression AbsGrammar.GreatT $1 $3 }
+  | EXPR4 '>=' EXPR4 { AbsGrammar.BinaryExpression AbsGrammar.EqGreatT $1 $3 }
 
-REXPR3 :: { AbsGrammar.REXPR }
-REXPR3
-  : REXPR4 { $1 }
-  | REXPR4 '=' REXPR4 { AbsGrammar.BinaryExpression AbsGrammar.Eq $1 $3 }
-  | REXPR4 '<>' REXPR4 { AbsGrammar.BinaryExpression AbsGrammar.NotEq $1 $3 }
-  | REXPR4 '<' REXPR4 { AbsGrammar.BinaryExpression AbsGrammar.LessT $1 $3 }
-  | REXPR4 '<=' REXPR4 { AbsGrammar.BinaryExpression AbsGrammar.EqLessT $1 $3 }
-  | REXPR4 '>' REXPR4 { AbsGrammar.BinaryExpression AbsGrammar.GreatT $1 $3 }
-  | REXPR4 '>=' REXPR4 { AbsGrammar.BinaryExpression AbsGrammar.EqGreatT $1 $3 }
+EXPR4 :: { AbsGrammar.EXPR }
+EXPR4 : EXPR5 { $1 } | EXPR4 '-' EXPR5 { AbsGrammar.BinaryExpression AbsGrammar.Sub $1 $3 }
 
-REXPR4 :: { AbsGrammar.REXPR }
-REXPR4 : REXPR5 { $1 } | REXPR4 '-' REXPR5 { AbsGrammar.BinaryExpression AbsGrammar.Sub $1 $3 }
+EXPR5 :: { AbsGrammar.EXPR }
+EXPR5 : EXPR6 { $1 } | EXPR5 '+' EXPR6 { AbsGrammar.BinaryExpression AbsGrammar.Add $1 $3 }
 
-REXPR5 :: { AbsGrammar.REXPR }
-REXPR5 : REXPR6 { $1 } | REXPR5 '+' REXPR6 { AbsGrammar.BinaryExpression AbsGrammar.Add $1 $3 }
+EXPR6 :: { AbsGrammar.EXPR }
+EXPR6 : EXPR7 { $1 } | EXPR6 '/' EXPR7 { AbsGrammar.BinaryExpression AbsGrammar.Div $1 $3 }
 
-REXPR6 :: { AbsGrammar.REXPR }
-REXPR6 : REXPR7 { $1 } | REXPR6 '/' REXPR7 { AbsGrammar.BinaryExpression AbsGrammar.Div $1 $3 }
+EXPR7 :: { AbsGrammar.EXPR }
+EXPR7 : EXPR8 { $1 } | EXPR7 '*' EXPR8 { AbsGrammar.BinaryExpression AbsGrammar.Mul $1 $3 }
 
-REXPR7 :: { AbsGrammar.REXPR }
-REXPR7 : REXPR8 { $1 } | REXPR7 '*' REXPR8 { AbsGrammar.BinaryExpression AbsGrammar.Mul $1 $3 }
+EXPR8 :: { AbsGrammar.EXPR }
+EXPR8 : EXPR9 { $1 } | EXPR8 'mod' EXPR9 { AbsGrammar.BinaryExpression AbsGrammar.Mod $1 $3 }
 
-REXPR8 :: { AbsGrammar.REXPR }
-REXPR8
-  : REXPR9 { $1 } | REXPR8 'mod' REXPR9 { AbsGrammar.BinaryExpression AbsGrammar.Mod $1 $3 }
+EXPR9 :: { AbsGrammar.EXPR }
+EXPR9
+  : EXPR10 { $1 }
+  | '-' EXPR10 { AbsGrammar.UnaryExpression AbsGrammar.Negation $2 }
+  | '@' EXPR10 { AbsGrammar.UnaryExpression AbsGrammar.Reference $2 }
+  | EXPR10 '^' { AbsGrammar.UnaryExpression AbsGrammar.Dereference $1 }
 
+EXPR10 :: { AbsGrammar.EXPR }
+EXPR10 : EXPR11 { $1 } | Literal { AbsGrammar.ExprLiteral $1 }
 
-REXPR9 :: { AbsGrammar.REXPR }
-REXPR9
-  : REXPR10 { $1 }
-  | '-' REXPR10 { AbsGrammar.UnaryExpression AbsGrammar.Negation $2 }
-  | '@' REXPR10 { AbsGrammar.UnaryExpression AbsGrammar.Reference $2 }
-  | REXPR10 '^' { AbsGrammar.UnaryExpression AbsGrammar.Dereference $1 }
+EXPR11 :: { AbsGrammar.EXPR }
+EXPR11 : EXPR12 { $1 } | Call { AbsGrammar.ExprCall $1 }
 
-REXPR10 :: { AbsGrammar.REXPR }
-REXPR10 : REXPR11 { $1 } | Literal { AbsGrammar.ExprLiteral $1 }
+EXPR12 :: { AbsGrammar.EXPR }
+EXPR12 : EXPR13 { $1 } | BEXPR { AbsGrammar.BaseExpr $1 }
 
-REXPR11 :: { AbsGrammar.REXPR }
-REXPR11 : REXPR12 { $1 } | Call { AbsGrammar.ExprCall $1 }
+EXPR13 :: { AbsGrammar.EXPR }
+EXPR13 : '(' EXPR ')' { $2 }
 
-REXPR12 :: { AbsGrammar.REXPR }
-REXPR12
-  : '(' REXPR ')' { $2 } | LEXPR { AbsGrammar.LExpression $1 }
-
-LEXPR :: { AbsGrammar.LEXPR }
-LEXPR : BLEXPR { AbsGrammar.BaseLExpr $1 }
-
-BLEXPR :: { AbsGrammar.BLEXPR }
-BLEXPR
+BEXPR :: { AbsGrammar.BEXPR }
+BEXPR
   : Ident { AbsGrammar.Identifier $1 }
-  | BLEXPR '[' REXPR ']' { AbsGrammar.ArrayElem $1 $3 }
+  | BEXPR '[' EXPR ']' { AbsGrammar.ArrayElem $1 $3 }
 
 Literal :: { AbsGrammar.Literal }
 Literal

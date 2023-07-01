@@ -21,6 +21,8 @@ data EnvData = VarType Position Type |
 
 -- make EnvData printable
 instance Show EnvData where
+    show (VarType p (TypeBaseType t)) = " at " ++ show p ++ " of type " ++ show t
+    show (DefaultProc (TypeBaseType t)) = " default procedure of type " ++ show t
     show (VarType p t) = " at " ++ show p ++ " of type " ++ show t
     show (DefaultProc t) = " default procedure of type " ++ show t
 
@@ -64,7 +66,7 @@ parseBEBlock (BegEndBlock statements) (env, errors) = parseStatements statements
         parseStatements:: [BegEndStmt] -> (Env, Errors) -> (Env, Errors)
         parseStatements [] (env, errors) = (env, [])
         parseStatements (s:statements) (env, errors) = case s of
-            BegEndStmt1 (StmtAssign (BaseLExpr (Identifier id)) (ExprLiteral literal)) ->
+            BegEndStmt1 (StmtAssign (BaseExpr (Identifier id)) (ExprLiteral literal)) ->
                 parseStatements statements (parseAssignment id literal (env, errors))
             _ -> (env, errors) -- TODO: parse other type of statemets here
 
@@ -95,7 +97,7 @@ parseBEBlock (BegEndBlock statements) (env, errors) = parseStatements statements
 
 
 -- (BegEndBlock [
---     BegEndStmt1 (StmtAssign (BaseLExpr (Identifier (Ident "a"))) (ExprLiteral (LiteralInteger 2))),
---     BegEndStmt1 (StmtAssign (BaseLExpr (Identifier (Ident "b"))) (ExprLiteral (LiteralInteger 5))),
---     BegEndStmt1 (StmtAssign (BaseLExpr (Identifier (Ident "c"))) (BinaryExpression {operator2 = Mul, exp1 = LExpression (BaseLExpr (Identifier (Ident "a"))), exp2 = LExpression (BaseLExpr (Identifier (Ident "b")))}))
+--     BegEndStmt1 (StmtAssign (BaseExpr (Identifier (Ident "a"))) (ExprLiteral (LiteralInteger 2))),
+--     BegEndStmt1 (StmtAssign (BaseExpr (Identifier (Ident "b"))) (ExprLiteral (LiteralInteger 5))),
+--     BegEndStmt1 (StmtAssign (BaseExpr (Identifier (Ident "c"))) (BinaryExpression {operator2 = Mul, exp1 = Expression (BaseExpr (Identifier (Ident "a"))), exp2 = Expression (BaseExpr (Identifier (Ident "b")))}))
 --     ])

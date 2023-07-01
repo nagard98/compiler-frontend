@@ -5,8 +5,12 @@
 
 program Hello3;
 var a, c : integer;
+var d : char;
 begin
   a := 2.5555;
   b := 5;
   c := a * b;
+  d := readChar();
+  {var e : integer;}
+  e+2-0 := -c; {operazioni aritmetiche come l-expression}
 end.
