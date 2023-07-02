@@ -32,14 +32,15 @@ data P = Prog PBlock [DclBlock] BEBlock
 data PBlock = ProgBlock TokIdent
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data BEBlock = BegEndBlock [BegEndStmt]
+data BEBlock = BegEndBlock [Stmt]
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data BegEndStmt = BegEndStmt1 Stmt | BegEndStmtDclBlock DclBlock
-  deriving (C.Eq, C.Ord, C.Show, C.Read)
+--data BegEndStmt = BegEndStmt1 Stmt | BegEndStmtDclBlock DclBlock
+--  deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Stmt
-    = StmtComp BEBlock
+    = StmtDecl DclBlock
+    | StmtComp BEBlock
     | StmtAssign EXPR EXPR
     | StmtCall Call
     | StmtSelect SelStmt

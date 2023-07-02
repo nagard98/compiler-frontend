@@ -63,10 +63,10 @@ parseDclBlock (x:xs) env =  case x of
 parseBEBlock:: BEBlock -> (Env, Errors) -> (Env, Errors)
 parseBEBlock (BegEndBlock statements) (env, errors) = parseStatements statements (env, errors)
     where
-        parseStatements:: [BegEndStmt] -> (Env, Errors) -> (Env, Errors)
+        parseStatements:: [Stmt] -> (Env, Errors) -> (Env, Errors)
         parseStatements [] (env, errors) = (env, [])
         parseStatements (s:statements) (env, errors) = case s of
-            BegEndStmt1 (StmtAssign (BaseExpr (Identifier id)) (ExprLiteral literal)) ->
+            StmtAssign (BaseExpr (Identifier id)) (ExprLiteral literal) ->
                 parseStatements statements (parseAssignment id literal (env, errors))
             _ -> (env, errors) -- TODO: parse other type of statemets here
 

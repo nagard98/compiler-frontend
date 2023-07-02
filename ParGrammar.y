@@ -109,25 +109,32 @@ PBlock : 'program' Ident ';' { AbsGrammar.ProgBlock $2 }
 
 BEBlock :: { AbsGrammar.BEBlock }
 BEBlock
-  : 'begin' ListBegEndStmt 'end' { AbsGrammar.BegEndBlock $2 }
+  : 'begin' ListStmt 'end' { AbsGrammar.BegEndBlock $2 }
 
-BegEndStmt :: { AbsGrammar.BegEndStmt }
-BegEndStmt
-  : Stmt ';' { AbsGrammar.BegEndStmt1 $1 }
-  | DclBlock { AbsGrammar.BegEndStmtDclBlock $1 }
+--BegEndStmt :: { AbsGrammar.BegEndStmt }
+--BegEndStmt
+ -- : Stmt ';' { AbsGrammar.BegEndStmt1 $1 }
+  --| DclBlock { AbsGrammar.BegEndStmtDclBlock $1 }
 
-ListBegEndStmt :: { [AbsGrammar.BegEndStmt] }
-ListBegEndStmt
-  : {- empty -} { [] } | BegEndStmt ListBegEndStmt { (:) $1 $2 }
+--ListBegEndStmt :: { [AbsGrammar.BegEndStmt] }
+--ListBegEndStmt
+ -- : {- empty -} { [] } | BegEndStmt ListBegEndStmt { (:) $1 $2 }
 
 Stmt :: { AbsGrammar.Stmt }
 Stmt
-  : BEBlock { AbsGrammar.StmtComp $1 }
+  : DclBlock { AbsGrammar.StmtDecl $1 }
+  | BEBlock { AbsGrammar.StmtComp $1 }
   | EXPR ':=' EXPR { AbsGrammar.StmtAssign $1 $3 }
   | Call { AbsGrammar.StmtCall $1 }
   | SelStmt { AbsGrammar.StmtSelect $1 }
   | IterStmt { AbsGrammar.StmtIter $1 }
   | Return { AbsGrammar.StmtReturn $1 }
+
+ListStmt :: { [AbsGrammar.Stmt] }
+ListStmt
+  : {- empty -} { [] }
+  | Stmt { (:[]) $1 }
+  | Stmt ';' ListStmt { (:) $1 $3 }
 
 SelStmt :: { AbsGrammar.SelStmt }
 SelStmt
@@ -151,15 +158,15 @@ DclBlock
 
 ListDclBlock :: { [AbsGrammar.DclBlock] }
 ListDclBlock
-  : {- empty -} { [] } | DclBlock ListDclBlock { (:) $1 $2 }
+  : {- empty -} { [] } | DclBlock ';' ListDclBlock { (:) $1 $3 }
 
 PcBlock :: { AbsGrammar.PcBlock }
 PcBlock
-  : 'procedure' Ident Prms ';' BEBlock ';' { AbsGrammar.ProcBlock $2 $3 $5 }
+  : 'procedure' Ident Prms ';' BEBlock { AbsGrammar.ProcBlock $2 $3 $5 }
 
 FcBlock :: { AbsGrammar.FcBlock }
 FcBlock
-  : 'function' Ident Prms ':' Type ';' BEBlock ';' { AbsGrammar.FuncBlock $2 $3 $5 $7 }
+  : 'function' Ident Prms ':' Type ';' BEBlock { AbsGrammar.FuncBlock $2 $3 $5 $7 }
 
 Prms :: { AbsGrammar.Prms }
 Prms
@@ -187,7 +194,7 @@ ListEXPR
   | EXPR ',' ListEXPR { (:) $1 $3 }
 
 VrBlock :: { AbsGrammar.VrBlock }
-VrBlock : 'var' ListVrDef ';' { AbsGrammar.VarBlock $2 }
+VrBlock : 'var' ListVrDef { AbsGrammar.VarBlock $2 }
 
 VrDef :: { AbsGrammar.VrDef }
 VrDef : ListIdElem ':' Type { AbsGrammar.VarDefinition $1 $3 }
@@ -196,7 +203,7 @@ ListVrDef :: { [AbsGrammar.VrDef] }
 ListVrDef : VrDef { (:[]) $1 } | VrDef ',' ListVrDef { (:) $1 $3 }
 
 CsBlock :: { AbsGrammar.CsBlock }
-CsBlock : 'const' ListCsDef ';' { AbsGrammar.ConstBlock $2 }
+CsBlock : 'const' ListCsDef { AbsGrammar.ConstBlock $2 }
 
 CsDef :: { AbsGrammar.CsDef }
 CsDef : IdElem '=' Literal { AbsGrammar.ConstDefinition $1 $3 }

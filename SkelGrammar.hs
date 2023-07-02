@@ -30,15 +30,16 @@ transPBlock x = case x of
 
 transBEBlock :: AbsGrammar.BEBlock -> Result
 transBEBlock x = case x of
-  AbsGrammar.BegEndBlock begendstmts -> failure x
+  AbsGrammar.BegEndBlock stmts -> failure x
 
-transBegEndStmt :: AbsGrammar.BegEndStmt -> Result
-transBegEndStmt x = case x of
-  AbsGrammar.BegEndStmt1 stmt -> failure x
-  AbsGrammar.BegEndStmtDclBlock dclblock -> failure x
+--transBegEndStmt :: AbsGrammar.BegEndStmt -> Result
+--transBegEndStmt x = case x of
+  --AbsGrammar.BegEndStmt1 stmt -> failure x
+  --AbsGrammar.BegEndStmtDclBlock dclblock -> failure x
 
 transStmt :: AbsGrammar.Stmt -> Result
 transStmt x = case x of
+  AbsGrammar.StmtDecl dclblock -> failure x
   AbsGrammar.StmtComp beblock -> failure x
   AbsGrammar.StmtAssign expr1 expr2 -> failure x
   AbsGrammar.StmtCall call -> failure x

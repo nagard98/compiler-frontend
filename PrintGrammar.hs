@@ -164,25 +164,31 @@ instance Print AbsGrammar.PBlock where
 
 instance Print AbsGrammar.BEBlock where
   prt i = \case
-    AbsGrammar.BegEndBlock begendstmts -> prPrec i 0 (concatD [doc (showString "begin"), prt 0 begendstmts, doc (showString "end")])
+    AbsGrammar.BegEndBlock stmts -> prPrec i 0 (concatD [doc (showString "begin"), prt 0 stmts, doc (showString "end")])
 
-instance Print AbsGrammar.BegEndStmt where
-  prt i = \case
-    AbsGrammar.BegEndStmt1 stmt -> prPrec i 0 (concatD [prt 0 stmt, doc (showString ";")])
-    AbsGrammar.BegEndStmtDclBlock dclblock -> prPrec i 0 (concatD [prt 0 dclblock])
+--instance Print AbsGrammar.BegEndStmt where
+  --prt i = \case
+    --AbsGrammar.BegEndStmt1 stmt -> prPrec i 0 (concatD [prt 0 stmt, doc (showString ";")])
+    --AbsGrammar.BegEndStmtDclBlock dclblock -> prPrec i 0 (concatD [prt 0 dclblock])
 
-instance Print [AbsGrammar.BegEndStmt] where
-  prt _ [] = concatD []
-  prt _ (x:xs) = concatD [prt 0 x, prt 0 xs]
+--instance Print [AbsGrammar.BegEndStmt] where
+  --prt _ [] = concatD []
+  --prt _ (x:xs) = concatD [prt 0 x, prt 0 xs]
 
 instance Print AbsGrammar.Stmt where
   prt i = \case
+    AbsGrammar.StmtDecl dclblock -> prPrec i 0 (concatD [prt 0 dclblock])
     AbsGrammar.StmtComp beblock -> prPrec i 0 (concatD [prt 0 beblock])
     AbsGrammar.StmtAssign expr1 expr2 -> prPrec i 0 (concatD [prt 0 expr1, doc (showString ":="), prt 0 expr2])
     AbsGrammar.StmtCall call -> prPrec i 0 (concatD [prt 0 call])
     AbsGrammar.StmtSelect selstmt -> prPrec i 0 (concatD [prt 0 selstmt])
     AbsGrammar.StmtIter iterstmt -> prPrec i 0 (concatD [prt 0 iterstmt])
     AbsGrammar.StmtReturn return -> prPrec i 0 (concatD [prt 0 return])
+
+instance Print [AbsGrammar.Stmt] where
+  prt _ [] = concatD []
+  prt _ [x] = concatD [prt 0 x]
+  prt _ (x:xs) = concatD [prt 0 x, doc (showString ";"), prt 0 xs]
 
 instance Print AbsGrammar.SelStmt where
   prt i = \case
@@ -207,15 +213,15 @@ instance Print AbsGrammar.DclBlock where
 
 instance Print [AbsGrammar.DclBlock] where
   prt _ [] = concatD []
-  prt _ (x:xs) = concatD [prt 0 x, prt 0 xs]
+  prt _ (x:xs) = concatD [prt 0 x, doc (showString ";"), prt 0 xs]
 
 instance Print AbsGrammar.PcBlock where
   prt i = \case
-    AbsGrammar.ProcBlock id_ prms beblock -> prPrec i 0 (concatD [doc (showString "procedure"), prt 0 id_, prt 0 prms, doc (showString ";"), prt 0 beblock, doc (showString ";")])
+    AbsGrammar.ProcBlock id_ prms beblock -> prPrec i 0 (concatD [doc (showString "procedure"), prt 0 id_, prt 0 prms, doc (showString ";"), prt 0 beblock])
 
 instance Print AbsGrammar.FcBlock where
   prt i = \case
-    AbsGrammar.FuncBlock id_ prms type_ beblock -> prPrec i 0 (concatD [doc (showString "function"), prt 0 id_, prt 0 prms, doc (showString ":"), prt 0 type_, doc (showString ";"), prt 0 beblock, doc (showString ";")])
+    AbsGrammar.FuncBlock id_ prms type_ beblock -> prPrec i 0 (concatD [doc (showString "function"), prt 0 id_, prt 0 prms, doc (showString ":"), prt 0 type_, doc (showString ";"), prt 0 beblock])
 
 instance Print AbsGrammar.Prms where
   prt i = \case
@@ -247,7 +253,7 @@ instance Print [AbsGrammar.EXPR] where
 
 instance Print AbsGrammar.VrBlock where
   prt i = \case
-    AbsGrammar.VarBlock vrdefs -> prPrec i 0 (concatD [doc (showString "var"), prt 0 vrdefs, doc (showString ";")])
+    AbsGrammar.VarBlock vrdefs -> prPrec i 0 (concatD [doc (showString "var"), prt 0 vrdefs])
 
 instance Print AbsGrammar.VrDef where
   prt i = \case
@@ -260,7 +266,7 @@ instance Print [AbsGrammar.VrDef] where
 
 instance Print AbsGrammar.CsBlock where
   prt i = \case
-    AbsGrammar.ConstBlock csdefs -> prPrec i 0 (concatD [doc (showString "const"), prt 0 csdefs, doc (showString ";")])
+    AbsGrammar.ConstBlock csdefs -> prPrec i 0 (concatD [doc (showString "const"), prt 0 csdefs])
 
 instance Print AbsGrammar.CsDef where
   prt i = \case

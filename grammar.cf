@@ -6,17 +6,16 @@ entrypoints P;
 Prog.               P ::= PBlock [DclBlock] BEBlock ".";
 ProgBlock.          PBlock ::= "program" Ident ";" ;
 
-BegEndBlock.        BEBlock ::= "begin" [BegEndStmt] "end" ;
+BegEndBlock.        BEBlock ::= "begin" [Stmt] "end" ;
 
-rules               BegEndStmt ::= Stmt ";" | DclBlock;
-separator BegEndStmt "";
-
+StmtDecl.           Stmt ::= DclBlock ;
 StmtComp.           Stmt ::= BEBlock ;
 StmtAssign.         Stmt ::= EXPR ":=" EXPR;
 StmtCall.           Stmt ::= Call ;
 StmtSelect.         Stmt ::= SelStmt ;
 StmtIter.           Stmt ::= IterStmt;
 StmtReturn.         Stmt ::= Return;
+separator Stmt ";";
 
 StmtIf.             SelStmt ::= "if" EXPR "then" Stmt ;
 StmtIfElse.         SelStmt ::= "if" EXPR "then" Stmt "else" Stmt;
@@ -29,8 +28,8 @@ Ret.                Return ::= "return" EXPR;
 rules               DclBlock ::= PcBlock | VrBlock | FcBlock | CsBlock;
 separator DclBlock "";
 
-ProcBlock.          PcBlock ::= "procedure" Ident Prms ";" BEBlock ";";
-FuncBlock.          FcBlock ::= "function" Ident Prms ":" Type ";" BEBlock ";" ;
+ProcBlock.          PcBlock ::= "procedure" Ident Prms ";" BEBlock;
+FuncBlock.          FcBlock ::= "function" Ident Prms ":" Type ";" BEBlock ;
 
 Params.             Prms ::= "(" [Prm] ")";
 NoParams.           Prms ::= ;
@@ -41,11 +40,11 @@ separator nonempty Prm "," ;
 CallArgs.           Call ::= Ident "(" [EXPR] ")";
 separator EXPR ",";
 
-VarBlock.           VrBlock ::= "var" [VrDef] ";";
+VarBlock.           VrBlock ::= "var" [VrDef];
 VarDefinition.      VrDef ::= [IdElem] ":" Type;
 separator nonempty VrDef "," ;
 
-ConstBlock.         CsBlock ::= "const" [CsDef] ";";
+ConstBlock.         CsBlock ::= "const" [CsDef];
 --TODO: valutare quali tipi possono essere costanti
 --TODO: forse possibile iniziallizzare con una costante prima definita; possiamo valutare più tardi; [NON FONDAMENTALE]
 ConstDefinition.    CsDef ::= IdElem "=" Literal;
