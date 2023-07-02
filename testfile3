@@ -11,6 +11,6 @@ begin
   b := 5;
   c := a * b;
   d := readChar();
-  {var e : integer;}
+  var e : integer;
   e+2-0 := -c; {operazioni aritmetiche come l-expression}
 end.

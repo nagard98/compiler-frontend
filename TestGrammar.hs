@@ -23,7 +23,7 @@ import LexGrammar   ( Token, mkPosToken )
 import ParGrammar   ( pP, myLexer )
 import PrintGrammar ( Print, printTree )
 import SkelGrammar  ()
-import TypeChecker ( parseTree )
+import TypeChecker ( parseTree ) -- includere Type Checker
 
 type Err        = Either String
 type ParseFun a = [Token] -> Err a
@@ -32,9 +32,11 @@ type Verbosity  = Int
 putStrV :: Verbosity -> String -> IO ()
 putStrV v s = when (v > 1) $ putStrLn s
 
+--runFile :: (Print a, Show a) => Verbosity -> ParseFun a -> FilePath -> IO ()
 runFile :: Verbosity -> ParseFun P -> FilePath -> IO ()
 runFile v p f = putStrLn f >> readFile f >>= run v p
 
+--run :: (Print a, Show a) => Verbosity -> ParseFun a -> String -> IO ()
 run :: Verbosity -> ParseFun P -> String -> IO ()
 run v p s =
   case p ts of

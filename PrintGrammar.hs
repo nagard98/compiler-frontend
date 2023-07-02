@@ -151,6 +151,9 @@ instance Print AbsGrammar.TokString where
 instance Print AbsGrammar.TokBoolean where
   prt _ (AbsGrammar.TokBoolean (_,i)) = doc $ showString i
 
+--instance Print AbsGrammar.Ident where
+--  prt _ (AbsGrammar.Ident i) = doc $ showString i
+
 instance Print AbsGrammar.P where
   prt i = \case
     AbsGrammar.Prog pblock dclblocks beblock -> prPrec i 0 (concatD [prt 0 pblock, prt 0 dclblocks, prt 0 beblock, doc (showString ".")])
@@ -244,7 +247,7 @@ instance Print [AbsGrammar.EXPR] where
 
 instance Print AbsGrammar.VrBlock where
   prt i = \case
-    AbsGrammar.VarBlock vrdefs -> prPrec i 0 (concatD [doc (showString "var"), prt 0 vrdefs])
+    AbsGrammar.VarBlock vrdefs -> prPrec i 0 (concatD [doc (showString "var"), prt 0 vrdefs, doc (showString ";")])
 
 instance Print AbsGrammar.VrDef where
   prt i = \case
@@ -252,12 +255,12 @@ instance Print AbsGrammar.VrDef where
 
 instance Print [AbsGrammar.VrDef] where
   prt _ [] = concatD []
-  prt _ [x] = concatD [prt 0 x, doc (showString ";")]
-  prt _ (x:xs) = concatD [prt 0 x, doc (showString ";"), prt 0 xs]
+  prt _ [x] = concatD [prt 0 x]
+  prt _ (x:xs) = concatD [prt 0 x, doc (showString ","), prt 0 xs]
 
 instance Print AbsGrammar.CsBlock where
   prt i = \case
-    AbsGrammar.ConstBlock csdefs -> prPrec i 0 (concatD [doc (showString "const"), prt 0 csdefs])
+    AbsGrammar.ConstBlock csdefs -> prPrec i 0 (concatD [doc (showString "const"), prt 0 csdefs, doc (showString ";")])
 
 instance Print AbsGrammar.CsDef where
   prt i = \case
@@ -265,8 +268,8 @@ instance Print AbsGrammar.CsDef where
 
 instance Print [AbsGrammar.CsDef] where
   prt _ [] = concatD []
-  prt _ [x] = concatD [prt 0 x, doc (showString ";")]
-  prt _ (x:xs) = concatD [prt 0 x, doc (showString ";"), prt 0 xs]
+  prt _ [x] = concatD [prt 0 x]
+  prt _ (x:xs) = concatD [prt 0 x, doc (showString ","), prt 0 xs]
 
 instance Print AbsGrammar.IdElem where
   prt i = \case
@@ -276,6 +279,11 @@ instance Print [AbsGrammar.IdElem] where
   prt _ [] = concatD []
   prt _ [x] = concatD [prt 0 x]
   prt _ (x:xs) = concatD [prt 0 x, doc (showString ","), prt 0 xs]
+
+--instance Print AbsGrammar.Boolean where
+--  prt i = \case
+--    AbsGrammar.Boolean_true -> prPrec i 0 (concatD [doc (showString "true")])
+--    AbsGrammar.Boolean_false -> prPrec i 0 (concatD [doc (showString "false")])
 
 instance Print AbsGrammar.Type where
   prt i = \case
@@ -326,6 +334,7 @@ instance Print AbsGrammar.BEXPR where
 instance Print AbsGrammar.Literal where
   prt i = \case
     AbsGrammar.LiteralInteger n -> prPrec i 0 (concatD [prt 0 n])
+--    AbsGrammar.LiteralString str -> prPrec i 0 (concatD [printString str])
     AbsGrammar.LiteralString str -> prPrec i 0 (concatD [prt 0 str])
     AbsGrammar.LiteralChar c -> prPrec i 0 (concatD [prt 0 c])
     AbsGrammar.LiteralDouble d -> prPrec i 0 (concatD [prt 0 d])

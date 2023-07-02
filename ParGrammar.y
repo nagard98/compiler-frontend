@@ -193,18 +193,16 @@ VrDef :: { AbsGrammar.VrDef }
 VrDef : ListIdElem ':' Type { AbsGrammar.VarDefinition $1 $3 }
 
 ListVrDef :: { [AbsGrammar.VrDef] }
-ListVrDef
-  : VrDef { (:[]) $1 } | VrDef ',' ListVrDef { (:) $1 $3 }
+ListVrDef : VrDef { (:[]) $1 } | VrDef ',' ListVrDef { (:) $1 $3 }
 
 CsBlock :: { AbsGrammar.CsBlock }
-CsBlock : 'const' ListCsDef ";" { AbsGrammar.ConstBlock $2 }
+CsBlock : 'const' ListCsDef ';' { AbsGrammar.ConstBlock $2 }
 
 CsDef :: { AbsGrammar.CsDef }
 CsDef : IdElem '=' Literal { AbsGrammar.ConstDefinition $1 $3 }
 
 ListCsDef :: { [AbsGrammar.CsDef] }
-ListCsDef
-  : CsDef { (:[]) $1 } | CsDef ',' ListCsDef { (:) $1 $3 }
+ListCsDef : CsDef { (:[]) $1 } | CsDef ',' ListCsDef { (:) $1 $3 }
 
 IdElem :: { AbsGrammar.IdElem }
 IdElem : Ident { AbsGrammar.IdElement $1 }
@@ -212,6 +210,11 @@ IdElem : Ident { AbsGrammar.IdElement $1 }
 ListIdElem :: { [AbsGrammar.IdElem] }
 ListIdElem
   : IdElem { (:[]) $1 } | IdElem ',' ListIdElem { (:) $1 $3 }
+
+--Boolean :: { AbsGrammar.Boolean }
+--Boolean
+--  : 'true' { AbsGrammar.Boolean_true }
+--  | 'false' { AbsGrammar.Boolean_false }
 
 Type :: { AbsGrammar.Type }
 Type

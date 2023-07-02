@@ -15,6 +15,7 @@ type Result = Err String
 failure :: Show a => a -> Result
 failure x = Left $ "Undefined case: " ++ show x
 
+-- Implementare TokIdent al posto di Ident
 transIdent :: AbsGrammar.TokIdent -> Result
 transIdent x = case x of
   AbsGrammar.TokIdent string -> failure x
@@ -111,6 +112,11 @@ transCsDef x = case x of
 transIdElem :: AbsGrammar.IdElem -> Result
 transIdElem x = case x of
   AbsGrammar.IdElement ident -> failure x
+
+--transBoolean :: AbsGrammar.Boolean -> Result
+--transBoolean x = case x of
+--  AbsGrammar.Boolean_true -> failure x
+--  AbsGrammar.Boolean_false -> failure x
 
 transType :: AbsGrammar.Type -> Result
 transType x = case x of
