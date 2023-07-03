@@ -112,7 +112,9 @@ data CompType = CompType1 TokInteger TokInteger Type | CompType2 BaseType
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data EXPR
-    = UnaryExpression {operator1 :: UnaryOperator, exp :: EXPR}
+      --Type indica in questo caso il tipo che verrà inferenziato
+    = AnnotatedExpr EXPR Type 
+    | UnaryExpression {operator1 :: UnaryOperator, exp :: EXPR}
     | BinaryExpression {operator2 :: BinaryOperator, exp1, exp2 :: EXPR}
     | ExprLiteral Literal
     | ExprCall Call
