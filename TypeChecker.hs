@@ -16,8 +16,12 @@ emptyErrors = []
 -- Needed for modelling how data of the map entries in Env should be
 -- E.g. variable types: the key is the name of the variable, data created using VarType constructor
 -- TODO: create new constructors as needed
-data EnvData = VarType Position Type |
-               DefaultProc Type
+data EnvData = VarType Position Type 
+                | DefaultProc Type
+                | Function Position [Parameter] Type
+                | Procedure Position [Parameter]
+
+data Parameter = Parameter Position Modality Type TokIdent
 
 -- make EnvData printable
 instance Show EnvData where
