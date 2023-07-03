@@ -1,49 +1,67 @@
 module TypeChecker where
 import AbsGrammar
-import qualified Data.Map as Map
-
--- This is the global environment.
--- first argument is the key type, second one the value type 
-type Env = Map.Map String EnvData
-emptyEnv:: Env
-emptyEnv = Map.empty
-
+import Env
 
 type Errors = [String]
 emptyErrors :: [String]
 emptyErrors = []
 
--- Needed for modelling how data of the map entries in Env should be
--- E.g. variable types: the key is the name of the variable, data created using VarType constructor
--- TODO: create new constructors as needed
-data EnvData = VarType Position Type 
-                | DefaultProc Type
-                | Function Position [Parameter] Type
-                | Procedure Position [Parameter]
-
-data Parameter = Parameter Position Modality Type TokIdent
-
--- make EnvData printable
-instance Show EnvData where
-    show (VarType p (TypeBaseType t)) = " at " ++ show p ++ " of type " ++ show t
-    show (DefaultProc (TypeBaseType t)) = " default procedure of type " ++ show t
-    show (VarType p t) = " at " ++ show p ++ " of type " ++ show t
-    show (DefaultProc t) = " default procedure of type " ++ show t
-
--- Initial environment with default procedures
--- TODO: le procedure "write" quale tipo devono restituire?
-defaultEnv = foldl1 (Map.union) [ Map.singleton "writeInt" (DefaultProc (TypeBaseType BaseType_integer) ), 
-                                  Map.singleton "writeReal" (DefaultProc (TypeBaseType BaseType_integer) ), 
-                                  Map.singleton "writeChar" (DefaultProc (TypeBaseType BaseType_integer) ), 
-                                  Map.singleton "writeString" (DefaultProc (TypeBaseType BaseType_integer) ), 
-                                  Map.singleton "readInt" (DefaultProc (TypeBaseType BaseType_integer) ), 
-                                  Map.singleton "readReal" (DefaultProc (TypeBaseType BaseType_real) ), 
-                                  Map.singleton "readChar" (DefaultProc (TypeBaseType BaseType_char) ), 
-                                  Map.singleton "readString" (DefaultProc (TypeBaseType BaseType_string) )]
-
 -- Type Checking starting point
 parseTree :: P -> (Env, Errors)
 parseTree (Prog _ dclBlock beBlock) = parseBEBlock beBlock (parseDclBlock dclBlock defaultEnv, emptyErrors)
+
+parseTree2 :: P -> Env -> P
+parseTree2 (Prog pBlock dclBlock beBlock) env = Prog pBlock dBlks beBlks
+    where
+        (newEnv, dBlks) = parseDclBlocks2 dclBlock env
+        beBlks = parseBEBlock2 beBlock newEnv
+
+parseDclBlocks2:: [DclBlock] -> Env -> (Env, [DclBlock])
+parseDclBlocks2 l@(x:xs) env = (fst (parseDclBlocks2 xs newEnv), l)
+    where
+        newEnv = parseDclBlock2 x env
+
+parseDclBlocks2 [] env = (env, [])
+
+parseDclBlock2 :: DclBlock -> Env -> Env
+parseDclBlock2 blk env = case blk of
+    DclBlockVrBlock (VarBlock [VarDefinition vars varType]) -> populateEnv (extractInfo vars) varType env
+    _ -> env
+
+parseBEBlock2:: BEBlock -> Env -> BEBlock
+parseBEBlock2 block@(BegEndBlock statements) env = block --parseStatements statements (env, errors)
+    where
+        parseStatements:: [Stmt] -> (Env, Errors) -> (Env, Errors)
+        parseStatements [] (env, errors) = (env, [])
+        parseStatements (s:statements) (env, errors) = case s of
+            StmtAssign (BaseExpr (Identifier id)) (ExprLiteral literal) ->
+                parseStatements statements (parseAssignment id literal (env, errors))
+            _ -> (env, errors) -- TODO: parse other type of statemets here
+
+        -- check if literal type matches with the one saved in the environment. 
+        -- If it doesn't return current environment and a new error message
+        parseAssignment:: TokIdent -> Literal -> (Env, Errors) -> (Env, Errors)
+        parseAssignment (TokIdent (idPos, idVal)) literal (env, errors) = case Env.lookup idVal env of
+            Just (VarType envPos envType) ->
+                -- TODO: now if types are different an error is thrown, but casting should be performed for compatibile types!
+                if envType == TypeBaseType (getTypeFromLiteral literal)
+                    then (env, errors)
+                    else (env,
+                        ("Error at " ++ show idPos ++ 
+                        ". Incompatible types: you can't assign a value of type " ++ 
+                        show (getTypeFromLiteral literal) ++ " to " ++ idVal ++ 
+                        " because it has type " ++ show envType) :errors)
+            Nothing -> (env,
+                        ("Error at " ++ show idPos ++ 
+                        ". Unknown identifier: " ++ idVal ++ 
+                        " is used but has never been declared."):errors)
+            where
+                getTypeFromLiteral:: Literal -> BaseType
+                getTypeFromLiteral (LiteralInteger _) = BaseType_integer
+                getTypeFromLiteral (LiteralString _) = BaseType_string
+                getTypeFromLiteral (LiteralBoolean _) = BaseType_boolean
+                getTypeFromLiteral (LiteralDouble _) = BaseType_real
+                getTypeFromLiteral (LiteralChar _) = BaseType_char
 
 
 -- Navigates syntax tree and saves info about variables type (declared in a Declaration block) in the global environment
@@ -52,16 +70,6 @@ parseDclBlock:: [DclBlock] -> Env -> Env
 parseDclBlock (x:xs) env =  case x of
     DclBlockVrBlock (VarBlock [VarDefinition vars varType]) -> populateEnv (extractInfo vars) varType env
     _ -> env
-    where
-        extractInfo :: [IdElem] -> [(Position,String)]
-        -- e.g. [IdElement (Ident "a"),IdElement (Ident "b")] -> ["a", "b"]
-        extractInfo (x:xs) = case x of IdElement (TokIdent info) -> info:extractInfo xs
-        extractInfo [] = []
-
-        -- savese info about variables type in env 
-        populateEnv :: [(Position,String)] -> Type -> Env -> Env
-        populateEnv [] _ env = env
-        populateEnv (v:varNames) t env = populateEnv varNames t (Map.insert (snd v) (VarType (fst v) t) env)
 
 -- parse the begin-end block and check the statements for type errors
 parseBEBlock:: BEBlock -> (Env, Errors) -> (Env, Errors)
@@ -77,7 +85,7 @@ parseBEBlock (BegEndBlock statements) (env, errors) = parseStatements statements
         -- check if literal type matches with the one saved in the environment. 
         -- If it doesn't return current environment and a new error message
         parseAssignment:: TokIdent -> Literal -> (Env, Errors) -> (Env, Errors)
-        parseAssignment (TokIdent (idPos, idVal)) literal (env, errors) = case Map.lookup idVal env of
+        parseAssignment (TokIdent (idPos, idVal)) literal (env, errors) = case Env.lookup idVal env of
             Just (VarType envPos envType) ->
                 -- TODO: now if types are different an error is thrown, but casting should be performed for compatibile types!
                 if envType == TypeBaseType (getTypeFromLiteral literal)
