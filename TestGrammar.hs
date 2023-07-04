@@ -23,7 +23,7 @@ import LexGrammar   ( Token, mkPosToken )
 import ParGrammar   ( pP, myLexer )
 import PrintGrammar ( Print, printTree )
 import SkelGrammar  ()
-import TypeChecker ( parseTree2 ) -- includere Type Checker
+import TypeChecker ( parseTree) -- includere Type Checker
 import Env
 
 type Err        = Either String
@@ -51,7 +51,7 @@ run v p s =
       putStrLn "\nParse Successful!"
       showTree v tree
       putStrLn "\nTYPE CHECKING STARTING..."
-      let (env, errors, annotatedTree) = parseTree2 tree emptyEnv []
+      let (env, errors, annotatedTree) = parseTree tree emptyEnv []
       putStrLn "\nThe environment is:"
       print env
       putStrLn "\nThe errors/warnings are :"
