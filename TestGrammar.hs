@@ -34,11 +34,11 @@ putStrV :: Verbosity -> String -> IO ()
 putStrV v s = when (v > 1) $ putStrLn s
 
 --runFile :: (Print a, Show a) => Verbosity -> ParseFun a -> FilePath -> IO ()
-runFile :: Show env =>Verbosity -> ParseFun (P env) -> FilePath -> IO ()
+runFile :: (Show env, Show infType) =>Verbosity -> ParseFun (P env infType) -> FilePath -> IO ()
 runFile v p f = putStrLn f >> readFile f >>= run v p
 
 --run :: (Print a, Show a) => Verbosity -> ParseFun a -> String -> IO ()
-run ::  Show env => Verbosity -> ParseFun (P env)-> String -> IO ()
+run ::  (Show env, Show infType) => Verbosity -> ParseFun (P env infType)-> String -> IO ()
 run v p s =
   case p ts of
     Left err -> do
