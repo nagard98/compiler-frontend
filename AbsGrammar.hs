@@ -26,48 +26,48 @@ newtype TokString = TokString (Position, String)
 newtype TokBoolean = TokBoolean (Position, String)
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data P = Prog PBlock [DclBlock] BEBlock
+data P env = Prog PBlock [DclBlock env] (BEBlock env)
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data PBlock = ProgBlock TokIdent
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data BEBlock = BegEndBlock [Stmt]
+data BEBlock env = BegEndBlock [Stmt env] env
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 --data BegEndStmt = BegEndStmt1 Stmt | BegEndStmtDclBlock DclBlock
 --  deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data Stmt
-    = StmtDecl DclBlock
-    | StmtComp BEBlock
+data Stmt env
+    = StmtDecl (DclBlock env)
+    | StmtComp (BEBlock env)
     | StmtAssign EXPR EXPR
     | StmtCall Call
-    | StmtSelect SelStmt
-    | StmtIter IterStmt
+    | StmtSelect (SelStmt env)
+    | StmtIter (IterStmt env)
     | StmtReturn Return
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data SelStmt = StmtIf EXPR Stmt | StmtIfElse EXPR Stmt Stmt
+data SelStmt env = StmtIf EXPR (Stmt env) | StmtIfElse EXPR (Stmt env) (Stmt env)
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data IterStmt = StmtWhileDo EXPR Stmt | StmtRepeat Stmt EXPR
+data IterStmt env = StmtWhileDo EXPR (Stmt env) | StmtRepeat (Stmt env) EXPR
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Return = Ret EXPR
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data DclBlock
-    = DclBlockPcBlock PcBlock
+data DclBlock env
+    = DclBlockPcBlock (PcBlock env)
     | DclBlockVrBlock VrBlock
-    | DclBlockFcBlock FcBlock
+    | DclBlockFcBlock (FcBlock env)
     | DclBlockCsBlock CsBlock
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data PcBlock = ProcBlock TokIdent Prms BEBlock
+data PcBlock env = ProcBlock TokIdent Prms (BEBlock env)
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data FcBlock = FuncBlock TokIdent Prms Type BEBlock
+data FcBlock env = FuncBlock TokIdent Prms Type (BEBlock env)
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Prms = Params [Prm] | NoParams

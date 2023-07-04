@@ -7,31 +7,31 @@ emptyErrors :: [String]
 emptyErrors = []
 
 -- Type Checking starting point
-parseTree :: P -> (Env, Errors)
+parseTree :: P env -> (Env, Errors)
 parseTree (Prog _ dclBlock beBlock) = parseBEBlock beBlock (parseDclBlock dclBlock defaultEnv, emptyErrors)
 
-parseTree2 :: P -> Env -> P
+parseTree2 :: P env -> Env -> P env
 parseTree2 (Prog pBlock dclBlock beBlock) env = Prog pBlock dBlks beBlks
     where
         (newEnv, dBlks) = parseDclBlocks2 dclBlock env
         beBlks = parseBEBlock2 beBlock newEnv
 
-parseDclBlocks2:: [DclBlock] -> Env -> (Env, [DclBlock])
+parseDclBlocks2:: [DclBlock env] -> Env -> (Env, [DclBlock env])
 parseDclBlocks2 l@(x:xs) env = (fst (parseDclBlocks2 xs newEnv), l)
     where
         newEnv = parseDclBlock2 x env
 
 parseDclBlocks2 [] env = (env, [])
 
-parseDclBlock2 :: DclBlock -> Env -> Env
+parseDclBlock2 :: DclBlock env -> Env -> Env
 parseDclBlock2 blk env = case blk of
     DclBlockVrBlock (VarBlock [VarDefinition vars varType]) -> populateEnv (extractInfo vars) varType env
     _ -> env
 
-parseBEBlock2:: BEBlock -> Env -> BEBlock
-parseBEBlock2 block@(BegEndBlock statements) env = block --parseStatements statements (env, errors)
+parseBEBlock2:: BEBlock env -> Env -> BEBlock env
+parseBEBlock2 block@(BegEndBlock statements annEnv) env = block --parseStatements statements (env, errors)
     where
-        parseStatements:: [Stmt] -> (Env, Errors) -> (Env, Errors)
+        parseStatements:: [Stmt env] -> (Env, Errors) -> (Env, Errors)
         parseStatements [] (env, errors) = (env, [])
         parseStatements (s:statements) (env, errors) = case s of
             StmtAssign (BaseExpr (Identifier id)) (ExprLiteral literal) ->
@@ -66,16 +66,16 @@ parseBEBlock2 block@(BegEndBlock statements) env = block --parseStatements state
 
 -- Navigates syntax tree and saves info about variables type (declared in a Declaration block) in the global environment
 -- Output (for now): the Env with info about variable types
-parseDclBlock:: [DclBlock] -> Env -> Env
+parseDclBlock:: [DclBlock env] -> Env -> Env
 parseDclBlock (x:xs) env =  case x of
     DclBlockVrBlock (VarBlock [VarDefinition vars varType]) -> populateEnv (extractInfo vars) varType env
     _ -> env
 
 -- parse the begin-end block and check the statements for type errors
-parseBEBlock:: BEBlock -> (Env, Errors) -> (Env, Errors)
-parseBEBlock (BegEndBlock statements) (env, errors) = parseStatements statements (env, errors)
+parseBEBlock:: BEBlock env -> (Env, Errors) -> (Env, Errors)
+parseBEBlock (BegEndBlock statements annEnv) (env, errors) = parseStatements statements (env, errors)
     where
-        parseStatements:: [Stmt] -> (Env, Errors) -> (Env, Errors)
+        parseStatements:: [Stmt env] -> (Env, Errors) -> (Env, Errors)
         parseStatements [] (env, errors) = (env, [])
         parseStatements (s:statements) (env, errors) = case s of
             StmtAssign (BaseExpr (Identifier id)) (ExprLiteral literal) ->

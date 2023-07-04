@@ -154,7 +154,7 @@ instance Print AbsGrammar.TokBoolean where
 --instance Print AbsGrammar.Ident where
 --  prt _ (AbsGrammar.Ident i) = doc $ showString i
 
-instance Print AbsGrammar.P where
+instance Print (AbsGrammar.P env) where
   prt i = \case
     AbsGrammar.Prog pblock dclblocks beblock -> prPrec i 0 (concatD [prt 0 pblock, prt 0 dclblocks, prt 0 beblock, doc (showString ".")])
 
@@ -162,9 +162,9 @@ instance Print AbsGrammar.PBlock where
   prt i = \case
     AbsGrammar.ProgBlock id_ -> prPrec i 0 (concatD [doc (showString "program"), prt 0 id_, doc (showString ";")])
 
-instance Print AbsGrammar.BEBlock where
+instance Print (AbsGrammar.BEBlock env) where
   prt i = \case
-    AbsGrammar.BegEndBlock stmts -> prPrec i 0 (concatD [doc (showString "begin"), prt 0 stmts, doc (showString "end")])
+    AbsGrammar.BegEndBlock stmts env -> prPrec i 0 (concatD [doc (showString "begin"), prt 0 stmts, doc (showString "end")])
 
 --instance Print AbsGrammar.BegEndStmt where
   --prt i = \case
@@ -175,7 +175,7 @@ instance Print AbsGrammar.BEBlock where
   --prt _ [] = concatD []
   --prt _ (x:xs) = concatD [prt 0 x, prt 0 xs]
 
-instance Print AbsGrammar.Stmt where
+instance Print (AbsGrammar.Stmt env) where
   prt i = \case
     AbsGrammar.StmtDecl dclblock -> prPrec i 0 (concatD [prt 0 dclblock])
     AbsGrammar.StmtComp beblock -> prPrec i 0 (concatD [prt 0 beblock])
@@ -185,17 +185,17 @@ instance Print AbsGrammar.Stmt where
     AbsGrammar.StmtIter iterstmt -> prPrec i 0 (concatD [prt 0 iterstmt])
     AbsGrammar.StmtReturn return -> prPrec i 0 (concatD [prt 0 return])
 
-instance Print [AbsGrammar.Stmt] where
+instance Print [AbsGrammar.Stmt env] where
   prt _ [] = concatD []
   prt _ [x] = concatD [prt 0 x]
   prt _ (x:xs) = concatD [prt 0 x, doc (showString ";"), prt 0 xs]
 
-instance Print AbsGrammar.SelStmt where
+instance Print (AbsGrammar.SelStmt env) where
   prt i = \case
     AbsGrammar.StmtIf expr stmt -> prPrec i 0 (concatD [doc (showString "if"), prt 0 expr, doc (showString "then"), prt 0 stmt])
     AbsGrammar.StmtIfElse expr stmt1 stmt2 -> prPrec i 0 (concatD [doc (showString "if"), prt 0 expr, doc (showString "then"), prt 0 stmt1, doc (showString "else"), prt 0 stmt2])
 
-instance Print AbsGrammar.IterStmt where
+instance Print (AbsGrammar.IterStmt env) where
   prt i = \case
     AbsGrammar.StmtWhileDo expr stmt -> prPrec i 0 (concatD [doc (showString "while"), prt 0 expr, doc (showString "do"), prt 0 stmt])
     AbsGrammar.StmtRepeat stmt expr -> prPrec i 0 (concatD [doc (showString "repeat"), prt 0 stmt, doc (showString "until"), prt 0 expr])
@@ -204,22 +204,22 @@ instance Print AbsGrammar.Return where
   prt i = \case
     AbsGrammar.Ret expr -> prPrec i 0 (concatD [doc (showString "return"), prt 0 expr])
 
-instance Print AbsGrammar.DclBlock where
+instance Print (AbsGrammar.DclBlock env) where
   prt i = \case
     AbsGrammar.DclBlockPcBlock pcblock -> prPrec i 0 (concatD [prt 0 pcblock])
     AbsGrammar.DclBlockVrBlock vrblock -> prPrec i 0 (concatD [prt 0 vrblock])
     AbsGrammar.DclBlockFcBlock fcblock -> prPrec i 0 (concatD [prt 0 fcblock])
     AbsGrammar.DclBlockCsBlock csblock -> prPrec i 0 (concatD [prt 0 csblock])
 
-instance Print [AbsGrammar.DclBlock] where
+instance Print [AbsGrammar.DclBlock env] where
   prt _ [] = concatD []
   prt _ (x:xs) = concatD [prt 0 x, doc (showString ";"), prt 0 xs]
 
-instance Print AbsGrammar.PcBlock where
+instance Print (AbsGrammar.PcBlock env) where
   prt i = \case
     AbsGrammar.ProcBlock id_ prms beblock -> prPrec i 0 (concatD [doc (showString "procedure"), prt 0 id_, prt 0 prms, doc (showString ";"), prt 0 beblock])
 
-instance Print AbsGrammar.FcBlock where
+instance Print (AbsGrammar.FcBlock env) where
   prt i = \case
     AbsGrammar.FuncBlock id_ prms type_ beblock -> prPrec i 0 (concatD [doc (showString "function"), prt 0 id_, prt 0 prms, doc (showString ":"), prt 0 type_, doc (showString ";"), prt 0 beblock])
 

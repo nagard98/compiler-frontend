@@ -72,8 +72,8 @@ happyIn9 x = Happy_GHC_Exts.unsafeCoerce# (HappyWrap9 x)
 happyOut9 :: (HappyAbsSyn ) -> HappyWrap9
 happyOut9 x = Happy_GHC_Exts.unsafeCoerce# x
 {-# INLINE happyOut9 #-}
-newtype HappyWrap10 = HappyWrap10 (AbsGrammar.P)
-happyIn10 :: (AbsGrammar.P) -> (HappyAbsSyn )
+newtype HappyWrap10 = HappyWrap10 (AbsGrammar.P ())
+happyIn10 :: (AbsGrammar.P ()) -> (HappyAbsSyn )
 happyIn10 x = Happy_GHC_Exts.unsafeCoerce# (HappyWrap10 x)
 {-# INLINE happyIn10 #-}
 happyOut10 :: (HappyAbsSyn ) -> HappyWrap10
@@ -86,36 +86,36 @@ happyIn11 x = Happy_GHC_Exts.unsafeCoerce# (HappyWrap11 x)
 happyOut11 :: (HappyAbsSyn ) -> HappyWrap11
 happyOut11 x = Happy_GHC_Exts.unsafeCoerce# x
 {-# INLINE happyOut11 #-}
-newtype HappyWrap12 = HappyWrap12 (AbsGrammar.BEBlock)
-happyIn12 :: (AbsGrammar.BEBlock) -> (HappyAbsSyn )
+newtype HappyWrap12 = HappyWrap12 (AbsGrammar.BEBlock ())
+happyIn12 :: (AbsGrammar.BEBlock ()) -> (HappyAbsSyn )
 happyIn12 x = Happy_GHC_Exts.unsafeCoerce# (HappyWrap12 x)
 {-# INLINE happyIn12 #-}
 happyOut12 :: (HappyAbsSyn ) -> HappyWrap12
 happyOut12 x = Happy_GHC_Exts.unsafeCoerce# x
 {-# INLINE happyOut12 #-}
-newtype HappyWrap13 = HappyWrap13 (AbsGrammar.Stmt)
-happyIn13 :: (AbsGrammar.Stmt) -> (HappyAbsSyn )
+newtype HappyWrap13 = HappyWrap13 (AbsGrammar.Stmt ())
+happyIn13 :: (AbsGrammar.Stmt ()) -> (HappyAbsSyn )
 happyIn13 x = Happy_GHC_Exts.unsafeCoerce# (HappyWrap13 x)
 {-# INLINE happyIn13 #-}
 happyOut13 :: (HappyAbsSyn ) -> HappyWrap13
 happyOut13 x = Happy_GHC_Exts.unsafeCoerce# x
 {-# INLINE happyOut13 #-}
-newtype HappyWrap14 = HappyWrap14 ([AbsGrammar.Stmt])
-happyIn14 :: ([AbsGrammar.Stmt]) -> (HappyAbsSyn )
+newtype HappyWrap14 = HappyWrap14 ([AbsGrammar.Stmt ()])
+happyIn14 :: ([AbsGrammar.Stmt ()]) -> (HappyAbsSyn )
 happyIn14 x = Happy_GHC_Exts.unsafeCoerce# (HappyWrap14 x)
 {-# INLINE happyIn14 #-}
 happyOut14 :: (HappyAbsSyn ) -> HappyWrap14
 happyOut14 x = Happy_GHC_Exts.unsafeCoerce# x
 {-# INLINE happyOut14 #-}
-newtype HappyWrap15 = HappyWrap15 (AbsGrammar.SelStmt)
-happyIn15 :: (AbsGrammar.SelStmt) -> (HappyAbsSyn )
+newtype HappyWrap15 = HappyWrap15 (AbsGrammar.SelStmt ())
+happyIn15 :: (AbsGrammar.SelStmt ()) -> (HappyAbsSyn )
 happyIn15 x = Happy_GHC_Exts.unsafeCoerce# (HappyWrap15 x)
 {-# INLINE happyIn15 #-}
 happyOut15 :: (HappyAbsSyn ) -> HappyWrap15
 happyOut15 x = Happy_GHC_Exts.unsafeCoerce# x
 {-# INLINE happyOut15 #-}
-newtype HappyWrap16 = HappyWrap16 (AbsGrammar.IterStmt)
-happyIn16 :: (AbsGrammar.IterStmt) -> (HappyAbsSyn )
+newtype HappyWrap16 = HappyWrap16 (AbsGrammar.IterStmt ())
+happyIn16 :: (AbsGrammar.IterStmt ()) -> (HappyAbsSyn )
 happyIn16 x = Happy_GHC_Exts.unsafeCoerce# (HappyWrap16 x)
 {-# INLINE happyIn16 #-}
 happyOut16 :: (HappyAbsSyn ) -> HappyWrap16
@@ -128,29 +128,29 @@ happyIn17 x = Happy_GHC_Exts.unsafeCoerce# (HappyWrap17 x)
 happyOut17 :: (HappyAbsSyn ) -> HappyWrap17
 happyOut17 x = Happy_GHC_Exts.unsafeCoerce# x
 {-# INLINE happyOut17 #-}
-newtype HappyWrap18 = HappyWrap18 (AbsGrammar.DclBlock)
-happyIn18 :: (AbsGrammar.DclBlock) -> (HappyAbsSyn )
+newtype HappyWrap18 = HappyWrap18 (AbsGrammar.DclBlock ())
+happyIn18 :: (AbsGrammar.DclBlock ()) -> (HappyAbsSyn )
 happyIn18 x = Happy_GHC_Exts.unsafeCoerce# (HappyWrap18 x)
 {-# INLINE happyIn18 #-}
 happyOut18 :: (HappyAbsSyn ) -> HappyWrap18
 happyOut18 x = Happy_GHC_Exts.unsafeCoerce# x
 {-# INLINE happyOut18 #-}
-newtype HappyWrap19 = HappyWrap19 ([AbsGrammar.DclBlock])
-happyIn19 :: ([AbsGrammar.DclBlock]) -> (HappyAbsSyn )
+newtype HappyWrap19 = HappyWrap19 ([AbsGrammar.DclBlock ()])
+happyIn19 :: ([AbsGrammar.DclBlock ()]) -> (HappyAbsSyn )
 happyIn19 x = Happy_GHC_Exts.unsafeCoerce# (HappyWrap19 x)
 {-# INLINE happyIn19 #-}
 happyOut19 :: (HappyAbsSyn ) -> HappyWrap19
 happyOut19 x = Happy_GHC_Exts.unsafeCoerce# x
 {-# INLINE happyOut19 #-}
-newtype HappyWrap20 = HappyWrap20 (AbsGrammar.PcBlock)
-happyIn20 :: (AbsGrammar.PcBlock) -> (HappyAbsSyn )
+newtype HappyWrap20 = HappyWrap20 (AbsGrammar.PcBlock ())
+happyIn20 :: (AbsGrammar.PcBlock ()) -> (HappyAbsSyn )
 happyIn20 x = Happy_GHC_Exts.unsafeCoerce# (HappyWrap20 x)
 {-# INLINE happyIn20 #-}
 happyOut20 :: (HappyAbsSyn ) -> HappyWrap20
 happyOut20 x = Happy_GHC_Exts.unsafeCoerce# x
 {-# INLINE happyOut20 #-}
-newtype HappyWrap21 = HappyWrap21 (AbsGrammar.FcBlock)
-happyIn21 :: (AbsGrammar.FcBlock) -> (HappyAbsSyn )
+newtype HappyWrap21 = HappyWrap21 (AbsGrammar.FcBlock ())
+happyIn21 :: (AbsGrammar.FcBlock ()) -> (HappyAbsSyn )
 happyIn21 x = Happy_GHC_Exts.unsafeCoerce# (HappyWrap21 x)
 {-# INLINE happyIn21 #-}
 happyOut21 :: (HappyAbsSyn ) -> HappyWrap21
@@ -617,7 +617,7 @@ happyReduction_10 happy_x_3
 	happy_x_1
 	 =  case happyOut14 happy_x_2 of { (HappyWrap14 happy_var_2) -> 
 	happyIn12
-		 (AbsGrammar.BegEndBlock happy_var_2
+		 (AbsGrammar.BegEndBlock happy_var_2 ()
 	)}
 
 happyReduce_11 = happySpecReduce_1  9# happyReduction_11
