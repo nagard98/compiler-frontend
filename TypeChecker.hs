@@ -10,51 +10,66 @@ emptyErrors = []
 parseTree :: P -> (Env, Errors)
 parseTree (Prog _ dclBlock beBlock) = parseBEBlock beBlock (parseDclBlock dclBlock defaultEnv, emptyErrors)
 
-parseTree2 :: P -> Env -> P
-parseTree2 (Prog pBlock dclBlock beBlock) env = Prog pBlock dBlks beBlks
+parseTree2 :: P -> (Env, Errors, P)
+parseTree2 (Prog pBlock dclBlock beBlock) = (newEnv, newErrors, Prog pBlock dBlks beBlks)
     where
-        (newEnv, dBlks) = parseDclBlocks2 dclBlock env
-        beBlks = parseBEBlock2 beBlock newEnv
+        (env1, errors1, dBlks) = parseDclBlocks2 emptyEnv emptyErrors dclBlock
+        -- errors and env are propagated from declaration block into beginEnd Block!
+        -- notice that env1 is the env after parsing declaration blocks
+        (newEnv, newErrors, beBlks) = parseBEBlock2 env1 errors1 beBlock 
 
-parseDclBlocks2:: [DclBlock] -> Env -> (Env, [DclBlock])
-parseDclBlocks2 l@(x:xs) env = (fst (parseDclBlocks2 xs newEnv), l)
+parseDclBlocks2:: Env -> Errors -> [DclBlock] -> (Env, Errors, [DclBlock])
+parseDclBlocks2 env errors (x:xs) = (env1, errors1, newBlock : newBlocks)
     where
-        newEnv = parseDclBlock2 x env
+        (env1, errors1, newBlock) = parseDclBlock2 env errors x
+        (finalEnv, finalErrors, newBlocks) = parseDclBlocks2 env1 errors1 xs
+parseDclBlocks2 env errors [] = (env, errors, [])
 
-parseDclBlocks2 [] env = (env, [])
+parseDclBlock2 :: Env -> Errors -> DclBlock -> (Env, Errors, DclBlock)
+parseDclBlock2 env errors blk = case blk of
+    DclBlockVrBlock (VarBlock [VarDefinition vars varType]) -> (newEnv, errors, blk)
+    -- TODO: make sure errores are updated after parsing declaration blocks
+        where newEnv = populateEnv (extractInfo vars) varType env
+    _ -> (env, errors, blk)
 
-parseDclBlock2 :: DclBlock -> Env -> Env
-parseDclBlock2 blk env = case blk of
-    DclBlockVrBlock (VarBlock [VarDefinition vars varType]) -> populateEnv (extractInfo vars) varType env
-    _ -> env
-
-parseBEBlock2:: BEBlock -> Env -> BEBlock
-parseBEBlock2 block@(BegEndBlock statements) env = block --parseStatements statements (env, errors)
+parseBEBlock2:: Env -> Errors -> BEBlock -> (Env, Errors, BEBlock)
+parseBEBlock2 env errors (BegEndBlock statements) = (newEnv, newErrors, BegEndBlock newStatements)
     where
-        parseStatements:: [Stmt] -> (Env, Errors) -> (Env, Errors)
-        parseStatements [] (env, errors) = (env, [])
-        parseStatements (s:statements) (env, errors) = case s of
+        (newEnv, newErrors, newStatements) = parseStatements env errors statements
+        
+        parseStatements:: Env -> Errors -> [Stmt] ->  (Env, Errors, [Stmt])
+        parseStatements env errors [] = (env, errors, [])
+        parseStatements env errors (s:xs) = case s of
             StmtAssign (BaseExpr (Identifier id)) (ExprLiteral literal) ->
-                parseStatements statements (parseAssignment id literal (env, errors))
-            _ -> (env, errors) -- TODO: parse other type of statemets here
+                parseStatements env1 errors1 xs 
+                where (env1, errors1, assignStmt) = parseAssignment id literal env errors
+            _ -> (env, errors, [s]) -- TODO: parse other type of statemets here
 
         -- check if literal type matches with the one saved in the environment. 
         -- If it doesn't return current environment and a new error message
-        parseAssignment:: TokIdent -> Literal -> (Env, Errors) -> (Env, Errors)
-        parseAssignment (TokIdent (idPos, idVal)) literal (env, errors) = case Env.lookup idVal env of
+        parseAssignment:: TokIdent -> Literal -> Env -> Errors -> (Env, Errors, Stmt)
+        parseAssignment (TokIdent (idPos, idVal)) literal env errors = case Env.lookup idVal env of
             Just (VarType envPos envType) ->
                 -- TODO: now if types are different an error is thrown, but casting should be performed for compatibile types!
                 if envType == TypeBaseType (getTypeFromLiteral literal)
-                    then (env, errors)
+                    then (
+                        env, 
+                        errors, 
+                        -- NOTICE HOW WE ANNOTATE THE TREE, saving info about type of expr!
+                        StmtAssign (AnnotatedExpr (BaseExpr (Identifier (TokIdent (idPos, idVal)))) envType) (ExprLiteral literal))
                     else (env,
-                        ("Error at " ++ show idPos ++ 
-                        ". Incompatible types: you can't assign a value of type " ++ 
-                        show (getTypeFromLiteral literal) ++ " to " ++ idVal ++ 
-                        " because it has type " ++ show envType) :errors)
+                        ("Error at " ++ show idPos ++
+                        ". Incompatible types: you can't assign a value of type " ++
+                        show (getTypeFromLiteral literal) ++ " to " ++ idVal ++
+                        " because it has type " ++ show envType) :errors, 
+                        -- In case of errors the tree is not annotated. 
+                        -- TODO: maybe we should annotate it with the type of the literal? or don't annotate it at all?
+                        StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal)))) (ExprLiteral literal))
             Nothing -> (env,
-                        ("Error at " ++ show idPos ++ 
-                        ". Unknown identifier: " ++ idVal ++ 
-                        " is used but has never been declared."):errors)
+                        ("Error at " ++ show idPos ++
+                        ". Unknown identifier: " ++ idVal ++
+                        " is used but has never been declared."):errors,
+                        StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal)))) (ExprLiteral literal))
             where
                 getTypeFromLiteral:: Literal -> BaseType
                 getTypeFromLiteral (LiteralInteger _) = BaseType_integer
@@ -91,13 +106,13 @@ parseBEBlock (BegEndBlock statements) (env, errors) = parseStatements statements
                 if envType == TypeBaseType (getTypeFromLiteral literal)
                     then (env, errors)
                     else (env,
-                        ("Error at " ++ show idPos ++ 
-                        ". Incompatible types: you can't assign a value of type " ++ 
-                        show (getTypeFromLiteral literal) ++ " to " ++ idVal ++ 
+                        ("Error at " ++ show idPos ++
+                        ". Incompatible types: you can't assign a value of type " ++
+                        show (getTypeFromLiteral literal) ++ " to " ++ idVal ++
                         " because it has type " ++ show envType) :errors)
             Nothing -> (env,
-                        ("Error at " ++ show idPos ++ 
-                        ". Unknown identifier: " ++ idVal ++ 
+                        ("Error at " ++ show idPos ++
+                        ". Unknown identifier: " ++ idVal ++
                         " is used but has never been declared."):errors)
             where
                 getTypeFromLiteral:: Literal -> BaseType
@@ -106,10 +121,3 @@ parseBEBlock (BegEndBlock statements) (env, errors) = parseStatements statements
                 getTypeFromLiteral (LiteralBoolean _) = BaseType_boolean
                 getTypeFromLiteral (LiteralDouble _) = BaseType_real
                 getTypeFromLiteral (LiteralChar _) = BaseType_char
-
-
--- (BegEndBlock [
---     BegEndStmt1 (StmtAssign (BaseExpr (Identifier (Ident "a"))) (ExprLiteral (LiteralInteger 2))),
---     BegEndStmt1 (StmtAssign (BaseExpr (Identifier (Ident "b"))) (ExprLiteral (LiteralInteger 5))),
---     BegEndStmt1 (StmtAssign (BaseExpr (Identifier (Ident "c"))) (BinaryExpression {operator2 = Mul, exp1 = Expression (BaseExpr (Identifier (Ident "a"))), exp2 = Expression (BaseExpr (Identifier (Ident "b")))}))
---     ])
