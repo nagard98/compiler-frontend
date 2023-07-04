@@ -12,6 +12,8 @@ test:
 	./TestGrammar < testfile2
 	@echo "******** TESTING GRAMMAR ON FILE testfile3"
 	./TestGrammar < testfile3
+	@echo "******** TESTING GRAMMAR ON FILE testfile3"
+	./TestGrammar < testfile4
 
 clean:
 	rm -f info

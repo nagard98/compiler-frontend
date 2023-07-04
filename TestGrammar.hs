@@ -56,6 +56,8 @@ run v p s =
       print env
       putStrLn "\nThe errors/warnings are :"
       print errors
+      putStrLn "\nThe tree is:"
+      print tree
       putStrLn "\nThe annotated tree is:"
       print annotatedTree
   where
