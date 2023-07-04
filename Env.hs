@@ -12,7 +12,7 @@ emptyEnv = Map.empty
 -- Needed for modelling how data of the map entries in Env should be
 -- E.g. variable types: the key is the name of the variable, data created using VarType constructor
 -- TODO: create new constructors as needed
-data EnvData = VarType Position Type 
+data EnvData = VarType Position Type
                 | DefaultProc Type
                 | Function Position [Parameter] Type
                 | Procedure Position [Parameter]
@@ -29,13 +29,13 @@ instance Show EnvData where
 
 -- Initial environment with default procedures
 -- TODO: le procedure "write" quale tipo devono restituire?
-defaultEnv = foldl1 (Map.union) [ Map.singleton "writeInt" (DefaultProc (TypeBaseType BaseType_integer) ), 
-                                  Map.singleton "writeReal" (DefaultProc (TypeBaseType BaseType_integer) ), 
-                                  Map.singleton "writeChar" (DefaultProc (TypeBaseType BaseType_integer) ), 
-                                  Map.singleton "writeString" (DefaultProc (TypeBaseType BaseType_integer) ), 
-                                  Map.singleton "readInt" (DefaultProc (TypeBaseType BaseType_integer) ), 
-                                  Map.singleton "readReal" (DefaultProc (TypeBaseType BaseType_real) ), 
-                                  Map.singleton "readChar" (DefaultProc (TypeBaseType BaseType_char) ), 
+defaultEnv = foldl1 Map.union [ Map.singleton "writeInt" (DefaultProc (TypeBaseType BaseType_integer) ),
+                                  Map.singleton "writeReal" (DefaultProc (TypeBaseType BaseType_integer) ),
+                                  Map.singleton "writeChar" (DefaultProc (TypeBaseType BaseType_integer) ),
+                                  Map.singleton "writeString" (DefaultProc (TypeBaseType BaseType_integer) ),
+                                  Map.singleton "readInt" (DefaultProc (TypeBaseType BaseType_integer) ),
+                                  Map.singleton "readReal" (DefaultProc (TypeBaseType BaseType_real) ),
+                                  Map.singleton "readChar" (DefaultProc (TypeBaseType BaseType_char) ),
                                   Map.singleton "readString" (DefaultProc (TypeBaseType BaseType_string) )]
 
 
@@ -50,4 +50,4 @@ populateEnv [] _ env = env
 populateEnv (v:varNames) t env = populateEnv varNames t (Map.insert (snd v) (VarType (fst v) t) env)
 
 lookup :: String -> Env -> Maybe EnvData
-lookup name env = Map.lookup name env
+lookup = Map.lookup
