@@ -50,7 +50,7 @@ parseBEBlock2 env errors (BegEndBlock statements annEnv) = (newEnv, newErrors, B
                 parseStatements env1 errors1 xs 
                 where (env1, errors1, assignStmt) = parseAssignment id literal env errors
             -- TODO: stessa cosa del caso in parseDclBlock2
-            --_ -> (env, errors, [s]) -- TODO: parse other type of statemets here
+            _ -> (env, errors, []) -- TODO: parse other type of statemets here
 
         -- check if literal type matches with the one saved in the environment. 
         -- If it doesn't return current environment and a new error message
