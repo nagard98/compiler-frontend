@@ -42,54 +42,62 @@ parseBEBlock2:: Env -> Errors -> BEBlock env infType -> (Env, Errors, BEBlock En
 parseBEBlock2 env errors (BegEndBlock statements annEnv) = (newEnv, newErrors, BegEndBlock newStatements newEnv)
     where
         (newEnv, newErrors, newStatements) = parseStatements env errors statements
-        
-        parseStatements:: Env -> Errors -> [Stmt env infType] ->  (Env, Errors, [Stmt Env Type])
-        parseStatements env errors [] = (env, errors, [])
-        parseStatements env errors (s:xs) = case s of
-            StmtAssign (BaseExpr (Identifier id) tp) (ExprLiteral literal) ->
-                parseStatements env1 errors1 xs 
-                where (env1, errors1, assignStmt) = parseAssignment id literal env errors
+
+
+parseStatements:: Env -> Errors -> [Stmt env infType] ->  (Env, Errors, [Stmt Env Type])
+parseStatements env errors [] = (env, errors, [])
+parseStatements env errors allStmts =  q env errors allStmts []
+        where 
+            q::Env -> Errors -> [Stmt env infType] -> [Stmt Env Type] ->  (Env, Errors, [Stmt Env Type])
+            q env errors [] annStmts = (env, errors, annStmts)
+            q env errors (s:xs) annStmts = q env1 errors1 xs (annStmts++[annStmt])
+                where 
+                    (env1, errors1, annStmt) = parseAssignment s env errors
+    
+parseAssignment :: Stmt env infType -> Env -> Errors -> (Env, Errors, Stmt Env Type)
+parseAssignment ass env errs = case ass of
+            StmtAssign (BaseExpr (Identifier tId) tp) (ExprLiteral literal) -> parseLitAssignment tId literal env errs
             -- TODO: stessa cosa del caso in parseDclBlock2
-            _ -> (env, errors, []) -- TODO: parse other type of statemets here
+            _ -> ( env, errs, StmtAssign (BaseExpr (Identifier (TokIdent ((6,4),"a"))) (TypeBaseType BaseType_real)) (ExprLiteral (LiteralDouble (TokDouble ((6,8),"2.5555")))) ) -- TODO: parse other type of statemets here
 
-        -- check if literal type matches with the one saved in the environment. 
-        -- If it doesn't return current environment and a new error message
-        parseAssignment:: TokIdent -> Literal -> Env -> Errors -> (Env, Errors, Stmt Env Type)
-        parseAssignment (TokIdent (idPos, idVal)) literal env errors = case Env.lookup idVal env of
-            Just (VarType envPos envType) ->
-                -- TODO: now if types are different an error is thrown, but casting should be performed for compatibile types!
-                if envType == TypeBaseType (getTypeFromLiteral literal)
-                    then (
-                        env, 
-                        errors, 
-                        -- NOTICE HOW WE ANNOTATE THE TREE, saving info about type of expr!
-                        StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) (ExprLiteral literal)
-                        )
-                    else (env,
-                        ("Error at " ++ show idPos ++
-                        ". Incompatible types: you can't assign a value of type " ++
-                        show (getTypeFromLiteral literal) ++ " to " ++ idVal ++
-                        " because it has type " ++ show envType) :errors, 
-                        -- In case of errors the tree is not annotated. 
-                        -- TODO: maybe we should annotate it with the type of the literal? or don't annotate it at all?
-                        -- Per il momento ho aggiunto un come tipo envType
-                        StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) (ExprLiteral literal)
-                        )
-            Nothing -> (env,
-                        ("Error at " ++ show idPos ++
-                        ". Unknown identifier: " ++ idVal ++
-                        " is used but has never been declared."):errors,
-                        --TODO : per il momento ho usato un tipo a caso, ma dovremmo aggiungere un nuovo tipo
-                        -- ad AbsGrammar che indichi un errore
-                        StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) (TypeBaseType BaseType_boolean)) (ExprLiteral literal))
-            where
-                getTypeFromLiteral:: Literal -> BaseType
-                getTypeFromLiteral (LiteralInteger _) = BaseType_integer
-                getTypeFromLiteral (LiteralString _) = BaseType_string
-                getTypeFromLiteral (LiteralBoolean _) = BaseType_boolean
-                getTypeFromLiteral (LiteralDouble _) = BaseType_real
-                getTypeFromLiteral (LiteralChar _) = BaseType_char
 
+-- check if literal type matches with the one saved in the environment. 
+-- If it doesn't return current environment and a new error message
+parseLitAssignment:: TokIdent -> Literal -> Env -> Errors -> (Env, Errors, Stmt Env Type)
+parseLitAssignment (TokIdent (idPos, idVal)) literal env errors = case Env.lookup idVal env of
+    Just (VarType envPos envType) ->
+        -- TODO: now if types are different an error is thrown, but casting should be performed for compatibile types!
+        if envType == TypeBaseType (getTypeFromLiteral literal)
+            then (
+                env, 
+                errors, 
+                -- NOTICE HOW WE ANNOTATE THE TREE, saving info about type of expr!
+                StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) (ExprLiteral literal)
+                )
+            else (env,
+                ("Error at " ++ show idPos ++
+                ". Incompatible types: you can't assign a value of type " ++
+                show (getTypeFromLiteral literal) ++ " to " ++ idVal ++
+                " because it has type " ++ show envType) :errors, 
+                -- In case of errors the tree is not annotated. 
+                -- TODO: maybe we should annotate it with the type of the literal? or don't annotate it at all?
+                -- Per il momento ho aggiunto un come tipo envType
+                StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) (ExprLiteral literal)
+                )
+    Nothing -> (env,
+                ("Error at " ++ show idPos ++
+                ". Unknown identifier: " ++ idVal ++
+                " is used but has never been declared."):errors,
+                --TODO : per il momento ho usato un tipo a caso, ma dovremmo aggiungere un nuovo tipo
+                -- ad AbsGrammar che indichi un errore
+                StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) (TypeBaseType BaseType_boolean)) (ExprLiteral literal))
+    where
+        getTypeFromLiteral:: Literal -> BaseType
+        getTypeFromLiteral (LiteralInteger _) = BaseType_integer
+        getTypeFromLiteral (LiteralString _) = BaseType_string
+        getTypeFromLiteral (LiteralBoolean _) = BaseType_boolean
+        getTypeFromLiteral (LiteralDouble _) = BaseType_real
+        getTypeFromLiteral (LiteralChar _) = BaseType_char
 
 -- Navigates syntax tree and saves info about variables type (declared in a Declaration block) in the global environment
 -- Output (for now): the Env with info about variable types

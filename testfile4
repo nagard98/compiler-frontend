@@ -3,5 +3,5 @@
 program HelloMath;
 var a: real;
 begin
-  a := 2.5555 * 3 + 5;
+  a := 2.5555;
 end.
