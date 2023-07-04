@@ -1,0 +1,7 @@
+{In this file we want to test a basic mathematical expressions}
+
+program HelloMath;
+var a: real;
+begin
+  a := 2.5555 * 3 + 5;
+end.
