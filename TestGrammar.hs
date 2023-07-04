@@ -51,7 +51,7 @@ run v p s =
       putStrLn "\nParse Successful!"
       showTree v tree
       putStrLn "\nTYPE CHECKING STARTING..."
-      let (env, errors, annotatedTree) = parseTree tree emptyEnv []
+      let (env, errors, annotatedTree) = parseTree tree
       putStrLn "\nThe environment is:"
       print env
       putStrLn "\nThe errors/warnings are :"

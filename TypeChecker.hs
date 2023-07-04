@@ -7,10 +7,10 @@ emptyErrors :: [String]
 emptyErrors = []
 
 -- Type Checking starting point
-parseTree :: P env infType -> Env -> Errors -> (Env, Errors, P Env Type)
-parseTree (Prog pBlock dclBlock beBlock) env errors = (newEnv, newErrors, Prog pBlock dBlks beBlks)
+parseTree :: P env infType -> (Env, Errors, P Env Type)
+parseTree (Prog pBlock dclBlock beBlock)= (newEnv, newErrors, Prog pBlock dBlks beBlks)
     where
-        (env1, errors1, dBlks) = parseDclBlocks env errors dclBlock
+        (env1, errors1, dBlks) = parseDclBlocks emptyEnv emptyErrors dclBlock
         -- errors and env are propagated from declaration block into beginEnd Block!
         -- notice that env1 is the env after parsing declaration blocks
         (newEnv, newErrors, beBlks) = parseBEBlock env1 errors1 beBlock 
