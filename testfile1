@@ -1,8 +1,28 @@
-program Hello;
-var myVar : integer;
+{*
+testfile1: Operazioni su numeri e stringhe
+*}
+
+program Hello1;
+var myIntVar : integer;
 var myBoolVar : boolean;
+var myString : string;
 const x = 'a', y=333 , z=2.3;
+
+function myfunc (a: integer) : integer ;
+begin return a end;
+
 begin
-    myVar := 10;
+
+    myIntVar := 10;
     myBoolVar := false;
+    myBoolVar := myBoolVar or -myIntVar < z;
+    myIntVar := myIntVar + y;
+    myIntVar := myIntVar + z;
+    myIntVar := myIntVar + myBoolVar;
+
+    var myChar : char;
+    myChar := 'b';
+    myString := "Hello World!";
+    myString := myString + " " + x + myChar;
+    
 end.
