@@ -16,7 +16,7 @@ parseTree (Prog pBlock dclBlock beBlock)= (newEnv, newErrors, Prog pBlock dBlks 
         (newEnv, newErrors, beBlks) = parseBEBlock env1 errors1 beBlock 
 
 -- Navigates syntax tree and saves info about variables type (declared in a Declaration block) in the global environment
-parseDclBlocks:: Env -> Errors -> [DclBlock env infType ] -> (Env, Errors, [DclBlock Env Type])
+parseDclBlocks:: Env -> Errors -> [DclBlock env infType] -> (Env, Errors, [DclBlock Env Type])
 parseDclBlocks env errors (x:xs) = (finalEnv, finalErrors, newBlock : newBlocks)
     where
         (env1, errors1, newBlock) = parseSingleDclBlock env errors x
@@ -33,6 +33,7 @@ parseSingleDclBlock env errors blk = case blk of
     -- con i costruttori parametrizzati non è più possibile semplicemente passare il blocco ricevuto in input,
     -- ma bisogna crearne uno nuovo (anche se è uguale [vedi il caso sopra])
     -- soluzione temporanea finchè non gestiamo gli altri 3 casi
+    -- TODO: prima è neccessario fare refactor di extractInfo
     _ -> (env, errors, DclBlockVrBlock (VarBlock [VarDefinition [IdElement (TokIdent ((1,1),"tmp"))] (TypeBaseType BaseType_integer)]))
 
 -- parse the begin-end block and check the statements for type errors

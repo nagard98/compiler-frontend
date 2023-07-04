@@ -39,8 +39,9 @@ defaultEnv = foldl1 Map.union [ Map.singleton "writeInt" (DefaultProc (TypeBaseT
                                   Map.singleton "readString" (DefaultProc (TypeBaseType BaseType_string) )]
 
 
+-- TODO: refactor in order to save info in env about any type of DclBlock, not only DclBlockVrBlock!
 extractInfo :: [IdElem] -> [(Position,String)]
--- e.g. [IdElement (Ident "a"),IdElement (Ident "b")] -> ["a", "b"]
+-- e.g. [IdElement (TokIdent ((4,5),"a")),IdElement (TokIdent ((4,8),"b"))] -> [((4,5),"a"), ((4,8)"b"]
 extractInfo (x:xs) = case x of IdElement (TokIdent info) -> info:extractInfo xs
 extractInfo [] = []
 
