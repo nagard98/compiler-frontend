@@ -1,14 +1,82 @@
 {This is a comment}
-program Hello1;
+{*
+testfile2: Funzioni e procedure
+*}
+
+program Hello2;
 {*
     var myVar : integer;
 *}
 var a, b : integer, c, d : char;
+const max = 10;
+
+
+{Definizione funzione}
+function incr (num: integer) : integer;
+begin
+    return num+1;
+end;
+
+
+{Funzione parziale}
+function iszero (num: integer) : boolean;
+begin
+    if num = 0 then return "true"
+end;
+
+
+{Mutua ricorsione}
+function funcA (num: integer, counter: integer) : integer;
+begin
+    if num > max then return counter else return funcB(num+1, counter+1)
+end;
+
+function funcB (num: integer, counter: integer) : integer;
+begin
+    if num > max then return counter else return funcA(num+1, counter+1)
+end;
+
+{Procedura}
+procedure incr2 (num: ^integer);
+begin
+    num^ := num^ + 1
+end;
+
+
+{Scoping statico vs scoping dinamico}
+function f : integer;
+begin
+    return x;
+end;
+
+function g : integer;
+begin
+    var x: integer;
+    x := 100;
+    return f();
+end;
+
 begin
     var a, b : integer, c, d : char;
     if a = 0 then 
         if b = 2 then 
             var z:char
     else b := 0;
-    var k:integer
+    var k:integer;
+
+    var e, f : integer;
+    a := 0; b := 0; e := 0;
+    while a < max do 
+    begin
+        if a < 5 then e := e - 1 else e := e + 1;
+        {a = incr(a)}
+        incr2(@a)
+    end;
+
+    f := funcA(f, 0);
+
+    var x: integer;
+    x := 50;
+    x := g(); {Scoping statico: il valore è 50 e non 100, f è indipendente dalla x definita in g}
+
 end.
