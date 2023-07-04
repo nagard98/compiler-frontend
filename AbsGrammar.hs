@@ -6,51 +6,68 @@
 
 module AbsGrammar where
 
-import Prelude (Char, Double, Integer, String)
+import Prelude (Char, Double, Integer, Int, String)
 import qualified Prelude as C (Eq, Ord, Show, Read)
 import qualified Data.String
 
-data P = Prog PBlock [DclBlock] BEBlock
+type Position = (Int, Int)
+
+-- New types that store token position
+newtype TokIdent = TokIdent (Position, String)
+  deriving (C.Eq, C.Ord, C.Show, C.Read)
+newtype TokChar = TokChar (Position, String)
+  deriving (C.Eq, C.Ord, C.Show, C.Read)
+newtype TokDouble = TokDouble (Position, String)
+  deriving (C.Eq, C.Ord, C.Show, C.Read)
+newtype TokInteger = TokInteger (Position, String)
+  deriving (C.Eq, C.Ord, C.Show, C.Read)
+newtype TokString = TokString (Position, String)
+  deriving (C.Eq, C.Ord, C.Show, C.Read)
+newtype TokBoolean = TokBoolean (Position, String)
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data PBlock = ProgBlock Ident
+data P env = Prog PBlock [DclBlock env] (BEBlock env)
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data BEBlock = BegEndBlock [BegEndStmt]
+data PBlock = ProgBlock TokIdent
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data BegEndStmt = BegEndStmt1 Stmt | BegEndStmtDclBlock DclBlock
+data BEBlock env = BegEndBlock [Stmt env] env
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data Stmt
-    = StmtComp BEBlock
-    | StmtAssign LEXPR REXPR
+--data BegEndStmt = BegEndStmt1 Stmt | BegEndStmtDclBlock DclBlock
+--  deriving (C.Eq, C.Ord, C.Show, C.Read)
+
+data Stmt env
+    = StmtDecl (DclBlock env)
+    | StmtComp (BEBlock env)
+    | StmtAssign EXPR EXPR
     | StmtCall Call
-    | StmtSelect SelStmt
-    | StmtIter IterStmt
+    | StmtSelect (SelStmt env)
+    | StmtIter (IterStmt env)
     | StmtReturn Return
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data SelStmt = StmtIf REXPR Stmt | StmtIfElse REXPR Stmt Stmt
+data SelStmt env = StmtIf EXPR (Stmt env) | StmtIfElse EXPR (Stmt env) (Stmt env)
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data IterStmt = StmtWhileDo REXPR Stmt | StmtRepeat Stmt REXPR
+data IterStmt env = StmtWhileDo EXPR (Stmt env) | StmtRepeat (Stmt env) EXPR
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data Return = Ret REXPR
+data Return = Ret EXPR
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data DclBlock
-    = DclBlockPcBlock PcBlock
+data DclBlock env
+    = DclBlockPcBlock (PcBlock env)
     | DclBlockVrBlock VrBlock
-    | DclBlockFcBlock FcBlock
+    | DclBlockFcBlock (FcBlock env)
     | DclBlockCsBlock CsBlock
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data PcBlock = ProcBlock Ident Prms BEBlock
+data PcBlock env = ProcBlock TokIdent Prms (BEBlock env)
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data FcBlock = FuncBlock Ident Prms Type BEBlock
+data FcBlock env = FuncBlock TokIdent Prms Type (BEBlock env)
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Prms = Params [Prm] | NoParams
@@ -62,7 +79,7 @@ data Prm = Param Modality [IdElem] Type
 data Modality = Modality_var | Modality1
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data Call = CallArgs Ident [REXPR]
+data Call = CallArgs TokIdent [EXPR]
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data VrBlock = VarBlock [VrDef]
@@ -77,10 +94,7 @@ data CsBlock = ConstBlock [CsDef]
 data CsDef = ConstDefinition IdElem Literal
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data IdElem = IdElement Ident
-  deriving (C.Eq, C.Ord, C.Show, C.Read)
-
-data Boolean = Boolean_true | Boolean_false
+data IdElem = IdElement TokIdent
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Type = TypeBaseType BaseType | TypeCompType CompType
@@ -94,15 +108,17 @@ data BaseType
     | BaseType_string
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data CompType = CompType1 Integer Integer Type | CompType2 BaseType
+data CompType = CompType1 TokInteger TokInteger Type | CompType2 BaseType
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data REXPR
-    = UnaryExpression {operator1 :: UnaryOperator, exp :: REXPR}
-    | BinaryExpression {operator2 :: BinaryOperator, exp1, exp2 :: REXPR}
+data EXPR
+      --Type indica in questo caso il tipo che verrà inferenziato
+    = AnnotatedExpr EXPR Type 
+    | UnaryExpression {operator1 :: UnaryOperator, exp :: EXPR}
+    | BinaryExpression {operator2 :: BinaryOperator, exp1, exp2 :: EXPR}
     | ExprLiteral Literal
     | ExprCall Call
-    | LExpression LEXPR
+    | BaseExpr BEXPR
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data BinaryOperator = Or | And | Eq | NotEq | LessT | EqLessT | GreatT | EqGreatT | Sub | Add |
@@ -110,20 +126,14 @@ data BinaryOperator = Or | And | Eq | NotEq | LessT | EqLessT | GreatT | EqGreat
 
 data UnaryOperator = Not | Negation | Reference | Dereference deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data LEXPR = BaseLExpr BLEXPR
-  deriving (C.Eq, C.Ord, C.Show, C.Read)
-
-data BLEXPR = Identifier Ident | ArrayElem BLEXPR REXPR
+data BEXPR = Identifier TokIdent | ArrayElem BEXPR EXPR
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Literal
-    = LiteralInteger Integer
-    | LiteralString String
-    | LiteralChar Char
-    | LiteralDouble Double
-    | LiteralBoolean Boolean
+    = LiteralInteger TokInteger
+    | LiteralString TokString
+    | LiteralChar TokChar
+    | LiteralDouble TokDouble
+    | LiteralBoolean TokBoolean
   deriving (C.Eq, C.Ord, C.Show, C.Read)
-
-newtype Ident = Ident String
-  deriving (C.Eq, C.Ord, C.Show, C.Read, Data.String.IsString)
 

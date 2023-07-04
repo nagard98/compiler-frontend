@@ -1,0 +1,16 @@
+{In this file we want to test a basic example of type checking execution}
+{1. type of a, b and c must be saved in a data structure}
+{2. when evaluating a * b we have to check if their types are compatibile}
+{3. check if resulting type of a*b is compatibile with c}
+
+program Hello3;
+var a, c : integer;
+var d : char;
+begin
+  a := 2.5555;
+  b := 5;
+  c := a * b;
+  d := readChar();
+  var e : integer;
+  e+2-0 := -c; {operazioni aritmetiche come l-expression}
+end.

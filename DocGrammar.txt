@@ -73,16 +73,16 @@ All other symbols are terminals.
   | //[BegEndStmt]// | -> | **eps**
   |  |  **|**  | //BegEndStmt// //[BegEndStmt]//
   | //Stmt// | -> | //BEBlock//
-  |  |  **|**  | //LEXPR// ``:=`` //REXPR//
+  |  |  **|**  | //EXPR// ``:=`` //EXPR//
   |  |  **|**  | //Call//
   |  |  **|**  | //SelStmt//
   |  |  **|**  | //IterStmt//
   |  |  **|**  | //Return//
-  | //SelStmt// | -> | ``if`` //REXPR// ``then`` //Stmt//
-  |  |  **|**  | ``if`` //REXPR// ``then`` //Stmt// ``else`` //Stmt//
-  | //IterStmt// | -> | ``while`` //REXPR// ``do`` //Stmt//
-  |  |  **|**  | ``repeat`` //Stmt// ``until`` //REXPR//
-  | //Return// | -> | ``return`` //REXPR//
+  | //SelStmt// | -> | ``if`` //EXPR// ``then`` //Stmt//
+  |  |  **|**  | ``if`` //EXPR// ``then`` //Stmt// ``else`` //Stmt//
+  | //IterStmt// | -> | ``while`` //EXPR// ``do`` //Stmt//
+  |  |  **|**  | ``repeat`` //Stmt// ``until`` //EXPR//
+  | //Return// | -> | ``return`` //EXPR//
   | //DclBlock// | -> | //PcBlock//
   |  |  **|**  | //VrBlock//
   |  |  **|**  | //FcBlock//
@@ -98,18 +98,18 @@ All other symbols are terminals.
   |  |  **|**  | **eps**
   | //[Prm]// | -> | //Prm//
   |  |  **|**  | //Prm// ``,`` //[Prm]//
-  | //Call// | -> | //Ident// ``(`` //[REXPR]// ``)``
-  | //[REXPR]// | -> | **eps**
-  |  |  **|**  | //REXPR//
-  |  |  **|**  | //REXPR// ``,`` //[REXPR]//
-  | //VrBlock// | -> | ``var`` //[VrDef]//
+  | //Call// | -> | //Ident// ``(`` //[EXPR]// ``)``
+  | //[EXPR]// | -> | **eps**
+  |  |  **|**  | //EXPR//
+  |  |  **|**  | //EXPR// ``,`` //[EXPR]//
+  | //VrBlock// | -> | ``var`` //[VrDef]// ``;``
   | //VrDef// | -> | //[IdElem]// ``:`` //Type//
-  | //[VrDef]// | -> | //VrDef// ``;``
-  |  |  **|**  | //VrDef// ``;`` //[VrDef]//
-  | //CsBlock// | -> | ``const`` //[CsDef]//
+  | //[VrDef]// | -> | //VrDef//
+  |  |  **|**  | //VrDef// ``,`` //[VrDef]//
+  | //CsBlock// | -> | ``const`` //[CsDef]// ``;``
   | //CsDef// | -> | //IdElem// ``=`` //Literal//
-  | //[CsDef]// | -> | //CsDef// ``;``
-  |  |  **|**  | //CsDef// ``;`` //[CsDef]//
+  | //[CsDef]// | -> | //CsDef//
+  |  |  **|**  | //CsDef// ``,`` //[CsDef]//
   | //IdElem// | -> | //Ident//
   | //[IdElem]// | -> | //IdElem//
   |  |  **|**  | //IdElem// ``,`` //[IdElem]//
@@ -124,42 +124,42 @@ All other symbols are terminals.
   |  |  **|**  | ``string``
   | //CompType// | -> | ``array`` ``[`` //Integer// ``..`` //Integer// ``]`` ``of`` //Type//
   |  |  **|**  | ``^`` //BaseType//
-  | //REXPR// | -> | //REXPR1//
-  |  |  **|**  | //REXPR// ``or`` //REXPR1//
-  | //REXPR1// | -> | //REXPR2//
-  |  |  **|**  | //REXPR1// ``and`` //REXPR2//
-  | //REXPR2// | -> | //REXPR3//
-  |  |  **|**  | ``not`` //REXPR3//
-  | //REXPR3// | -> | //REXPR4//
-  |  |  **|**  | //REXPR4// ``=`` //REXPR4//
-  |  |  **|**  | //REXPR4// ``<>`` //REXPR4//
-  |  |  **|**  | //REXPR4// ``<`` //REXPR4//
-  |  |  **|**  | //REXPR4// ``<=`` //REXPR4//
-  |  |  **|**  | //REXPR4// ``>`` //REXPR4//
-  |  |  **|**  | //REXPR4// ``>=`` //REXPR4//
-  | //REXPR4// | -> | //REXPR5//
-  |  |  **|**  | //REXPR4// ``-`` //REXPR5//
-  | //REXPR5// | -> | //REXPR6//
-  |  |  **|**  | //REXPR5// ``+`` //REXPR6//
-  | //REXPR6// | -> | //REXPR7//
-  |  |  **|**  | //REXPR6// ``/`` //REXPR7//
-  | //REXPR7// | -> | //REXPR8//
-  |  |  **|**  | //REXPR7// ``*`` //REXPR8//
-  | //REXPR8// | -> | //REXPR9//
-  |  |  **|**  | //REXPR8// ``mod`` //REXPR9//
-  | //REXPR9// | -> | //REXPR10//
-  |  |  **|**  | ``-`` //REXPR10//
-  |  |  **|**  | ``@`` //REXPR10//
-  |  |  **|**  | //REXPR10// ``^``
-  | //REXPR10// | -> | //REXPR11//
+  | //EXPR// | -> | //EXPR1//
+  |  |  **|**  | //EXPR// ``or`` //EXPR1//
+  | //EXPR1// | -> | //EXPR2//
+  |  |  **|**  | //EXPR1// ``and`` //EXPR2//
+  | //EXPR2// | -> | //EXPR3//
+  |  |  **|**  | ``not`` //EXPR3//
+  | //EXPR3// | -> | //EXPR4//
+  |  |  **|**  | //EXPR4// ``=`` //EXPR4//
+  |  |  **|**  | //EXPR4// ``<>`` //EXPR4//
+  |  |  **|**  | //EXPR4// ``<`` //EXPR4//
+  |  |  **|**  | //EXPR4// ``<=`` //EXPR4//
+  |  |  **|**  | //EXPR4// ``>`` //EXPR4//
+  |  |  **|**  | //EXPR4// ``>=`` //EXPR4//
+  | //EXPR4// | -> | //EXPR5//
+  |  |  **|**  | //EXPR4// ``-`` //EXPR5//
+  | //EXPR5// | -> | //EXPR6//
+  |  |  **|**  | //EXPR5// ``+`` //EXPR6//
+  | //EXPR6// | -> | //EXPR7//
+  |  |  **|**  | //EXPR6// ``/`` //EXPR7//
+  | //EXPR7// | -> | //EXPR8//
+  |  |  **|**  | //EXPR7// ``*`` //EXPR8//
+  | //EXPR8// | -> | //EXPR9//
+  |  |  **|**  | //EXPR8// ``mod`` //EXPR9//
+  | //EXPR9// | -> | //EXPR10//
+  |  |  **|**  | ``-`` //EXPR10//
+  |  |  **|**  | ``@`` //EXPR10//
+  |  |  **|**  | //EXPR10// ``^``
+  | //EXPR10// | -> | //EXPR11//
   |  |  **|**  | //Literal//
-  | //REXPR11// | -> | //REXPR12//
+  | //EXPR11// | -> | //EXPR12//
   |  |  **|**  | //Call//
-  | //REXPR12// | -> | ``(`` //REXPR// ``)``
-  |  |  **|**  | //LEXPR//
-  | //LEXPR// | -> | //BLEXPR//
-  | //BLEXPR// | -> | //Ident//
-  |  |  **|**  | //BLEXPR// ``[`` //REXPR// ``]``
+  | //EXPR12// | -> | //EXPR13//
+  |  |  **|**  | //BEXPR//
+  | //EXPR13// | -> | ``(`` //EXPR// ``)``
+  | //BEXPR// | -> | //Ident//
+  |  |  **|**  | //BEXPR// ``[`` //EXPR// ``]``
   | //Literal// | -> | //Integer//
   |  |  **|**  | //String//
   |  |  **|**  | //Char//

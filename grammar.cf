@@ -6,31 +6,30 @@ entrypoints P;
 Prog.               P ::= PBlock [DclBlock] BEBlock ".";
 ProgBlock.          PBlock ::= "program" Ident ";" ;
 
-BegEndBlock.        BEBlock ::= "begin" [BegEndStmt] "end" ;
+BegEndBlock.        BEBlock ::= "begin" [Stmt] "end" ;
 
-rules               BegEndStmt ::= Stmt ";" | DclBlock;
-separator BegEndStmt "";
-
+StmtDecl.           Stmt ::= DclBlock ;
 StmtComp.           Stmt ::= BEBlock ;
-StmtAssign.         Stmt ::= LEXPR ":=" REXPR;
+StmtAssign.         Stmt ::= EXPR ":=" EXPR;
 StmtCall.           Stmt ::= Call ;
 StmtSelect.         Stmt ::= SelStmt ;
 StmtIter.           Stmt ::= IterStmt;
 StmtReturn.         Stmt ::= Return;
+separator Stmt ";";
 
-StmtIf.             SelStmt ::= "if" REXPR "then" Stmt ;
-StmtIfElse.         SelStmt ::= "if" REXPR "then" Stmt "else" Stmt;
+StmtIf.             SelStmt ::= "if" EXPR "then" Stmt ;
+StmtIfElse.         SelStmt ::= "if" EXPR "then" Stmt "else" Stmt;
 
-StmtWhileDo.        IterStmt ::= "while" REXPR "do" Stmt;
-StmtRepeat.         IterStmt ::= "repeat" Stmt "until" REXPR;
+StmtWhileDo.        IterStmt ::= "while" EXPR "do" Stmt;
+StmtRepeat.         IterStmt ::= "repeat" Stmt "until" EXPR;
 
-Ret.                Return ::= "return" REXPR;
+Ret.                Return ::= "return" EXPR;
 
 rules               DclBlock ::= PcBlock | VrBlock | FcBlock | CsBlock;
 separator DclBlock "";
 
-ProcBlock.          PcBlock ::= "procedure" Ident Prms ";" BEBlock ";";
-FuncBlock.          FcBlock ::= "function" Ident Prms ":" Type ";" BEBlock ";" ;
+ProcBlock.          PcBlock ::= "procedure" Ident Prms ";" BEBlock;
+FuncBlock.          FcBlock ::= "function" Ident Prms ":" Type ";" BEBlock ;
 
 Params.             Prms ::= "(" [Prm] ")";
 NoParams.           Prms ::= ;
@@ -38,18 +37,18 @@ Param.              Prm ::= Modality [IdElem] ":" Type;
 rules               Modality ::= "var" | {-empty-};
 separator nonempty Prm "," ;
 
-CallArgs.           Call ::= Ident "(" [REXPR] ")";
-separator REXPR ",";
+CallArgs.           Call ::= Ident "(" [EXPR] ")";
+separator EXPR ",";
 
-VarBlock.           VrBlock ::= "var" [VrDef] ;
+VarBlock.           VrBlock ::= "var" [VrDef];
 VarDefinition.      VrDef ::= [IdElem] ":" Type;
-terminator nonempty VrDef ";" ;
+separator nonempty VrDef "," ;
 
 ConstBlock.         CsBlock ::= "const" [CsDef];
 --TODO: valutare quali tipi possono essere costanti
 --TODO: forse possibile iniziallizzare con una costante prima definita; possiamo valutare più tardi; [NON FONDAMENTALE]
 ConstDefinition.    CsDef ::= IdElem "=" Literal;
-terminator nonempty CsDef ";";
+separator nonempty CsDef ",";
 
 IdElement.          IdElem ::= Ident;
 separator nonempty IdElem ",";
@@ -60,38 +59,36 @@ rules               Type ::= BaseType | CompType;
 rules               BaseType ::= "integer" | "boolean" | "real" | "char" | "string" ;
 rules               CompType ::= "array" "[" Integer ".." Integer "]" "of" Type | "^" BaseType ;
 
-coercions REXPR 12;
+coercions EXPR 13;
 
-Or.                 REXPR ::= REXPR "or" REXPR1;
-And.                REXPR1 ::= REXPR1 "and" REXPR2;
-Not.                REXPR2 ::= "not" REXPR3;
+Or.                 EXPR ::= EXPR "or" EXPR1;
+And.                EXPR1 ::= EXPR1 "and" EXPR2;
+Not.                EXPR2 ::= "not" EXPR3;
 
-Eq.                 REXPR3 ::= REXPR4 "=" REXPR4 ;
-NotEq.              REXPR3 ::= REXPR4 "<>" REXPR4;
-LessT.              REXPR3 ::= REXPR4 "<" REXPR4;
-EqLessT.            REXPR3 ::= REXPR4 "<=" REXPR4;
-GreatT.             REXPR3 ::= REXPR4 ">" REXPR4;
-EqGreatT.           REXPR3 ::= REXPR4 ">=" REXPR4;
+Eq.                 EXPR3 ::= EXPR4 "=" EXPR4 ;
+NotEq.              EXPR3 ::= EXPR4 "<>" EXPR4;
+LessT.              EXPR3 ::= EXPR4 "<" EXPR4;
+EqLessT.            EXPR3 ::= EXPR4 "<=" EXPR4;
+GreatT.             EXPR3 ::= EXPR4 ">" EXPR4;
+EqGreatT.           EXPR3 ::= EXPR4 ">=" EXPR4;
 
-Sub.                REXPR4 ::= REXPR4 "-" REXPR5;
-Add.                REXPR5 ::= REXPR5 "+" REXPR6;
-Div.                REXPR6 ::= REXPR6 "/" REXPR7;
-Mul.                REXPR7 ::= REXPR7 "*" REXPR8;
-Mod.                REXPR8 ::= REXPR8 "mod" REXPR9;
+Sub.                EXPR4 ::= EXPR4 "-" EXPR5;
+Add.                EXPR5 ::= EXPR5 "+" EXPR6;
+Div.                EXPR6 ::= EXPR6 "/" EXPR7;
+Mul.                EXPR7 ::= EXPR7 "*" EXPR8;
+Mod.                EXPR8 ::= EXPR8 "mod" EXPR9;
 
-Negation.           REXPR9 ::= "-" REXPR10;
-Reference.          REXPR9 ::= "@" REXPR10;
-Dereference.        REXPR9 ::= REXPR10 "^";
+Negation.           EXPR9 ::= "-" EXPR10;
+Reference.          EXPR9 ::= "@" EXPR10;
+Dereference.        EXPR9 ::= EXPR10 "^";
 
-ExprLiteral.        REXPR10 ::= Literal;
+ExprLiteral.        EXPR10 ::= Literal;
 
-ExprCall.           REXPR11 ::= Call;
+ExprCall.           EXPR11 ::= Call;
 
-LExpression.        REXPR12 ::= LEXPR;
+BaseExpr.           EXPR12 ::= BEXPR;
 
-BaseLExpr.          LEXPR ::= BLEXPR;
-
-Identifier.         BLEXPR ::= Ident;
-ArrayElem.          BLEXPR ::= BLEXPR "[" REXPR "]";
+Identifier.         BEXPR ::= Ident;
+ArrayElem.          BEXPR ::= BEXPR "[" EXPR "]";
 
 rules Literal ::= Integer | String | Char | Double | Boolean ;
