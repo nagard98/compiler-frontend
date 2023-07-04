@@ -7,47 +7,54 @@ emptyErrors :: [String]
 emptyErrors = []
 
 -- Type Checking starting point
-parseTree :: P -> (Env, Errors)
+parseTree :: P env -> (Env, Errors)
 parseTree (Prog _ dclBlock beBlock) = parseBEBlock beBlock (parseDclBlock dclBlock defaultEnv, emptyErrors)
 
-parseTree2 :: P -> (Env, Errors, P)
-parseTree2 (Prog pBlock dclBlock beBlock) = (newEnv, newErrors, Prog pBlock dBlks beBlks)
+parseTree2 :: P env -> Env -> Errors -> (Env, Errors, P Env)
+parseTree2 (Prog pBlock dclBlock beBlock) env errors = (newEnv, newErrors, Prog pBlock dBlks beBlks)
     where
-        (env1, errors1, dBlks) = parseDclBlocks2 emptyEnv emptyErrors dclBlock
+        (env1, errors1, dBlks) = parseDclBlocks2 env errors dclBlock
         -- errors and env are propagated from declaration block into beginEnd Block!
         -- notice that env1 is the env after parsing declaration blocks
         (newEnv, newErrors, beBlks) = parseBEBlock2 env1 errors1 beBlock 
 
-parseDclBlocks2:: Env -> Errors -> [DclBlock] -> (Env, Errors, [DclBlock])
-parseDclBlocks2 env errors (x:xs) = (env1, errors1, newBlock : newBlocks)
+parseDclBlocks2:: Env -> Errors -> [DclBlock env] -> (Env, Errors, [DclBlock Env])
+parseDclBlocks2 env errors (x:xs) = (finalEnv, finalErrors, newBlock : newBlocks)
     where
         (env1, errors1, newBlock) = parseDclBlock2 env errors x
         (finalEnv, finalErrors, newBlocks) = parseDclBlocks2 env1 errors1 xs
 parseDclBlocks2 env errors [] = (env, errors, [])
 
-parseDclBlock2 :: Env -> Errors -> DclBlock -> (Env, Errors, DclBlock)
+parseDclBlock2 :: Env -> Errors -> DclBlock env -> (Env, Errors, DclBlock Env)
 parseDclBlock2 env errors blk = case blk of
-    DclBlockVrBlock (VarBlock [VarDefinition vars varType]) -> (newEnv, errors, blk)
+    DclBlockVrBlock (VarBlock [VarDefinition vars varType]) -> 
+        (newEnv, errors, DclBlockVrBlock (VarBlock [VarDefinition vars varType]))
     -- TODO: make sure errores are updated after parsing declaration blocks
         where newEnv = populateEnv (extractInfo vars) varType env
-    _ -> (env, errors, blk)
+    --TODO: gestire gli altri 3 casi di DclBlock
+    -- con i costruttori parametrizzati non è più possibile semplicemente passare il blocco ricevuto in input,
+    -- ma bisogna crearne uno nuovo (anche se è uguale [vedi il caso sopra])
+    -- soluzione temporanea finchè non gestiamo gli altri 3 casi
+    _ -> (env, errors, DclBlockVrBlock (VarBlock [VarDefinition [IdElement (TokIdent ((1,1),"tmp"))] (TypeBaseType BaseType_integer)]))
 
-parseBEBlock2:: Env -> Errors -> BEBlock -> (Env, Errors, BEBlock)
-parseBEBlock2 env errors (BegEndBlock statements) = (newEnv, newErrors, BegEndBlock newStatements)
+
+parseBEBlock2:: Env -> Errors -> BEBlock env -> (Env, Errors, BEBlock Env)
+parseBEBlock2 env errors (BegEndBlock statements annEnv) = (newEnv, newErrors, BegEndBlock newStatements newEnv)
     where
         (newEnv, newErrors, newStatements) = parseStatements env errors statements
         
-        parseStatements:: Env -> Errors -> [Stmt] ->  (Env, Errors, [Stmt])
+        parseStatements:: Env -> Errors -> [Stmt env] ->  (Env, Errors, [Stmt Env])
         parseStatements env errors [] = (env, errors, [])
         parseStatements env errors (s:xs) = case s of
             StmtAssign (BaseExpr (Identifier id)) (ExprLiteral literal) ->
                 parseStatements env1 errors1 xs 
                 where (env1, errors1, assignStmt) = parseAssignment id literal env errors
-            _ -> (env, errors, [s]) -- TODO: parse other type of statemets here
+            -- TODO: stessa cosa del caso in parseDclBlock2
+            --_ -> (env, errors, [s]) -- TODO: parse other type of statemets here
 
         -- check if literal type matches with the one saved in the environment. 
         -- If it doesn't return current environment and a new error message
-        parseAssignment:: TokIdent -> Literal -> Env -> Errors -> (Env, Errors, Stmt)
+        parseAssignment:: TokIdent -> Literal -> Env -> Errors -> (Env, Errors, Stmt env)
         parseAssignment (TokIdent (idPos, idVal)) literal env errors = case Env.lookup idVal env of
             Just (VarType envPos envType) ->
                 -- TODO: now if types are different an error is thrown, but casting should be performed for compatibile types!
@@ -81,16 +88,16 @@ parseBEBlock2 env errors (BegEndBlock statements) = (newEnv, newErrors, BegEndBl
 
 -- Navigates syntax tree and saves info about variables type (declared in a Declaration block) in the global environment
 -- Output (for now): the Env with info about variable types
-parseDclBlock:: [DclBlock] -> Env -> Env
+parseDclBlock:: [DclBlock env] -> Env -> Env
 parseDclBlock (x:xs) env =  case x of
     DclBlockVrBlock (VarBlock [VarDefinition vars varType]) -> populateEnv (extractInfo vars) varType env
     _ -> env
 
 -- parse the begin-end block and check the statements for type errors
-parseBEBlock:: BEBlock -> (Env, Errors) -> (Env, Errors)
-parseBEBlock (BegEndBlock statements) (env, errors) = parseStatements statements (env, errors)
+parseBEBlock:: BEBlock env -> (Env, Errors) -> (Env, Errors)
+parseBEBlock (BegEndBlock statements annEnv) (env, errors) = parseStatements statements (env, errors)
     where
-        parseStatements:: [Stmt] -> (Env, Errors) -> (Env, Errors)
+        parseStatements:: [Stmt env] -> (Env, Errors) -> (Env, Errors)
         parseStatements [] (env, errors) = (env, [])
         parseStatements (s:statements) (env, errors) = case s of
             StmtAssign (BaseExpr (Identifier id)) (ExprLiteral literal) ->

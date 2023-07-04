@@ -20,7 +20,7 @@ transIdent :: AbsGrammar.TokIdent -> Result
 transIdent x = case x of
   AbsGrammar.TokIdent string -> failure x
 
-transP :: AbsGrammar.P -> Result
+transP :: Show env => AbsGrammar.P env -> Result
 transP x = case x of
   AbsGrammar.Prog pblock dclblocks beblock -> failure x
 
@@ -28,16 +28,16 @@ transPBlock :: AbsGrammar.PBlock -> Result
 transPBlock x = case x of
   AbsGrammar.ProgBlock ident -> failure x
 
-transBEBlock :: AbsGrammar.BEBlock -> Result
+transBEBlock :: Show env => AbsGrammar.BEBlock env -> Result
 transBEBlock x = case x of
-  AbsGrammar.BegEndBlock stmts -> failure x
+  AbsGrammar.BegEndBlock stmts env -> failure x
 
 --transBegEndStmt :: AbsGrammar.BegEndStmt -> Result
 --transBegEndStmt x = case x of
   --AbsGrammar.BegEndStmt1 stmt -> failure x
   --AbsGrammar.BegEndStmtDclBlock dclblock -> failure x
 
-transStmt :: AbsGrammar.Stmt -> Result
+transStmt :: Show env => AbsGrammar.Stmt env -> Result
 transStmt x = case x of
   AbsGrammar.StmtDecl dclblock -> failure x
   AbsGrammar.StmtComp beblock -> failure x
@@ -47,12 +47,12 @@ transStmt x = case x of
   AbsGrammar.StmtIter iterstmt -> failure x
   AbsGrammar.StmtReturn return -> failure x
 
-transSelStmt :: AbsGrammar.SelStmt -> Result
+transSelStmt :: Show env => AbsGrammar.SelStmt env -> Result
 transSelStmt x = case x of
   AbsGrammar.StmtIf expr stmt -> failure x
   AbsGrammar.StmtIfElse expr stmt1 stmt2 -> failure x
 
-transIterStmt :: AbsGrammar.IterStmt -> Result
+transIterStmt :: Show env => AbsGrammar.IterStmt env -> Result
 transIterStmt x = case x of
   AbsGrammar.StmtWhileDo expr stmt -> failure x
   AbsGrammar.StmtRepeat stmt expr -> failure x
@@ -61,18 +61,18 @@ transReturn :: AbsGrammar.Return -> Result
 transReturn x = case x of
   AbsGrammar.Ret expr -> failure x
 
-transDclBlock :: AbsGrammar.DclBlock -> Result
+transDclBlock :: Show env => AbsGrammar.DclBlock env -> Result
 transDclBlock x = case x of
   AbsGrammar.DclBlockPcBlock pcblock -> failure x
   AbsGrammar.DclBlockVrBlock vrblock -> failure x
   AbsGrammar.DclBlockFcBlock fcblock -> failure x
   AbsGrammar.DclBlockCsBlock csblock -> failure x
 
-transPcBlock :: AbsGrammar.PcBlock -> Result
+transPcBlock :: Show env => AbsGrammar.PcBlock env -> Result
 transPcBlock x = case x of
   AbsGrammar.ProcBlock ident prms beblock -> failure x
 
-transFcBlock :: AbsGrammar.FcBlock -> Result
+transFcBlock :: Show env => AbsGrammar.FcBlock env -> Result
 transFcBlock x = case x of
   AbsGrammar.FuncBlock ident prms type_ beblock -> failure x
 
