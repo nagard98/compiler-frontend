@@ -23,8 +23,9 @@ data Parameter = Parameter Position Modality Type TokIdent
 -- make EnvData printable
 instance Show EnvData where
     show (VarType p (TypeBaseType t)) = " at " ++ show p ++ " of type " ++ show t
+    show (Constant l) = " constant " ++ show l
     show (DefaultProc (TypeBaseType t)) = " default procedure of type " ++ show t
-    show (VarType p t) = " at " ++ show p ++ " of type " ++ show t
+    -- show (VarType p t) = " at " ++ show p ++ " of type " ++ show t
     show (DefaultProc t) = " default procedure of type " ++ show t
 
 -- Initial environment with default procedures
@@ -39,16 +40,23 @@ defaultEnv = foldl1 Map.union [ Map.singleton "writeInt" (DefaultProc (TypeBaseT
                                   Map.singleton "readString" (DefaultProc (TypeBaseType BaseType_string) )]
 
 
+
 -- TODO: refactor in order to save info in env about any type of DclBlock, not only DclBlockVrBlock!
-extractInfo :: [IdElem] -> [(Position,String)]
+extractInfoVars :: [IdElem] -> [(Position,String)]
 -- e.g. [IdElement (TokIdent ((4,5),"a")),IdElement (TokIdent ((4,8),"b"))] -> [((4,5),"a"), ((4,8)"b"]
-extractInfo (x:xs) = case x of IdElement (TokIdent info) -> info:extractInfo xs
-extractInfo [] = []
+extractInfoVars (x:xs) = case x of IdElement (TokIdent info) -> info:extractInfoVars xs
+extractInfoVars [] = []
 
 -- savese info about variables type in env 
-populateEnv :: [(Position,String)] -> Type -> Env -> Env
-populateEnv [] _ env = env
-populateEnv (v:varNames) t env = populateEnv varNames t (Map.insert (snd v) (VarType (fst v) t) env)
+populateEnvVars :: [(Position,String)] -> Type -> Env -> Env
+populateEnvVars [] _ env = env
+populateEnvVars (v:varNames) t env = populateEnvVars varNames t (Map.insert (snd v) (VarType (fst v) t) env)
+
+
+populateEnvConsts :: [CsDef] -> Env -> Env
+populateEnvConsts [] env = env
+populateEnvConsts (c:cs) env = case c of
+    ConstDefinition (IdElement (TokIdent (pos, id))) literal -> populateEnvConsts cs (Map.insert id (Constant literal) env)
 
 lookup :: String -> Env -> Maybe EnvData
 lookup = Map.lookup

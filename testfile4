@@ -4,7 +4,7 @@ program HelloMath;
 var a: integer; 
 var b: real;
 const C = 10;
-const D = 0.33, E = "a string"; 
+const D = 0.33, E = "a string", F = "another string"; 
 begin
   a := 2.5555;
   b := 10;

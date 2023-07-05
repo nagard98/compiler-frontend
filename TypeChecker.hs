@@ -23,17 +23,24 @@ parseDclBlocks env errors (x:xs) = (finalEnv, finalErrors, newBlock : newBlocks)
         (finalEnv, finalErrors, newBlocks) = parseDclBlocks env1 errors1 xs
 parseDclBlocks env errors [] = (env, errors, [])
 
+ -- TODO: make sure errores are updated after parsing declaration blocks
+ -- e.g. redefining a variable could produce a warning and redefinig a constant an error
 parseSingleDclBlock :: Env -> Errors -> DclBlock env infType  -> (Env, Errors, DclBlock Env Type)
 parseSingleDclBlock env errors blk = case blk of
+
+    -- add info about variables to the environment
     DclBlockVrBlock (VarBlock [VarDefinition vars varType]) -> 
         (newEnv, errors, DclBlockVrBlock (VarBlock [VarDefinition vars varType]))
-    -- TODO: make sure errores are updated after parsing declaration blocks
-        where newEnv = populateEnv (extractInfo vars) varType env
-    --TODO: gestire gli altri 3 casi di DclBlock
+        where newEnv = populateEnvVars (extractInfoVars vars) varType env
+
+    -- add info about constants to the environment
+    DclBlockCsBlock (ConstBlock csDefs) -> (newEnv, errors, DclBlockCsBlock (ConstBlock csDefs))
+        where newEnv = populateEnvConsts csDefs env
+
+    --TODO: gestire gli altri 2 casi di DclBlock
     -- con i costruttori parametrizzati non è più possibile semplicemente passare il blocco ricevuto in input,
     -- ma bisogna crearne uno nuovo (anche se è uguale [vedi il caso sopra])
-    -- soluzione temporanea finchè non gestiamo gli altri 3 casi
-    -- TODO: prima è neccessario fare refactor di extractInfo
+    -- soluzione temporanea finchè non gestiamo gli altri 2 casi (DclBlockPcBlock e DclBlockFcBlock)
     _ -> (env, errors, DclBlockVrBlock (VarBlock [VarDefinition [IdElement (TokIdent ((1,1),"tmp"))] (TypeBaseType BaseType_integer)]))
 
 -- parse the begin-end block and check the statements for type errors
