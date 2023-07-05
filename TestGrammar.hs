@@ -49,7 +49,7 @@ run v p s =
       exitFailure
     Right tree -> do
       putStrLn "\nParse Successful!"
-      showTree v tree
+      -- showTree v tree
       putStrLn "\nTYPE CHECKING STARTING..."
       let (env, errors, annotatedTree) = parseTree tree
       putStrLn "\nThe environment is:"

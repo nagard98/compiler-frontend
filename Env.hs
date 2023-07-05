@@ -18,7 +18,7 @@ data EnvData = VarType Position Type
                 | Procedure Position [Parameter]
                 | Constant Position Type
 
-data Parameter = Parameter Position Modality Type TokIdent
+data Parameter = Parameter TokIdent Modality Type 
 
 -- make EnvData printable
 instance Show EnvData where
@@ -42,7 +42,7 @@ defaultEnv = foldl1 Map.union [ Map.singleton "writeInt" (DefaultProc (TypeBaseT
 -- savese info about variables type in env 
 populateEnvVars :: [VrDef] -> Env -> Env
 populateEnvVars [] env = env
-populateEnvVars (def:vrDefs) env = case def of 
+populateEnvVars (def:vrDefs) env = case def of
     VarDefinition idElements t -> populateEnvVars vrDefs (addToEnv idElements t env)
     where addToEnv:: [IdElem] -> Type -> Env -> Env
           addToEnv [] _ env = env
@@ -52,8 +52,16 @@ populateEnvVars (def:vrDefs) env = case def of
 populateEnvConsts :: [CsDef] -> Env -> Env
 populateEnvConsts [] env = env
 populateEnvConsts (c:cs) env = case c of
-    ConstDefinition (IdElement (TokIdent (pos, id))) literal -> 
+    ConstDefinition (IdElement (TokIdent (pos, id))) literal ->
         populateEnvConsts cs (Map.insert id (Constant pos (TypeBaseType (getTypeFromLiteral literal))) env)
+
+-- populateEnvFuncs :: FcBlock env infType -> Env -> Env
+-- populateEnvFuncs (FuncBlock (TokIdent (pos, id)) params retType _) = Map.insert id (Function pos [] retType)
+    
+--     -- TODO: implement function and call it from populateEnvFuncs to save info about parameters
+--     -- where 
+--         -- addParams:: Prms -> [Parameter]
+
 
 lookup :: String -> Env -> Maybe EnvData
 lookup = Map.lookup

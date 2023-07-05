@@ -37,6 +37,13 @@ parseSingleDclBlock env errors blk = case blk of
     DclBlockCsBlock (ConstBlock csDefs) -> (newEnv, errors, DclBlockCsBlock (ConstBlock csDefs))
         where newEnv = populateEnvConsts csDefs env
 
+    -- add info about functions to the environment
+    -- info are: function position, function name, parameters, return type
+    -- TODO: pass global environment to begin-end block and parse inner statemets
+    -- DclBlockFcBlock (FuncBlock idToken params retType beb) ->
+    --     (newEnv, errors, DclBlockFcBlock (FuncBlock idToken params retType))
+    --     where newEnv = populateEnvFuncs (FuncBlock idToken params retType beb) env
+            
     --TODO: gestire gli altri 2 casi di DclBlock
     -- con i costruttori parametrizzati non è più possibile semplicemente passare il blocco ricevuto in input,
     -- ma bisogna crearne uno nuovo (anche se è uguale [vedi il caso sopra])
