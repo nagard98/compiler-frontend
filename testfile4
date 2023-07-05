@@ -1,9 +1,11 @@
 {In this file we want to test a basic mathematical expressions}
 
 program HelloMath;
-var a, b: real;
+var a: integer; 
+var b: real;
 const C = 10;
 const D = 0.33, E = "a string"; 
 begin
   a := 2.5555;
+  b := 10;
 end.

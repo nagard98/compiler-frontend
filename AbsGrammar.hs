@@ -135,5 +135,7 @@ data Literal
     | LiteralChar TokChar
     | LiteralDouble TokDouble
     | LiteralBoolean TokBoolean
+    | IntToReal Literal
+    | RealToInt Literal
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 

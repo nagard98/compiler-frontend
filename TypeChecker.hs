@@ -73,16 +73,14 @@ parseLitAssignment (TokIdent (idPos, idVal)) literal env errors = case Env.looku
                 -- NOTICE HOW WE ANNOTATE THE TREE, saving info about type of expr!
                 StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) (ExprLiteral literal)
                 )
-            else (env,
-                ("Error at " ++ show idPos ++
-                ". Incompatible types: you can't assign a value of type " ++
-                show (getTypeFromLiteral literal) ++ " to " ++ idVal ++
-                " because it has type " ++ show envType) :errors, 
+            else case (envType, (getTypeFromLiteral literal) ) of 
+                -- 3 cases: casting int->real, real->int or incompatible types
+                (TypeBaseType BaseType_real, BaseType_integer) -> (env, errors, StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) (ExprLiteral (IntToReal literal) ))
+                (TypeBaseType BaseType_integer, BaseType_real) -> (env, errors, StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) (ExprLiteral (RealToInt literal) ))
                 -- In case of errors the tree is not annotated. 
                 -- TODO: maybe we should annotate it with the type of the literal? or don't annotate it at all?
                 -- Per il momento ho aggiunto un come tipo envType
-                StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) (ExprLiteral literal)
-                )
+                (_, _)  -> (env, ("Error at " ++ show idPos ++ ". Incompatible types: you can't assign a value of type " ++ show (getTypeFromLiteral literal) ++ " to " ++ idVal ++ " because it has type " ++ show envType) :errors, StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) (ExprLiteral literal) )
     Nothing -> (env,
                 ("Error at " ++ show idPos ++
                 ". Unknown identifier: " ++ idVal ++

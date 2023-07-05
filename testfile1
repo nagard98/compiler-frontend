@@ -13,7 +13,7 @@ begin return a end;
 
 begin
 
-    myIntVar := 10;
+    myIntVar := 10.0;
     myBoolVar := false;
     myBoolVar := myBoolVar or -myIntVar < z;
     myIntVar := myIntVar + y;
