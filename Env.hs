@@ -39,16 +39,14 @@ defaultEnv = foldl1 Map.union [ Map.singleton "writeInt" (DefaultProc (TypeBaseT
                                   Map.singleton "readString" (DefaultProc (TypeBaseType BaseType_string) )]
 
 
-
-extractInfoVars :: [IdElem] -> [(Position,String)]
--- e.g. [IdElement (TokIdent ((4,5),"a")),IdElement (TokIdent ((4,8),"b"))] -> [((4,5),"a"), ((4,8)"b"]
-extractInfoVars (x:xs) = case x of IdElement (TokIdent info) -> info:extractInfoVars xs
-extractInfoVars [] = []
-
 -- savese info about variables type in env 
-populateEnvVars :: [(Position,String)] -> Type -> Env -> Env
-populateEnvVars [] _ env = env
-populateEnvVars (v:varNames) t env = populateEnvVars varNames t (Map.insert (snd v) (VarType (fst v) t) env)
+populateEnvVars :: [VrDef] -> Env -> Env
+populateEnvVars [] env = env
+populateEnvVars (def:vrDefs) env = case def of 
+    VarDefinition idElements t -> populateEnvVars vrDefs (addToEnv idElements t env)
+    where addToEnv:: [IdElem] -> Type -> Env -> Env
+          addToEnv [] _ env = env
+          addToEnv ((IdElement (TokIdent (pos, id))):xs) t env = addToEnv xs t (Map.insert id (VarType pos t) env)
 
 -- savese info about constants type in env 
 populateEnvConsts :: [CsDef] -> Env -> Env

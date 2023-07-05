@@ -29,9 +29,9 @@ parseSingleDclBlock :: Env -> Errors -> DclBlock env infType  -> (Env, Errors, D
 parseSingleDclBlock env errors blk = case blk of
 
     -- add info about variables to the environment
-    DclBlockVrBlock (VarBlock [VarDefinition vars varType]) ->
-        (newEnv, errors, DclBlockVrBlock (VarBlock [VarDefinition vars varType]))
-        where newEnv = populateEnvVars (extractInfoVars vars) varType env
+    DclBlockVrBlock (VarBlock vrDefs) ->
+        (newEnv, errors, DclBlockVrBlock (VarBlock vrDefs))
+        where newEnv = populateEnvVars vrDefs env
 
     -- add info about constants to the environment
     DclBlockCsBlock (ConstBlock csDefs) -> (newEnv, errors, DclBlockCsBlock (ConstBlock csDefs))

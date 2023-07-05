@@ -2,7 +2,7 @@
 
 program HelloMath;
 var a: integer; 
-var b: real;
+var b, x, y: real, w, z: integer;
 const C = 10;
 const D = 0.33, E = "a string", F = "another string"; 
 begin
