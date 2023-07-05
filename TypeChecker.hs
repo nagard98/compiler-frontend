@@ -13,7 +13,7 @@ parseTree (Prog pBlock dclBlock beBlock)= (newEnv, newErrors, Prog pBlock dBlks 
         (env1, errors1, dBlks) = parseDclBlocks emptyEnv emptyErrors dclBlock
         -- errors and env are propagated from declaration block into beginEnd Block!
         -- notice that env1 is the env after parsing declaration blocks
-        (newEnv, newErrors, beBlks) = parseBEBlock env1 errors1 beBlock 
+        (newEnv, newErrors, beBlks) = parseBEBlock env1 errors1 beBlock
 
 -- Navigates syntax tree and saves info about variables type (declared in a Declaration block) in the global environment
 parseDclBlocks:: Env -> Errors -> [DclBlock env infType] -> (Env, Errors, [DclBlock Env Type])
@@ -29,7 +29,7 @@ parseSingleDclBlock :: Env -> Errors -> DclBlock env infType  -> (Env, Errors, D
 parseSingleDclBlock env errors blk = case blk of
 
     -- add info about variables to the environment
-    DclBlockVrBlock (VarBlock [VarDefinition vars varType]) -> 
+    DclBlockVrBlock (VarBlock [VarDefinition vars varType]) ->
         (newEnv, errors, DclBlockVrBlock (VarBlock [VarDefinition vars varType]))
         where newEnv = populateEnvVars (extractInfoVars vars) varType env
 
@@ -52,18 +52,18 @@ parseBEBlock env errors (BegEndBlock statements annEnv) = (newEnv, newErrors, Be
 parseStatements:: Env -> Errors -> [Stmt env infType] ->  (Env, Errors, [Stmt Env Type])
 parseStatements env errors [] = (env, errors, [])
 parseStatements env errors allStmts =  q env errors allStmts []
-        where 
+        where
             q::Env -> Errors -> [Stmt env infType] -> [Stmt Env Type] ->  (Env, Errors, [Stmt Env Type])
             q env errors [] annStmts = (env, errors, annStmts)
             q env errors (s:xs) annStmts = q env1 errors1 xs (annStmts++[annStmt])
-                where 
+                where
                     (env1, errors1, annStmt) = parseAssignment s env errors
-    
+
 parseAssignment :: Stmt env infType -> Env -> Errors -> (Env, Errors, Stmt Env Type)
 parseAssignment ass env errs = case ass of
             StmtAssign (BaseExpr (Identifier tId) tp) (ExprLiteral literal) -> parseLitAssignment tId literal env errs
             -- TODO: stessa cosa del caso in parseSingleDclBlock
-            _ -> ( env, errs, StmtAssign (BaseExpr (Identifier (TokIdent ((6,4),"a"))) (TypeBaseType BaseType_real)) (ExprLiteral (LiteralDouble (TokDouble ((6,8),"2.5555")))) ) 
+            _ -> ( env, errs, StmtAssign (BaseExpr (Identifier (TokIdent ((6,4),"a"))) (TypeBaseType BaseType_real)) (ExprLiteral (LiteralDouble (TokDouble ((6,8),"2.5555")))) )
             -- TODO: parse other type of statemets here
 
 
@@ -74,12 +74,12 @@ parseLitAssignment (TokIdent (idPos, idVal)) literal env errors = case Env.looku
     Just (VarType envPos envType) ->
         if envType == TypeBaseType (getTypeFromLiteral literal)
             then (
-                env, 
-                errors, 
+                env,
+                errors,
                 -- NOTICE HOW WE ANNOTATE THE TREE, saving info about type of expr!
                 StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) (ExprLiteral literal)
                 )
-            else case (envType, (getTypeFromLiteral literal) ) of 
+            else case (envType, getTypeFromLiteral literal ) of
                 -- 3 cases: casting int->real, real->int or incompatible types
                 (TypeBaseType BaseType_real, BaseType_integer) -> (env, errors, StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) (ExprLiteral (IntToReal literal) ))
                 (TypeBaseType BaseType_integer, BaseType_real) -> (env, errors, StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) (ExprLiteral (RealToInt literal) ))
@@ -92,10 +92,3 @@ parseLitAssignment (TokIdent (idPos, idVal)) literal env errors = case Env.looku
                 ". Unknown identifier: " ++ idVal ++
                 " is used but has never been declared."):errors,
                 StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) (TypeBaseType BaseType_error)) (ExprLiteral literal))
-    where
-        getTypeFromLiteral:: Literal -> BaseType
-        getTypeFromLiteral (LiteralInteger _) = BaseType_integer
-        getTypeFromLiteral (LiteralString _) = BaseType_string
-        getTypeFromLiteral (LiteralBoolean _) = BaseType_boolean
-        getTypeFromLiteral (LiteralDouble _) = BaseType_real
-        getTypeFromLiteral (LiteralChar _) = BaseType_char

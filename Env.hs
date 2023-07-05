@@ -16,16 +16,15 @@ data EnvData = VarType Position Type
                 | DefaultProc Type
                 | Function Position [Parameter] Type
                 | Procedure Position [Parameter]
-                | Constant Literal
+                | Constant Position Type
 
 data Parameter = Parameter Position Modality Type TokIdent
 
 -- make EnvData printable
 instance Show EnvData where
-    show (VarType p (TypeBaseType t)) = " at " ++ show p ++ " of type " ++ show t
-    show (Constant l) = " constant " ++ show l
+    show (VarType p (TypeBaseType t)) = "{variable, " ++ show p ++ ", " ++ show t ++ "}"
+    show (Constant p (TypeBaseType t)) = "{constant, " ++ show p ++ ", " ++ show t ++ "}"
     show (DefaultProc (TypeBaseType t)) = " default procedure of type " ++ show t
-    -- show (VarType p t) = " at " ++ show p ++ " of type " ++ show t
     show (DefaultProc t) = " default procedure of type " ++ show t
 
 -- Initial environment with default procedures
@@ -41,7 +40,6 @@ defaultEnv = foldl1 Map.union [ Map.singleton "writeInt" (DefaultProc (TypeBaseT
 
 
 
--- TODO: refactor in order to save info in env about any type of DclBlock, not only DclBlockVrBlock!
 extractInfoVars :: [IdElem] -> [(Position,String)]
 -- e.g. [IdElement (TokIdent ((4,5),"a")),IdElement (TokIdent ((4,8),"b"))] -> [((4,5),"a"), ((4,8)"b"]
 extractInfoVars (x:xs) = case x of IdElement (TokIdent info) -> info:extractInfoVars xs
@@ -52,11 +50,19 @@ populateEnvVars :: [(Position,String)] -> Type -> Env -> Env
 populateEnvVars [] _ env = env
 populateEnvVars (v:varNames) t env = populateEnvVars varNames t (Map.insert (snd v) (VarType (fst v) t) env)
 
-
+-- savese info about constants type in env 
 populateEnvConsts :: [CsDef] -> Env -> Env
 populateEnvConsts [] env = env
 populateEnvConsts (c:cs) env = case c of
-    ConstDefinition (IdElement (TokIdent (pos, id))) literal -> populateEnvConsts cs (Map.insert id (Constant literal) env)
+    ConstDefinition (IdElement (TokIdent (pos, id))) literal -> 
+        populateEnvConsts cs (Map.insert id (Constant pos (TypeBaseType (getTypeFromLiteral literal))) env)
 
 lookup :: String -> Env -> Maybe EnvData
 lookup = Map.lookup
+
+getTypeFromLiteral:: Literal -> BaseType
+getTypeFromLiteral (LiteralInteger _) = BaseType_integer
+getTypeFromLiteral (LiteralString _) = BaseType_string
+getTypeFromLiteral (LiteralBoolean _) = BaseType_boolean
+getTypeFromLiteral (LiteralDouble _) = BaseType_real
+getTypeFromLiteral (LiteralChar _) = BaseType_char
