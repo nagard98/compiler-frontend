@@ -108,6 +108,7 @@ data BaseType
     | BaseType_real
     | BaseType_char
     | BaseType_string
+    | BaseType_error
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data CompType = CompType1 TokInteger TokInteger Type | CompType2 BaseType

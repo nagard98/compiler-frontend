@@ -65,7 +65,6 @@ parseAssignment ass env errs = case ass of
 parseLitAssignment:: TokIdent -> Literal -> Env -> Errors -> (Env, Errors, Stmt Env Type)
 parseLitAssignment (TokIdent (idPos, idVal)) literal env errors = case Env.lookup idVal env of
     Just (VarType envPos envType) ->
-        -- TODO: now if types are different an error is thrown, but casting should be performed for compatibile types!
         if envType == TypeBaseType (getTypeFromLiteral literal)
             then (
                 env, 
@@ -85,9 +84,7 @@ parseLitAssignment (TokIdent (idPos, idVal)) literal env errors = case Env.looku
                 ("Error at " ++ show idPos ++
                 ". Unknown identifier: " ++ idVal ++
                 " is used but has never been declared."):errors,
-                --TODO : per il momento ho usato un tipo a caso, ma dovremmo aggiungere un nuovo tipo
-                -- ad AbsGrammar che indichi un errore
-                StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) (TypeBaseType BaseType_boolean)) (ExprLiteral literal))
+                StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) (TypeBaseType BaseType_error)) (ExprLiteral literal))
     where
         getTypeFromLiteral:: Literal -> BaseType
         getTypeFromLiteral (LiteralInteger _) = BaseType_integer
