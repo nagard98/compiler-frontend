@@ -28,7 +28,7 @@ newtype TokString = TokString (Position, String)
 newtype TokBoolean = TokBoolean (Position, String)
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data P env infType= Prog PBlock [DclBlock env infType] (BEBlock env infType)
+data P env infType = Prog PBlock [DclBlock env infType] (BEBlock env infType) env
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data PBlock = ProgBlock TokIdent

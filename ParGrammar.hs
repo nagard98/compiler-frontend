@@ -599,7 +599,7 @@ happyReduction_8 (happy_x_4 `HappyStk`
 	case happyOut19 happy_x_2 of { (HappyWrap19 happy_var_2) -> 
 	case happyOut12 happy_x_3 of { (HappyWrap12 happy_var_3) -> 
 	happyIn10
-		 (AbsGrammar.Prog happy_var_1 happy_var_2 happy_var_3
+		 (AbsGrammar.Prog happy_var_1 happy_var_2 happy_var_3 ()
 	) `HappyStk` happyRest}}}
 
 happyReduce_9 = happySpecReduce_3  7# happyReduction_9

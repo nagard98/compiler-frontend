@@ -156,7 +156,7 @@ instance Print AbsGrammar.TokBoolean where
 
 instance Print (AbsGrammar.P env infType) where
   prt i = \case
-    AbsGrammar.Prog pblock dclblocks beblock -> prPrec i 0 (concatD [prt 0 pblock, prt 0 dclblocks, prt 0 beblock, doc (showString ".")])
+    AbsGrammar.Prog pblock dclblocks beblock globEnv -> prPrec i 0 (concatD [prt 0 pblock, prt 0 dclblocks, prt 0 beblock, doc (showString ".")])
 
 instance Print AbsGrammar.PBlock where
   prt i = \case

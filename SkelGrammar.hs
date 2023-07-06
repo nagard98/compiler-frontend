@@ -22,7 +22,7 @@ transIdent x = case x of
 
 transP :: (Show env, Show infType)  => AbsGrammar.P env infType -> Result
 transP x = case x of
-  AbsGrammar.Prog pblock dclblocks beblock -> failure x
+  AbsGrammar.Prog pblock dclblocks beblock globEnv -> failure x
 
 transPBlock :: AbsGrammar.PBlock -> Result
 transPBlock x = case x of
