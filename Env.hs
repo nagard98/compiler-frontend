@@ -21,6 +21,7 @@ data EnvData = VarType Position Type
 -- data Parameter = Parameter TokIdent Modality Type deriving Show
 
 -- TODO: aggiungere gli altri casi per gestire EnvData
+-- TODO: rifare implementazione di procedure default, per le read servono gli argomenti
 -- make EnvData printable
 instance Show EnvData where
     show (VarType p (TypeBaseType t)) = "{variable, " ++ show p ++ ", " ++ show t ++ "}"

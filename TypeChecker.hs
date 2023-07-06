@@ -268,15 +268,30 @@ parseExpression env errs (UnaryExpression Reference exp t) = case getTypeFromExp
 -- Literals (base case of recursions)
 parseExpression env errs (ExprLiteral literal) = (env, errs, (ExprLiteral literal) )
 
--- Function calls TODO
---parseExpression env errs (ExprCall call t) = parseFunctionCall env errs call
+-- Function calls
+parseExpression env errs (ExprCall call t) = parseFunctionCall env errs call
 
 -- Base Expressions: identifies or array elements
 parseExpression env errs (BaseExpr bexpr t) = parseBaseExpression env errs bexpr
 
-parseExpression env errs expr = (env, errs, (ExprLiteral (LiteralInteger (TokInteger ((0,0), "10")))) ) -- ogni espressione non specificata diventa il numero 10
+parseExpression env errs expr = (env, errs, (ExprLiteral (LiteralInteger (TokInteger ((0,0), "10")))) ) -- temporaneamente ogni espressione non specificata diventa il numero 10
 
 
+parseFunctionCall :: Env -> Errors -> Call inftType -> (Env, Errors, EXPR Type)
+parseFunctionCall env errs (CallArgs (TokIdent (tokpos,tokid)) args ) = case Env.lookup tokid env of
+    Just (Function pos parameters t) -> parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) args ) parameters t
+    Just (Procedure pos parameters) -> parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) args ) parameters
+    Just (DefaultProc t) -> (env, errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) args ) t ) ) --TODO: refactoring procedure default nell'environment
+    Just (Constant pos t) -> (env, ("Error at " ++ show tokpos ++". Identifier " ++ tokid ++" is used as a function/procedure but it is a constant."):errs,
+                (ExprCall (CallArgs (TokIdent (tokpos,tokid)) args ) (TypeBaseType BaseType_error) ) )
+    Just (VarType pos t) -> (env, ("Error at " ++ show tokpos ++". Identifier " ++ tokid ++" is used as a function/procedure but it is a variable."):errs,
+                (ExprCall (CallArgs (TokIdent (tokpos,tokid)) args ) (TypeBaseType BaseType_error) ) ) 
+    Nothing -> (env, ("Error at " ++ show tokpos ++". Unknown identifier: " ++ tokid ++" is used but has never been declared."):errs,
+                (ExprCall (CallArgs (TokIdent (tokpos,tokid)) args ) (TypeBaseType BaseType_error) ) ) 
+
+-- TODO
+parseFunction :: Env -> Errors -> Call infType -> Type -> (Env, Errors, EXPR Type)
+parseProcedure :: Env -> Errors -> Call infType -> (Env, Errors, EXPR Type)
 
 
 parseBinaryBooleanExpression :: Env -> Errors -> BinaryOperator -> EXPR infType -> EXPR infType -> (Env, Errors, EXPR Type)
