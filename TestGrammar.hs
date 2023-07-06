@@ -25,6 +25,7 @@ import PrintGrammar ( Print, printTree )
 import SkelGrammar  ()
 import TypeChecker ( parseTree, emptyErrors) -- includere Type Checker
 import Env
+import GeneratorTAC
 
 type Err        = Either String
 type ParseFun a = [Token] -> Err a
@@ -60,6 +61,8 @@ run v p s =
       print tree
       putStrLn "\nThe annotated tree is:"
       print annotatedTree
+      --putStrLn "\n\nSTARTING GENERATION TAC..."
+      --print $ genTAC annotatedTree
   where
   ts = myLexer s
   showPosToken ((l,c),t) = concat [ show l, ":", show c, "\t", show t ]

@@ -4,6 +4,7 @@ import Control.Monad.Trans.State
 import qualified AbsGrammar
 import qualified Control.Monad.Except as AbsGrammar
 import Env
+import qualified Distribution.Simple.Program as AbsGrammar
 
 -- TODO: implementare con Data.Sequence invece che con lista
 type StateTAC = State (Int, [TACInst])
@@ -59,9 +60,44 @@ newIdAddr = do
 int2VarName :: Int -> Addr
 int2VarName k = ProgVar ("v" ++ show k) 
 
+genTAC :: AbsGrammar.P Env AbsGrammar.Type -> [TACInst]
+genTAC prog = getInstrList (execState (genProg prog) (0,[]))
+    where
+        getInstrList :: (Int, [TACInst]) -> [TACInst]
+        getInstrList (_, instrList) = instrList
 
-genProg :: AbsGrammar.P Env AbsGrammar.Type-> AbsGrammar.P Env AbsGrammar.Type
-genProg (AbsGrammar.Prog pBlock dclBlock bebBlock globEnv) = AbsGrammar.Prog pBlock dclBlock bebBlock globEnv
+genProg :: AbsGrammar.P Env AbsGrammar.Type -> StateTAC ()
+genProg (AbsGrammar.Prog pBlock dclBlock (AbsGrammar.BegEndBlock stmts scopeEnv) globEnv) = do
+    --genDcls dclBlock globEnv
+    genStmts stmts scopeEnv
+
+genStmts :: [AbsGrammar.Stmt Env AbsGrammar.Type] -> Env -> StateTAC ()
+genStmts (stmt:stmts) env = do
+    genStmt stmt env;
+    genStmts stmts env;
+genStmts [] env = do (i,l) <- get; put(i,l)
+
+genStmt :: AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> StateTAC ()
+genStmt stmt env = case stmt of
+    AbsGrammar.StmtAssign _ _ -> genStmtAssign stmt env
+    AbsGrammar.StmtDecl _ -> error "TODO: implementare genStmtDecl"
+    AbsGrammar.StmtComp _ -> genStmtComp stmt env
+    AbsGrammar.StmtCall _ -> error "TODO: implementare genStmtCall"
+    AbsGrammar.StmtSelect _ -> error "TODO: implementare genStmtSelect"
+    AbsGrammar.StmtIter _ -> error "TODO: implementare genStmtIter"
+    AbsGrammar.StmtReturn _ -> error "TODO: implementare genStmtReturn"
+
+genStmtAssign :: AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> StateTAC ()
+genStmtAssign (AbsGrammar.StmtAssign lexpr rexpr) env = do
+    varAddr <- genBaseExpr lexpr env;
+    exprAddr <- genExpr rexpr env;
+    addInstr (TACNulAss varAddr exprAddr)
+genStmtAssign _ _ = error "TODO: gestire errore genStmtAssign"
+
+genStmtComp :: AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> StateTAC ()
+genStmtComp (AbsGrammar.StmtComp (AbsGrammar.BegEndBlock stmts envScope)) env = genStmts stmts envScope
+genStmtComp _ _ = error "TODO: gestire errore genStmtComp"
+
 
 genExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Env -> StateTAC Addr
 genExpr expr env = case expr of
