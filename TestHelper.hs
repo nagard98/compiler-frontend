@@ -4,6 +4,19 @@ import Env
 import GeneratorTAC
 import Control.Monad.State.Lazy
 
+
+-- -- USAGE EXAMPLE
+-- -- 1. Define an environment for the test
+-- myEnv = Env.insert "a" (VarType (0,0) (TypeBaseType BaseType_integer)) emptyEnv
+-- -- 2. Define the expression to test
+-- myExpr = UnaryExpression {operator1 = Negation, AbsGrammar.exp = BaseExpr (Identifier (TokIdent ((6,3),"a"))) (TypeBaseType BaseType_integer), tp = TypeBaseType BaseType_integer}
+-- -- 3. Call the testExpr function with the genUnrExpr function, the expression, and the environment
+-- testResult = testExpr genUnrExpr myExpr myEnv
+
+-- -- 4. Execute following commands: 
+-- -- ghci TestHelper.hs 
+-- -- ghci > testResult
+
 ass = [StmtAssign (BaseExpr (Identifier (TokIdent ((6,3),"a"))) ()) (BinaryExpression {operator2 = Add, exp1 = BinaryExpression {operator2 = Mul, exp1 = ExprLiteral (LiteralDouble (TokDouble ((6,8),"2.5555"))), exp2 = ExprLiteral (LiteralInteger (TokInteger ((6,17),"3"))), tp = ()}, exp2 = ExprLiteral (LiteralInteger (TokInteger ((6,21),"5"))), tp = ()})]
 assAnn = [StmtAssign (BaseExpr (Identifier (TokIdent ((6,3),"a"))) (TypeBaseType (BaseType_real))) (BinaryExpression {operator2 = Add, exp1 = BinaryExpression {operator2 = Mul, exp1 = ExprLiteral (LiteralDouble (TokDouble ((6,8),"2.5555"))), exp2 = ExprLiteral (LiteralInteger (TokInteger ((6,17),"3"))), tp = TypeBaseType (BaseType_real)}, exp2 = ExprLiteral (LiteralInteger (TokInteger ((6,21),"5"))), tp = TypeBaseType (BaseType_real)})]
 ass2 = [StmtAssign (BaseExpr (Identifier (TokIdent ((6,3),"a"))) ()) (BinaryExpression {operator2 = Mul, exp1 = ExprLiteral (LiteralDouble (TokDouble ((6,8),"2.5555"))), exp2 = ExprLiteral (LiteralInteger (TokInteger ((6,17),"3"))), tp = ()})]
