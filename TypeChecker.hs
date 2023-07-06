@@ -38,10 +38,10 @@ parseSingleDclBlock env errors blk = case blk of
             parseVrDefs [] env = env
             parseVrDefs (def:vrDefs) env = case def of
                 VarDefinition idElements t -> parseVrDefs vrDefs newEnv
-                    where 
+                    where
                         -- TODO : probabilmente necessaria gestione errori
                         (newEnv, newErrs, _) = parseIds idElements t env []
-            
+
             newEnv = parseVrDefs vrDefs env
 
     -- add info about constants to the environment
@@ -51,9 +51,9 @@ parseSingleDclBlock env errors blk = case blk of
             parseConsDefs :: [CsDef] -> Env -> Env
             parseConsDefs [] env = env
             parseConsDefs (c:cs) env = case c of
-                ConstDefinition (IdElement (TokIdent (pos, id))) literal -> 
+                ConstDefinition (IdElement (TokIdent (pos, id))) literal ->
                     parseConsDefs cs (Env.insert id (Constant pos (TypeBaseType (getTypeFromLiteral literal))) env)
-            
+
             newEnv = parseConsDefs csDefs env
 
     -- add info about functions to the environment
@@ -61,9 +61,10 @@ parseSingleDclBlock env errors blk = case blk of
     -- TODO: pass global environment to begin-end block and parse inner statemets
     DclBlockFcBlock fB@(FuncBlock idTok@(TokIdent (pos, id)) params retType beb) -> (tmpEnv, errors, DclBlockFcBlock (FuncBlock idTok params retType annBEB))
         where
-            tmpEnv = Env.insert id (Function pos params retType) env
+            -- add to env return type (needed for type checking of the return statement) and function info
+            tmpEnv = Env.mergeEnvs env (Env.fromList [(id, Function pos params retType), ("return", Return retType)])
 
-            (pEnv, pErrs, pPrms) = parseParams params [] tmpEnv errors 
+            (pEnv, pErrs, pPrms) = parseParams params [] tmpEnv errors
             --TODO : valutare quale env far restituire a parseSingleDclBlock; tmpEnv? oppure fEnv?
             (fEnv, fErrs, annBEB) = parseBEBlock pEnv errors beb
 
@@ -79,7 +80,7 @@ parseSingleDclBlock env errors blk = case blk of
 parseParams :: Prms -> [Prm] -> Env -> Errors -> (Env, Errors, Prms)
 parseParams prms accPrms env errs = case prms of
 
-    (Params ( p@(Param mod idList typ):ps )) -> parseParams (Params ps) (p:accPrms) tmpEnv tmpErrs 
+    (Params ( p@(Param mod idList typ):ps )) -> parseParams (Params ps) (p:accPrms) tmpEnv tmpErrs
         where
             (tmpEnv, tmpErrs, _) = parseIds idList typ env errs
 
@@ -134,15 +135,17 @@ parseStatement stmt env errs = case stmt of
             (StmtAssign expr1 expr2) -> parseAssignment (StmtAssign expr1 expr2) env errs
 
             --TODO: fare vero parsing senza utilizzare nodi generici per il resto dei casi
-            
+
             -- Chiamata funzione
-            (StmtCall call) -> (env, errs, exStmtCall )            
+            (StmtCall call) -> (env, errs, exStmtCall )
             -- Select
             (StmtSelect sel) -> (env, errs, exStmtSelect )
             -- Iterazione
             (StmtIter iter) -> (env, errs, exStmtIter )
             -- Return
             (StmtReturn return) -> (env, errs, exStmtReturn )
+
+-- TODO: implement parseReturn 
 
 parseAssignment :: Stmt env infType -> Env -> Errors -> (Env, Errors, Stmt Env Type)
 parseAssignment ass env errs = case ass of
@@ -154,7 +157,7 @@ parseAssignment ass env errs = case ass of
                     (env2, errs2, parsedexpr) = parseExpression env errs expr
 
             -- TODO: stessa cosa del caso in parseSingleDclBlock, rimuovere caso generico finale
-            _ -> ( env, errs, StmtAssign (BaseExpr (Identifier (TokIdent ((0,0),"TODO"))) (TypeBaseType BaseType_real)) (ExprLiteral (LiteralDouble (TokDouble ((0,0),"111.111")))) ) 
+            _ -> ( env, errs, StmtAssign (BaseExpr (Identifier (TokIdent ((0,0),"TODO"))) (TypeBaseType BaseType_real)) (ExprLiteral (LiteralDouble (TokDouble ((0,0),"111.111")))) )
 
 
 -- check if literal type matches with the one saved in the environment. 
@@ -203,7 +206,7 @@ parseExprAssignment (TokIdent (idPos, idVal)) expr env errors = case Env.lookup 
                 ("Error at " ++ show idPos ++
                 ". Unknown identifier: " ++ idVal ++
                 " is used but has never been declared."):errors,
-                StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) (TypeBaseType BaseType_error)) expr) 
+                StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) (TypeBaseType BaseType_error)) expr)
 
 
 -- Given current environment, errors and syntax tree, returns annotated tree and updated environment and errors
@@ -213,7 +216,7 @@ parseExpression :: Env -> Errors -> EXPR infType -> (Env, Errors, EXPR Type)
 --TODO: evitare messaggi di errore indotti (conseguenza di assegnazioni del tipo error)
 
 -- Boolean Unary Negation
-parseExpression env errs (UnaryExpression Not exp t) = 
+parseExpression env errs (UnaryExpression Not exp t) =
     if getTypeFromExpression parsedexp == TypeBaseType BaseType_boolean
         then
             (env2, errs2, (UnaryExpression Not parsedexp (TypeBaseType BaseType_boolean) ))
@@ -230,7 +233,7 @@ parseExpression env errs (UnaryExpression Negation exp t) =
         else
             (env2, ("Error"++". Arithmetic unary minus '-' applied to type " ++ show (getTypeFromExpression parsedexp) ++ " instead of numeric type."):errs2, (UnaryExpression Negation parsedexp (TypeBaseType BaseType_error) ) )
     where
-        (env2, errs2, parsedexp) = parseExpression env errs exp 
+        (env2, errs2, parsedexp) = parseExpression env errs exp
 
 -- Binary Boolean operations (And,Or)
 parseExpression env errs (BinaryExpression And exp1 exp2 t) = parseBinaryBooleanExpression env errs And exp1 exp2
@@ -254,7 +257,7 @@ parseExpression env errs (BinaryExpression EqGreatT exp1 exp2 t) = parseBinaryRe
 -- Dereference --TODO: consentire puntatori ad array e ad altri puntatori?
 parseExpression env errs (UnaryExpression Dereference exp t) = case getTypeFromExpression parsedexp of
     TypeBaseType basetype -> (env2, errs2, (UnaryExpression Dereference parsedexp (TypeCompType (Pointer basetype)) ))
-    otherwise -> (env2, ("Error. Dereference operation on type "++ show (getTypeFromExpression parsedexp) ++" is not allowed because it is not a base type."):errs2, (UnaryExpression Dereference parsedexp (TypeBaseType BaseType_error) )) 
+    otherwise -> (env2, ("Error. Dereference operation on type "++ show (getTypeFromExpression parsedexp) ++" is not allowed because it is not a base type."):errs2, (UnaryExpression Dereference parsedexp (TypeBaseType BaseType_error) ))
     where
         (env2, errs2, parsedexp) = parseExpression env errs exp
 
@@ -309,7 +312,7 @@ parseBinaryBooleanExpression env errs op exp1 exp2
 
 -- TODO: nodo di casting implicito nel caso di operazione tra numeri interi e reali? (es. 10*1.1)
 parseBinaryArithmeticExpression :: Env -> Errors -> BinaryOperator -> EXPR infType -> EXPR infType -> (Env, Errors, EXPR Type)
-parseBinaryArithmeticExpression env errs op exp1 exp2 
+parseBinaryArithmeticExpression env errs op exp1 exp2
     -- 3 cases: 1) first element not numeric, 2) second argument not numeric, 3) no errors
     | getTypeFromExpression parsedexp1 /= TypeBaseType BaseType_integer && getTypeFromExpression parsedexp1 /= TypeBaseType BaseType_real = (env3, ("Error. " ++ "First argument of "++ getStringFromOperator op ++ "operator is of type " ++ show (getTypeFromExpression parsedexp1) ++ " instead of numeric (integer or real)."):errs3, (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ))
     | getTypeFromExpression parsedexp2 /= TypeBaseType BaseType_integer && getTypeFromExpression parsedexp2 /= TypeBaseType BaseType_real = (env3, ("Error. " ++ "Second argument of "++getStringFromOperator op++" operator is of type " ++ show (getTypeFromExpression parsedexp2) ++ " instead of numeric (integer or real)."):errs3, (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ))
@@ -356,7 +359,7 @@ parseBaseExpression env errs (Identifier (TokIdent (tokpos,tokid)) ) = case Env.
     Just (VarType _ envType) -> (env, errs, (BaseExpr (Identifier (TokIdent (tokpos,tokid)) ) envType ) )
     Just (Constant _ envType) -> (env, errs, (BaseExpr (Identifier (TokIdent (tokpos,tokid)) ) envType ) )
     Nothing -> (env, ("Error at " ++ show tokpos ++". Unknown identifier: " ++ tokid ++" is used but has never been declared."):errs,
-                (BaseExpr (Identifier (TokIdent (tokpos,tokid)) ) (TypeBaseType BaseType_error) ) ) 
+                (BaseExpr (Identifier (TokIdent (tokpos,tokid)) ) (TypeBaseType BaseType_error) ) )
 -- parse elements of an array
 parseBaseExpression env errs (ArrayElem bexpr expr)
     | getTypeFromExpression parsedexpr /= TypeBaseType BaseType_integer = (env3, ("Error. Array index is of type "++show (getTypeFromExpression parsedexpr)++" instead of integer."):err3, (BaseExpr (ArrayElem parsedbexpr parsedexpr) (TypeBaseType BaseType_error)) )
