@@ -154,7 +154,7 @@ parseAssignment ass env errs = case ass of
                     (env2, errs2, parsedexpr) = parseExpression env errs expr
 
             -- TODO: stessa cosa del caso in parseSingleDclBlock, rimuovere caso generico finale
-            _ -> ( env, errs, StmtAssign (BaseExpr (Identifier (TokIdent ((0,0),"a"))) (TypeBaseType BaseType_real)) (ExprLiteral (LiteralDouble (TokDouble ((0,0),"111.111")))) ) 
+            _ -> ( env, errs, StmtAssign (BaseExpr (Identifier (TokIdent ((0,0),"TODO"))) (TypeBaseType BaseType_real)) (ExprLiteral (LiteralDouble (TokDouble ((0,0),"111.111")))) ) 
 
 
 -- check if literal type matches with the one saved in the environment. 
