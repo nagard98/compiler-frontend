@@ -1,0 +1,1 @@
+[StmtAssign (BaseExpr (Identifier (TokIdent ((4,5),"e1")))) (BinaryExpression {operator2 = Add, exp1 = BaseExpr (Identifier (TokIdent ((4,11),"e2"))), exp2 = BaseExpr (Identifier (TokIdent ((4,16),"e3")))})]

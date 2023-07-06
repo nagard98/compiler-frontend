@@ -1,0 +1,45 @@
+{In this file we want to test a basic mathematical expressions}
+
+program HelloMath;
+var a: array[1..10]of integer; 
+var b: integer;
+begin
+  b := a[3];
+{*
+  var a2: integer;
+  var c: ^integer;
+  c := a2^;
+  var d: integer;
+  d := @c
+*}
+end.
+
+{*
+The tree is:
+Prog (ProgBlock (TokIdent ((3,9),"HelloMath"))) 
+[DclBlockFcBlock 
+    (FuncBlock 
+        (TokIdent ((4,10),"incr")) 
+        (Params 
+            [
+                Param Modality1 [IdElement (TokIdent ((4,16),"num"))] (TypeBaseType BaseType_integer)
+                Param Modality1 [IdElement (TokIdent ((4,30),"num2"))] (TypeBaseType BaseType_real) 
+            ]
+        ) 
+        (TypeBaseType BaseType_integer) 
+        (BegEndBlock [StmtReturn (Ret (BinaryExpression {operator2 = Add, exp1 = BaseExpr (Identifier (TokIdent ((6,12),"num"))) (), exp2 = ExprLiteral (LiteralInteger (TokInteger ((6,16),"1"))), tp = ()}))] ())
+    ),
+DclBlockFcBlock 
+    (FuncBlock 
+        (TokIdent ((9,10),"incr")) 
+        NoParams 
+        (TypeBaseType BaseType_integer) 
+        (BegEndBlock [StmtReturn (Ret (ExprLiteral (LiteralInteger (TokInteger ((11,12),"51")))))] ())),
+DclBlockPcBlock 
+    (ProcBlock 
+    (TokIdent ((9,11),"incr2")) 
+    (Params [Param Modality1 [IdElement (TokIdent ((9,18),"num"))] (TypeCompType (CompType2 BaseType_integer))]) 
+    (BegEndBlock [StmtAssign (UnaryExpression {operator1 = Dereference, exp = BaseExpr (Identifier (TokIdent ((11,5),"num"))) (), tp = ()}) (BinaryExpression {operator2 = Add, exp1 = UnaryExpression {operator1 = Dereference, exp = BaseExpr (Identifier (TokIdent ((11,13),"num"))) (), tp = ()}, exp2 = ExprLiteral (LiteralInteger (TokInteger ((11,20),"1"))), tp = ()})] ()))] 
+    (BegEndBlock [] ()
+    )
+*}

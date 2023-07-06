@@ -20,15 +20,15 @@ transIdent :: AbsGrammar.TokIdent -> Result
 transIdent x = case x of
   AbsGrammar.TokIdent string -> failure x
 
-transP :: Show env => AbsGrammar.P env -> Result
+transP :: (Show env, Show infType)  => AbsGrammar.P env infType -> Result
 transP x = case x of
-  AbsGrammar.Prog pblock dclblocks beblock -> failure x
+  AbsGrammar.Prog pblock dclblocks beblock globEnv -> failure x
 
 transPBlock :: AbsGrammar.PBlock -> Result
 transPBlock x = case x of
   AbsGrammar.ProgBlock ident -> failure x
 
-transBEBlock :: Show env => AbsGrammar.BEBlock env -> Result
+transBEBlock :: (Show env, Show infType)  => AbsGrammar.BEBlock env infType -> Result
 transBEBlock x = case x of
   AbsGrammar.BegEndBlock stmts env -> failure x
 
@@ -37,7 +37,7 @@ transBEBlock x = case x of
   --AbsGrammar.BegEndStmt1 stmt -> failure x
   --AbsGrammar.BegEndStmtDclBlock dclblock -> failure x
 
-transStmt :: Show env => AbsGrammar.Stmt env -> Result
+transStmt :: (Show env, Show infType)  => AbsGrammar.Stmt env infType -> Result
 transStmt x = case x of
   AbsGrammar.StmtDecl dclblock -> failure x
   AbsGrammar.StmtComp beblock -> failure x
@@ -47,32 +47,32 @@ transStmt x = case x of
   AbsGrammar.StmtIter iterstmt -> failure x
   AbsGrammar.StmtReturn return -> failure x
 
-transSelStmt :: Show env => AbsGrammar.SelStmt env -> Result
+transSelStmt :: (Show env, Show infType)  => AbsGrammar.SelStmt env infType -> Result
 transSelStmt x = case x of
   AbsGrammar.StmtIf expr stmt -> failure x
   AbsGrammar.StmtIfElse expr stmt1 stmt2 -> failure x
 
-transIterStmt :: Show env => AbsGrammar.IterStmt env -> Result
+transIterStmt :: (Show env, Show infType)  => AbsGrammar.IterStmt env infType -> Result
 transIterStmt x = case x of
   AbsGrammar.StmtWhileDo expr stmt -> failure x
   AbsGrammar.StmtRepeat stmt expr -> failure x
 
-transReturn :: AbsGrammar.Return -> Result
+transReturn :: Show infType => AbsGrammar.Return infType -> Result
 transReturn x = case x of
   AbsGrammar.Ret expr -> failure x
 
-transDclBlock :: Show env => AbsGrammar.DclBlock env -> Result
+transDclBlock :: (Show env, Show infType)  => AbsGrammar.DclBlock env infType -> Result
 transDclBlock x = case x of
   AbsGrammar.DclBlockPcBlock pcblock -> failure x
   AbsGrammar.DclBlockVrBlock vrblock -> failure x
   AbsGrammar.DclBlockFcBlock fcblock -> failure x
   AbsGrammar.DclBlockCsBlock csblock -> failure x
 
-transPcBlock :: Show env => AbsGrammar.PcBlock env -> Result
+transPcBlock :: (Show env, Show infType) => AbsGrammar.PcBlock env infType -> Result
 transPcBlock x = case x of
   AbsGrammar.ProcBlock ident prms beblock -> failure x
 
-transFcBlock :: Show env => AbsGrammar.FcBlock env -> Result
+transFcBlock :: (Show env, Show infType) => AbsGrammar.FcBlock env infType -> Result
 transFcBlock x = case x of
   AbsGrammar.FuncBlock ident prms type_ beblock -> failure x
 
@@ -90,7 +90,7 @@ transModality x = case x of
   AbsGrammar.Modality_var -> failure x
   AbsGrammar.Modality1 -> failure x
 
-transCall :: AbsGrammar.Call -> Result
+transCall :: Show infType => AbsGrammar.Call infType -> Result
 transCall x = case x of
   AbsGrammar.CallArgs ident exprs -> failure x
 
@@ -134,18 +134,18 @@ transBaseType x = case x of
 
 transCompType :: AbsGrammar.CompType -> Result
 transCompType x = case x of
-  AbsGrammar.CompType1 integer1 integer2 type_ -> failure x
-  AbsGrammar.CompType2 basetype -> failure x
+  AbsGrammar.Array integer1 integer2 type_ -> failure x
+  AbsGrammar.Pointer basetype -> failure x
 
-transEXPR :: AbsGrammar.EXPR -> Result
+transEXPR :: Show infType => AbsGrammar.EXPR infType -> Result
 transEXPR x = case x of
-  AbsGrammar.BinaryExpression _ rexpr1 rexpr2 -> failure x
-  AbsGrammar.UnaryExpression _ rexpr1 -> failure x
+  AbsGrammar.BinaryExpression _ rexpr1 rexpr2 infType -> failure x
+  AbsGrammar.UnaryExpression _ rexpr1 infType -> failure x
   AbsGrammar.ExprLiteral literal -> failure x
-  AbsGrammar.ExprCall call -> failure x
-  AbsGrammar.BaseExpr bexpr -> failure x
+  AbsGrammar.ExprCall call infType -> failure x
+  AbsGrammar.BaseExpr bexpr infType -> failure x
 
-transBEXPR :: AbsGrammar.BEXPR -> Result
+transBEXPR :: Show infType => AbsGrammar.BEXPR infType -> Result
 transBEXPR x = case x of
   AbsGrammar.Identifier ident -> failure x
   AbsGrammar.ArrayElem bexpr expr -> failure x

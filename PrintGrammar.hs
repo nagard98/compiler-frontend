@@ -154,15 +154,15 @@ instance Print AbsGrammar.TokBoolean where
 --instance Print AbsGrammar.Ident where
 --  prt _ (AbsGrammar.Ident i) = doc $ showString i
 
-instance Print (AbsGrammar.P env) where
+instance Print (AbsGrammar.P env infType) where
   prt i = \case
-    AbsGrammar.Prog pblock dclblocks beblock -> prPrec i 0 (concatD [prt 0 pblock, prt 0 dclblocks, prt 0 beblock, doc (showString ".")])
+    AbsGrammar.Prog pblock dclblocks beblock globEnv -> prPrec i 0 (concatD [prt 0 pblock, prt 0 dclblocks, prt 0 beblock, doc (showString ".")])
 
 instance Print AbsGrammar.PBlock where
   prt i = \case
     AbsGrammar.ProgBlock id_ -> prPrec i 0 (concatD [doc (showString "program"), prt 0 id_, doc (showString ";")])
 
-instance Print (AbsGrammar.BEBlock env) where
+instance Print (AbsGrammar.BEBlock env infType) where
   prt i = \case
     AbsGrammar.BegEndBlock stmts env -> prPrec i 0 (concatD [doc (showString "begin"), prt 0 stmts, doc (showString "end")])
 
@@ -175,7 +175,7 @@ instance Print (AbsGrammar.BEBlock env) where
   --prt _ [] = concatD []
   --prt _ (x:xs) = concatD [prt 0 x, prt 0 xs]
 
-instance Print (AbsGrammar.Stmt env) where
+instance Print (AbsGrammar.Stmt env infType) where
   prt i = \case
     AbsGrammar.StmtDecl dclblock -> prPrec i 0 (concatD [prt 0 dclblock])
     AbsGrammar.StmtComp beblock -> prPrec i 0 (concatD [prt 0 beblock])
@@ -185,41 +185,41 @@ instance Print (AbsGrammar.Stmt env) where
     AbsGrammar.StmtIter iterstmt -> prPrec i 0 (concatD [prt 0 iterstmt])
     AbsGrammar.StmtReturn return -> prPrec i 0 (concatD [prt 0 return])
 
-instance Print [AbsGrammar.Stmt env] where
+instance Print [AbsGrammar.Stmt env infType] where
   prt _ [] = concatD []
   prt _ [x] = concatD [prt 0 x]
   prt _ (x:xs) = concatD [prt 0 x, doc (showString ";"), prt 0 xs]
 
-instance Print (AbsGrammar.SelStmt env) where
+instance Print (AbsGrammar.SelStmt env infType) where
   prt i = \case
     AbsGrammar.StmtIf expr stmt -> prPrec i 0 (concatD [doc (showString "if"), prt 0 expr, doc (showString "then"), prt 0 stmt])
     AbsGrammar.StmtIfElse expr stmt1 stmt2 -> prPrec i 0 (concatD [doc (showString "if"), prt 0 expr, doc (showString "then"), prt 0 stmt1, doc (showString "else"), prt 0 stmt2])
 
-instance Print (AbsGrammar.IterStmt env) where
+instance Print (AbsGrammar.IterStmt env infType) where
   prt i = \case
     AbsGrammar.StmtWhileDo expr stmt -> prPrec i 0 (concatD [doc (showString "while"), prt 0 expr, doc (showString "do"), prt 0 stmt])
     AbsGrammar.StmtRepeat stmt expr -> prPrec i 0 (concatD [doc (showString "repeat"), prt 0 stmt, doc (showString "until"), prt 0 expr])
 
-instance Print AbsGrammar.Return where
+instance Print (AbsGrammar.Return infType) where
   prt i = \case
     AbsGrammar.Ret expr -> prPrec i 0 (concatD [doc (showString "return"), prt 0 expr])
 
-instance Print (AbsGrammar.DclBlock env) where
+instance Print (AbsGrammar.DclBlock env infType) where
   prt i = \case
     AbsGrammar.DclBlockPcBlock pcblock -> prPrec i 0 (concatD [prt 0 pcblock])
     AbsGrammar.DclBlockVrBlock vrblock -> prPrec i 0 (concatD [prt 0 vrblock])
     AbsGrammar.DclBlockFcBlock fcblock -> prPrec i 0 (concatD [prt 0 fcblock])
     AbsGrammar.DclBlockCsBlock csblock -> prPrec i 0 (concatD [prt 0 csblock])
 
-instance Print [AbsGrammar.DclBlock env] where
+instance Print [AbsGrammar.DclBlock env infType] where
   prt _ [] = concatD []
   prt _ (x:xs) = concatD [prt 0 x, doc (showString ";"), prt 0 xs]
 
-instance Print (AbsGrammar.PcBlock env) where
+instance Print (AbsGrammar.PcBlock env infType) where
   prt i = \case
     AbsGrammar.ProcBlock id_ prms beblock -> prPrec i 0 (concatD [doc (showString "procedure"), prt 0 id_, prt 0 prms, doc (showString ";"), prt 0 beblock])
 
-instance Print (AbsGrammar.FcBlock env) where
+instance Print (AbsGrammar.FcBlock env infType) where
   prt i = \case
     AbsGrammar.FuncBlock id_ prms type_ beblock -> prPrec i 0 (concatD [doc (showString "function"), prt 0 id_, prt 0 prms, doc (showString ":"), prt 0 type_, doc (showString ";"), prt 0 beblock])
 
@@ -242,11 +242,11 @@ instance Print [AbsGrammar.Prm] where
   prt _ [x] = concatD [prt 0 x]
   prt _ (x:xs) = concatD [prt 0 x, doc (showString ","), prt 0 xs]
 
-instance Print AbsGrammar.Call where
+instance Print (AbsGrammar.Call infType) where
   prt i = \case
     AbsGrammar.CallArgs id_ exprs -> prPrec i 0 (concatD [prt 0 id_, doc (showString "("), prt 0 exprs, doc (showString ")")])
 
-instance Print [AbsGrammar.EXPR] where
+instance Print [AbsGrammar.EXPR infType] where
   prt _ [] = concatD []
   prt _ [x] = concatD [prt 0 x]
   prt _ (x:xs) = concatD [prt 0 x, doc (showString ","), prt 0 xs]
@@ -306,33 +306,33 @@ instance Print AbsGrammar.BaseType where
 
 instance Print AbsGrammar.CompType where
   prt i = \case
-    AbsGrammar.CompType1 n1 n2 type_ -> prPrec i 0 (concatD [doc (showString "array"), doc (showString "["), prt 0 n1, doc (showString ".."), prt 0 n2, doc (showString "]"), doc (showString "of"), prt 0 type_])
-    AbsGrammar.CompType2 basetype -> prPrec i 0 (concatD [doc (showString "^"), prt 0 basetype])
+    AbsGrammar.Array n1 n2 type_ -> prPrec i 0 (concatD [doc (showString "array"), doc (showString "["), prt 0 n1, doc (showString ".."), prt 0 n2, doc (showString "]"), doc (showString "of"), prt 0 type_])
+    AbsGrammar.Pointer basetype -> prPrec i 0 (concatD [doc (showString "^"), prt 0 basetype])
 
-instance Print AbsGrammar.EXPR where
+instance Print (AbsGrammar.EXPR infType) where
   prt i = \case
-    AbsGrammar.BinaryExpression AbsGrammar.Or expr1 expr2 -> prPrec i 0 (concatD [prt 0 expr1, doc (showString "or"), prt 1 expr2])
-    AbsGrammar.BinaryExpression AbsGrammar.And expr1 expr2 -> prPrec i 1 (concatD [prt 1 expr1, doc (showString "and"), prt 2 expr2])
-    AbsGrammar.UnaryExpression AbsGrammar.Not expr -> prPrec i 2 (concatD [doc (showString "not"), prt 3 expr])
-    AbsGrammar.BinaryExpression AbsGrammar.Eq expr1 expr2 -> prPrec i 3 (concatD [prt 4 expr1, doc (showString "="), prt 4 expr2])
-    AbsGrammar.BinaryExpression AbsGrammar.NotEq expr1 expr2 -> prPrec i 3 (concatD [prt 4 expr1, doc (showString "<>"), prt 4 expr2])
-    AbsGrammar.BinaryExpression AbsGrammar.LessT expr1 expr2 -> prPrec i 3 (concatD [prt 4 expr1, doc (showString "<"), prt 4 expr2])
-    AbsGrammar.BinaryExpression AbsGrammar.EqLessT expr1 expr2 -> prPrec i 3 (concatD [prt 4 expr1, doc (showString "<="), prt 4 expr2])
-    AbsGrammar.BinaryExpression AbsGrammar.GreatT expr1 expr2 -> prPrec i 3 (concatD [prt 4 expr1, doc (showString ">"), prt 4 expr2])
-    AbsGrammar.BinaryExpression AbsGrammar.EqGreatT expr1 expr2 -> prPrec i 3 (concatD [prt 4 expr1, doc (showString ">="), prt 4 expr2])
-    AbsGrammar.BinaryExpression AbsGrammar.Sub expr1 expr2 -> prPrec i 4 (concatD [prt 4 expr1, doc (showString "-"), prt 5 expr2])
-    AbsGrammar.BinaryExpression AbsGrammar.Add expr1 expr2 -> prPrec i 5 (concatD [prt 5 expr1, doc (showString "+"), prt 6 expr2])
-    AbsGrammar.BinaryExpression AbsGrammar.Div expr1 expr2 -> prPrec i 6 (concatD [prt 6 expr1, doc (showString "/"), prt 7 expr2])
-    AbsGrammar.BinaryExpression AbsGrammar.Mul expr1 expr2 -> prPrec i 7 (concatD [prt 7 expr1, doc (showString "*"), prt 8 expr2])
-    AbsGrammar.BinaryExpression AbsGrammar.Mod expr1 expr2 -> prPrec i 8 (concatD [prt 8 expr1, doc (showString "mod"), prt 9 expr2])
-    AbsGrammar.UnaryExpression AbsGrammar.Negation expr -> prPrec i 9 (concatD [doc (showString "-"), prt 10 expr])
-    AbsGrammar.UnaryExpression AbsGrammar.Reference expr -> prPrec i 9 (concatD [doc (showString "@"), prt 10 expr])
-    AbsGrammar.UnaryExpression AbsGrammar.Dereference expr -> prPrec i 9 (concatD [prt 10 expr, doc (showString "^")])
+    AbsGrammar.BinaryExpression AbsGrammar.Or expr1 expr2 infType -> prPrec i 0 (concatD [prt 0 expr1, doc (showString "or"), prt 1 expr2])
+    AbsGrammar.BinaryExpression AbsGrammar.And expr1 expr2 infType -> prPrec i 1 (concatD [prt 1 expr1, doc (showString "and"), prt 2 expr2])
+    AbsGrammar.UnaryExpression AbsGrammar.Not expr infType -> prPrec i 2 (concatD [doc (showString "not"), prt 3 expr])
+    AbsGrammar.BinaryExpression AbsGrammar.Eq expr1 expr2 infType -> prPrec i 3 (concatD [prt 4 expr1, doc (showString "="), prt 4 expr2])
+    AbsGrammar.BinaryExpression AbsGrammar.NotEq expr1 expr2 infType -> prPrec i 3 (concatD [prt 4 expr1, doc (showString "<>"), prt 4 expr2])
+    AbsGrammar.BinaryExpression AbsGrammar.LessT expr1 expr2 infType -> prPrec i 3 (concatD [prt 4 expr1, doc (showString "<"), prt 4 expr2])
+    AbsGrammar.BinaryExpression AbsGrammar.EqLessT expr1 expr2 infType -> prPrec i 3 (concatD [prt 4 expr1, doc (showString "<="), prt 4 expr2])
+    AbsGrammar.BinaryExpression AbsGrammar.GreatT expr1 expr2 infType -> prPrec i 3 (concatD [prt 4 expr1, doc (showString ">"), prt 4 expr2])
+    AbsGrammar.BinaryExpression AbsGrammar.EqGreatT expr1 expr2 infType -> prPrec i 3 (concatD [prt 4 expr1, doc (showString ">="), prt 4 expr2])
+    AbsGrammar.BinaryExpression AbsGrammar.Sub expr1 expr2 infType -> prPrec i 4 (concatD [prt 4 expr1, doc (showString "-"), prt 5 expr2])
+    AbsGrammar.BinaryExpression AbsGrammar.Add expr1 expr2 infType -> prPrec i 5 (concatD [prt 5 expr1, doc (showString "+"), prt 6 expr2])
+    AbsGrammar.BinaryExpression AbsGrammar.Div expr1 expr2 infType -> prPrec i 6 (concatD [prt 6 expr1, doc (showString "/"), prt 7 expr2])
+    AbsGrammar.BinaryExpression AbsGrammar.Mul expr1 expr2 infType -> prPrec i 7 (concatD [prt 7 expr1, doc (showString "*"), prt 8 expr2])
+    AbsGrammar.BinaryExpression AbsGrammar.Mod expr1 expr2 infType -> prPrec i 8 (concatD [prt 8 expr1, doc (showString "mod"), prt 9 expr2])
+    AbsGrammar.UnaryExpression AbsGrammar.Negation expr infType -> prPrec i 9 (concatD [doc (showString "-"), prt 10 expr])
+    AbsGrammar.UnaryExpression AbsGrammar.Reference expr infType -> prPrec i 9 (concatD [doc (showString "@"), prt 10 expr])
+    AbsGrammar.UnaryExpression AbsGrammar.Dereference expr infType -> prPrec i 9 (concatD [prt 10 expr, doc (showString "^")])
     AbsGrammar.ExprLiteral literal -> prPrec i 10 (concatD [prt 0 literal])
-    AbsGrammar.ExprCall call -> prPrec i 11 (concatD [prt 0 call])
-    AbsGrammar.BaseExpr bexpr -> prPrec i 12 (concatD [prt 0 bexpr])
+    AbsGrammar.ExprCall call infType -> prPrec i 11 (concatD [prt 0 call])
+    AbsGrammar.BaseExpr bexpr infType -> prPrec i 12 (concatD [prt 0 bexpr])
 
-instance Print AbsGrammar.BEXPR where
+instance Print (AbsGrammar.BEXPR infType) where
   prt i = \case
     AbsGrammar.Identifier id_ -> prPrec i 0 (concatD [prt 0 id_])
     AbsGrammar.ArrayElem bexpr expr -> prPrec i 0 (concatD [prt 0 bexpr, doc (showString "["), prt 0 expr, doc (showString "]")])

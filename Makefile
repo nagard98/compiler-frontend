@@ -8,10 +8,12 @@ test:
 	ghc TestGrammar.hs
 	@echo "******** TESTING GRAMMAR ON FILE testfile1"
 	./TestGrammar < testfile1
-	@echo "******** TESTING GRAMMAR ON FILE testfile2"
+	@echo "\n\n******** TESTING GRAMMAR ON FILE testfile2"
 	./TestGrammar < testfile2
-	@echo "******** TESTING GRAMMAR ON FILE testfile3"
+	@echo "\n\n******** TESTING GRAMMAR ON FILE testfile3"
 	./TestGrammar < testfile3
+	@echo "\n\n******** TESTING GRAMMAR ON FILE testfile4"
+	./TestGrammar < testfile4
 
 clean:
 	rm -f info

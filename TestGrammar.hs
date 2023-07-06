@@ -23,7 +23,7 @@ import LexGrammar   ( Token, mkPosToken )
 import ParGrammar   ( pP, myLexer )
 import PrintGrammar ( Print, printTree )
 import SkelGrammar  ()
-import TypeChecker ( parseTree2 ) -- includere Type Checker
+import TypeChecker ( parseTree, emptyErrors) -- includere Type Checker
 import Env
 
 type Err        = Either String
@@ -34,11 +34,11 @@ putStrV :: Verbosity -> String -> IO ()
 putStrV v s = when (v > 1) $ putStrLn s
 
 --runFile :: (Print a, Show a) => Verbosity -> ParseFun a -> FilePath -> IO ()
-runFile :: Show env =>Verbosity -> ParseFun (P env) -> FilePath -> IO ()
+runFile :: (Show env, Show infType) =>Verbosity -> ParseFun (P env infType) -> FilePath -> IO ()
 runFile v p f = putStrLn f >> readFile f >>= run v p
 
 --run :: (Print a, Show a) => Verbosity -> ParseFun a -> String -> IO ()
-run ::  Show env => Verbosity -> ParseFun (P env)-> String -> IO ()
+run ::  (Show env, Show infType) => Verbosity -> ParseFun (P env infType)-> String -> IO ()
 run v p s =
   case p ts of
     Left err -> do
@@ -49,13 +49,15 @@ run v p s =
       exitFailure
     Right tree -> do
       putStrLn "\nParse Successful!"
-      showTree v tree
+      -- showTree v tree
       putStrLn "\nTYPE CHECKING STARTING..."
-      let (env, errors, annotatedTree) = parseTree2 tree emptyEnv []
+      let (env, errors, annotatedTree) = parseTree tree emptyEnv {-defaultEnv-} emptyErrors
       putStrLn "\nThe environment is:"
       print env
       putStrLn "\nThe errors/warnings are :"
       print errors
+      putStrLn "\nThe tree is:"
+      print tree
       putStrLn "\nThe annotated tree is:"
       print annotatedTree
   where
