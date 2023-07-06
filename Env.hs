@@ -24,6 +24,8 @@ data EnvData = VarType Position Type
 -- make EnvData printable
 instance Show EnvData where
     show (VarType p (TypeBaseType t)) = "{variable, " ++ show p ++ ", " ++ show t ++ "}"
+    show (VarType p (TypeCompType (Pointer t))) = "{variable, " ++ show p ++ ", pointer to " ++ show t ++ "}"
+    show (VarType p (TypeCompType (Array (TokInteger (_,i1)) (TokInteger (_,i2)) t))) = "{variable, " ++ show p ++ ", array ["++ i1++".."++ i2++ "] of " ++ show t ++ "}"
     show (Constant p (TypeBaseType t)) = "{constant, " ++ show p ++ ", " ++ show t ++ "}"
     show (DefaultProc (TypeBaseType t)) = " default procedure of type " ++ show t -- TODO: why two implementation of DefaultProc?
     show (DefaultProc t) = " default procedure of type " ++ show t

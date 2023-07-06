@@ -1,24 +1,17 @@
 {In this file we want to test a basic mathematical expressions}
 
 program HelloMath;
-function incr (num: integer, num2: real) : integer;
+var a: array[1..10]of integer; 
+var b: integer;
 begin
-    return num+1;
-end;
-
-function incr (num2: real): integer;
-begin
-    var g : integer;
-    return 51;
-end;
-
-procedure incr2 (num: ^integer);
-begin
-    num^ := num^ + 1
-end;
-
-begin
-
+  b := a[3];
+{*
+  var a2: integer;
+  var c: ^integer;
+  c := a2^;
+  var d: integer;
+  d := @c
+*}
 end.
 
 {*
