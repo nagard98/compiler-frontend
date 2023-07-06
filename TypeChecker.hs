@@ -14,7 +14,7 @@ parseTree (Prog pBlock dclBlock beBlock _) env errs = (newEnv, newErrors, Prog p
     where
         (globEnv, errors1, dBlks) = parseDclBlocks env errs dclBlock
         -- errors and env are propagated from declaration block into beginEnd Block!
-        -- notice that env1 is the env after parsing declaration blocks
+        -- notice that globEnv is the env after parsing declaration blocks
         (newEnv, newErrors, beBlks) = parseBEBlock globEnv errors1 beBlock
 
 -- Navigates syntax tree and saves info about variables type (declared in a Declaration block) in the global environment

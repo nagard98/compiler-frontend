@@ -44,12 +44,12 @@ defaultEnv = foldl1 Map.union [ Map.singleton "writeInt" (DefaultProc (TypeBaseT
 -- TODO : aggiungere generazione warning quando un identificatore nel env viene sovrascritto? Forse bisogna passare
 -- anche errs come parametro?
 mergeEnvs :: Env -> Env -> Env
-mergeEnvs locEnv globEnv = Map.union locEnv globEnv
+mergeEnvs = Map.union
 
 -- TODO : aggiungere generazione warning quando un identificatore nel env viene sovrascritto? Forse bisogna passare
 -- anche errs come parametro?
 insert :: String -> EnvData -> Env -> Env
-insert id entry env = Map.insert id entry env
+insert = Map.insert
 
 lookup :: String -> Env -> Maybe EnvData
 lookup = Map.lookup
