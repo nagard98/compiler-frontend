@@ -25,9 +25,13 @@ data EnvData = VarType Position Type
 instance Show EnvData where
     show (VarType p (TypeBaseType t)) = "{variable, " ++ show p ++ ", " ++ show t ++ "}"
     show (Constant p (TypeBaseType t)) = "{constant, " ++ show p ++ ", " ++ show t ++ "}"
-    show (DefaultProc (TypeBaseType t)) = " default procedure of type " ++ show t
+    show (DefaultProc (TypeBaseType t)) = " default procedure of type " ++ show t -- TODO: why two implementation of DefaultProc?
     show (DefaultProc t) = " default procedure of type " ++ show t
-    show (Function p prms tp) = "{function," ++ show p ++ ", " ++ show prms ++ ", " ++ show tp ++ "}"
+    show (Function p prms tp) = "{function, " ++ show p ++ ", " ++ show prms ++ ", " ++ show tp ++ "}"
+    show (Procedure p prms) = "{procedure, " ++ show p ++ ", " ++ show prms ++  "}"
+    -- TODO: this line can be reached if show function is not implemented for all type of params
+    -- at the moment, it is not implemented for pointers. This line can be removed when all types can be printed
+    show _ = "CANT_SHOW. IMPLEMENT ME!"
 
 -- Initial environment with default procedures
 -- TODO: le procedure "write" quale tipo devono restituire?

@@ -66,12 +66,14 @@ parseSingleDclBlock env errors blk = case blk of
             (pEnv, pErrs, pPrms) = parseParams params [] tmpEnv errors 
             --TODO : valutare quale env far restituire a parseSingleDclBlock; tmpEnv? oppure fEnv?
             (fEnv, fErrs, annBEB) = parseBEBlock pEnv errors beb
-            
-    --TODO: gestire gli altri 2 casi di DclBlock
-    -- con i costruttori parametrizzati non è più possibile semplicemente passare il blocco ricevuto in input,
-    -- ma bisogna crearne uno nuovo (anche se è uguale [vedi il caso sopra])
-    -- soluzione temporanea finchè non gestiamo gli altri 2 casi (DclBlockPcBlock e DclBlockFcBlock)
-    _ -> (env, errors, DclBlockVrBlock (VarBlock [VarDefinition [IdElement (TokIdent ((0,0),"TODO"))] (TypeBaseType BaseType_integer)]))
+
+    -- add info about procedures to the environment. Same as functions but without return type
+    DclBlockPcBlock pB@(ProcBlock idTok@(TokIdent (pos, id)) params beb) -> (tmpEnv, errors, DclBlockPcBlock (ProcBlock idTok params annBEB))
+        where
+            tmpEnv = Env.insert id (Procedure pos params) env
+
+            (pEnv, pErrs, pPrms) = parseParams params [] tmpEnv errors
+            (fEnv, fErrs, annBEB) = parseBEBlock pEnv errors beb
 
 
 parseParams :: Prms -> [Prm] -> Env -> Errors -> (Env, Errors, Prms)
