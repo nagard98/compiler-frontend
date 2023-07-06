@@ -14,18 +14,20 @@ emptyEnv = Map.empty
 -- TODO: create new constructors as needed
 data EnvData = VarType Position Type
                 | DefaultProc Type
-                | Function Position [Parameter] Type
-                | Procedure Position [Parameter]
+                | Function Position Prms Type
+                | Procedure Position Prms
                 | Constant Position Type
 
-data Parameter = Parameter TokIdent Modality Type 
+-- data Parameter = Parameter TokIdent Modality Type deriving Show
 
+-- TODO: aggiungere gli altri casi per gestire EnvData
 -- make EnvData printable
 instance Show EnvData where
     show (VarType p (TypeBaseType t)) = "{variable, " ++ show p ++ ", " ++ show t ++ "}"
     show (Constant p (TypeBaseType t)) = "{constant, " ++ show p ++ ", " ++ show t ++ "}"
     show (DefaultProc (TypeBaseType t)) = " default procedure of type " ++ show t
     show (DefaultProc t) = " default procedure of type " ++ show t
+    show (Function p prms tp) = "{function," ++ show p ++ ", " ++ show prms ++ ", " ++ show tp ++ "}"
 
 -- Initial environment with default procedures
 -- TODO: le procedure "write" quale tipo devono restituire?
@@ -39,29 +41,15 @@ defaultEnv = foldl1 Map.union [ Map.singleton "writeInt" (DefaultProc (TypeBaseT
                                   Map.singleton "readString" (DefaultProc (TypeBaseType BaseType_string) )]
 
 
--- savese info about variables type in env 
-populateEnvVars :: [VrDef] -> Env -> Env
-populateEnvVars [] env = env
-populateEnvVars (def:vrDefs) env = case def of
-    VarDefinition idElements t -> populateEnvVars vrDefs (addToEnv idElements t env)
-    where addToEnv:: [IdElem] -> Type -> Env -> Env
-          addToEnv [] _ env = env
-          addToEnv ((IdElement (TokIdent (pos, id))):xs) t env = addToEnv xs t (Map.insert id (VarType pos t) env)
+-- TODO : aggiungere generazione warning quando un identificatore nel env viene sovrascritto? Forse bisogna passare
+-- anche errs come parametro?
+mergeEnvs :: Env -> Env -> Env
+mergeEnvs locEnv globEnv = Map.union locEnv globEnv
 
--- savese info about constants type in env 
-populateEnvConsts :: [CsDef] -> Env -> Env
-populateEnvConsts [] env = env
-populateEnvConsts (c:cs) env = case c of
-    ConstDefinition (IdElement (TokIdent (pos, id))) literal ->
-        populateEnvConsts cs (Map.insert id (Constant pos (TypeBaseType (getTypeFromLiteral literal))) env)
-
--- populateEnvFuncs :: FcBlock env infType -> Env -> Env
--- populateEnvFuncs (FuncBlock (TokIdent (pos, id)) params retType _) = Map.insert id (Function pos [] retType)
-    
---     -- TODO: implement function and call it from populateEnvFuncs to save info about parameters
---     -- where 
---         -- addParams:: Prms -> [Parameter]
-
+-- TODO : aggiungere generazione warning quando un identificatore nel env viene sovrascritto? Forse bisogna passare
+-- anche errs come parametro?
+insert :: String -> EnvData -> Env -> Env
+insert id entry env = Map.insert id entry env
 
 lookup :: String -> Env -> Maybe EnvData
 lookup = Map.lookup

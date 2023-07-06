@@ -6,8 +6,9 @@ begin
     return num+1;
 end;
 
-function incr : integer;
+function incr (num2: real): integer;
 begin
+    var g : integer;
     return 51;
 end;
 
