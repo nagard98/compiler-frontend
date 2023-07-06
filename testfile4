@@ -1,11 +1,15 @@
 {In this file we want to test a basic mathematical expressions}
 
 program HelloMath;
-var a: integer; 
-var b, x, y: real, w, z: integer;
-const C = 10;
-const D = 0.33, E = "a string", F = "another string"; 
+var a: array[1..10]of integer; 
+var b: integer;
 begin
-  a := 2.5555;
-  b := 10;
+  b := a[3];
+{*
+  var a2: integer;
+  var c: ^integer;
+  c := a2^;
+  var d: integer;
+  d := @c
+*}
 end.

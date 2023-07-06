@@ -306,8 +306,8 @@ instance Print AbsGrammar.BaseType where
 
 instance Print AbsGrammar.CompType where
   prt i = \case
-    AbsGrammar.CompType1 n1 n2 type_ -> prPrec i 0 (concatD [doc (showString "array"), doc (showString "["), prt 0 n1, doc (showString ".."), prt 0 n2, doc (showString "]"), doc (showString "of"), prt 0 type_])
-    AbsGrammar.CompType2 basetype -> prPrec i 0 (concatD [doc (showString "^"), prt 0 basetype])
+    AbsGrammar.Array n1 n2 type_ -> prPrec i 0 (concatD [doc (showString "array"), doc (showString "["), prt 0 n1, doc (showString ".."), prt 0 n2, doc (showString "]"), doc (showString "of"), prt 0 type_])
+    AbsGrammar.Pointer basetype -> prPrec i 0 (concatD [doc (showString "^"), prt 0 basetype])
 
 instance Print (AbsGrammar.EXPR infType) where
   prt i = \case

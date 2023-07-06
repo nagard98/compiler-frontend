@@ -1068,7 +1068,7 @@ happyReduction_63 (happy_x_8 `HappyStk`
 	case happyOut7 happy_x_5 of { (HappyWrap7 happy_var_5) -> 
 	case happyOut36 happy_x_8 of { (HappyWrap36 happy_var_8) -> 
 	happyIn38
-		 (AbsGrammar.CompType1 happy_var_3 happy_var_5 happy_var_8
+		 (AbsGrammar.Array happy_var_3 happy_var_5 happy_var_8
 	) `HappyStk` happyRest}}}
 
 happyReduce_64 = happySpecReduce_2  34# happyReduction_64
@@ -1076,7 +1076,7 @@ happyReduction_64 happy_x_2
 	happy_x_1
 	 =  case happyOut37 happy_x_2 of { (HappyWrap37 happy_var_2) -> 
 	happyIn38
-		 (AbsGrammar.CompType2 happy_var_2
+		 (AbsGrammar.Pointer happy_var_2
 	)}
 
 happyReduce_65 = happySpecReduce_1  35# happyReduction_65

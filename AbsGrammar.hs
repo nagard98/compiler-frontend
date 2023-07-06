@@ -111,7 +111,7 @@ data BaseType
     | BaseType_error
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data CompType = CompType1 TokInteger TokInteger Type | CompType2 BaseType
+data CompType = Array TokInteger TokInteger Type | Pointer BaseType
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data EXPR infType =

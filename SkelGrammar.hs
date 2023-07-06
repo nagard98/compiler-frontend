@@ -134,8 +134,8 @@ transBaseType x = case x of
 
 transCompType :: AbsGrammar.CompType -> Result
 transCompType x = case x of
-  AbsGrammar.CompType1 integer1 integer2 type_ -> failure x
-  AbsGrammar.CompType2 basetype -> failure x
+  AbsGrammar.Array integer1 integer2 type_ -> failure x
+  AbsGrammar.Pointer basetype -> failure x
 
 transEXPR :: Show infType => AbsGrammar.EXPR infType -> Result
 transEXPR x = case x of
