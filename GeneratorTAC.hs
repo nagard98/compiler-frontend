@@ -4,10 +4,9 @@ import Control.Monad.Trans.State
 import qualified AbsGrammar
 import qualified Control.Monad.Except as AbsGrammar
 import Env
-import qualified Distribution.Simple.Program as AbsGrammar
+import qualified Data.Sequence as DS
 
--- TODO: implementare con Data.Sequence invece che con lista
-type StateTAC = State (Int, [TACInst])
+type StateTAC = State (Int, DS.Seq TACInst)
 
 data TACLabel =
       FuncLab
@@ -60,10 +59,10 @@ newIdAddr = do
 int2VarName :: Int -> Addr
 int2VarName k = ProgVar ("v" ++ show k) 
 
-genTAC :: AbsGrammar.P Env AbsGrammar.Type -> [TACInst]
-genTAC prog = getInstrList (execState (genProg prog) (0,[]))
+genTAC :: AbsGrammar.P Env AbsGrammar.Type -> DS.Seq TACInst
+genTAC prog = getInstrList (execState (genProg prog) (0, DS.empty))
     where
-        getInstrList :: (Int, [TACInst]) -> [TACInst]
+        getInstrList :: (Int, DS.Seq TACInst) -> DS.Seq TACInst
         getInstrList (_, instrList) = instrList
 
 genProg :: AbsGrammar.P Env AbsGrammar.Type -> StateTAC ()
@@ -152,8 +151,7 @@ genBaseExpr (AbsGrammar.BaseExpr bexpr tp) env = case bexpr of
 addInstr :: TACInst -> StateTAC ()
 addInstr tacInst = do
     (tmpCount, tacInstrs) <- get;
-    -- TODO: implementare con Data.Sequence invece che con lista
-    put (tmpCount, tacInstrs ++ [tacInst])
+    put (tmpCount, tacInstrs DS.|> tacInst)
 
 binToTACOp :: AbsGrammar.BinaryOperator -> TACOp
 binToTACOp opr = case opr of

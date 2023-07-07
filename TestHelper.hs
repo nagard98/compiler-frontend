@@ -3,6 +3,7 @@ import TypeChecker
 import Env
 import GeneratorTAC
 import Control.Monad.State.Lazy
+import qualified Data.Sequence as DS
 
 
 -- -- USAGE EXAMPLE
@@ -32,11 +33,11 @@ id2 = TokIdent ((6,3),"a")
 lit2 = LiteralDouble (TokDouble ((6,8),"2.5555"))
 
 -- il primo argomento è la funzione di genExpr da testare (e.g. genUnrExpr)
-testExpr :: (AbsGrammar.EXPR AbsGrammar.Type -> Env -> StateTAC Addr) -> AbsGrammar.EXPR AbsGrammar.Type -> Env -> [TACInst]
-testExpr f expr env = returnTAC $ execState (f expr env) (0, [])
+testExpr :: (AbsGrammar.EXPR AbsGrammar.Type -> Env -> StateTAC Addr) -> AbsGrammar.EXPR AbsGrammar.Type -> Env -> DS.Seq TACInst
+testExpr f expr env = returnTAC $ execState (f expr env) (0, DS.empty)
 
-testStmt :: (AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> StateTAC ()) -> AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> [TACInst]
-testStmt f stmt env = returnTAC $ execState (f stmt env) (0, [])
+testStmts :: ([AbsGrammar.Stmt Env AbsGrammar.Type] -> Env -> StateTAC ()) -> [AbsGrammar.Stmt Env AbsGrammar.Type] -> Env -> DS.Seq TACInst
+testStmts f stmt env = returnTAC $ execState (f stmt env) (0, DS.empty)
 
-returnTAC :: (Int, [TACInst]) -> [TACInst]
+returnTAC :: (Int, DS.Seq TACInst) -> DS.Seq TACInst
 returnTAC (_, instrs) = instrs
