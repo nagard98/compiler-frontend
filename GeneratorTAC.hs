@@ -67,25 +67,40 @@ genTAC prog = getInstrList (execState (genProg prog) (0,[]))
         getInstrList (_, instrList) = instrList
 
 genProg :: AbsGrammar.P Env AbsGrammar.Type -> StateTAC ()
-genProg (AbsGrammar.Prog pBlock dclBlock (AbsGrammar.BegEndBlock stmts scopeEnv) globEnv) = do
+genProg (AbsGrammar.Prog pBlock dclBlocks (AbsGrammar.BegEndBlock stmts scopeEnv) globEnv) = do
     --genDcls dclBlock globEnv
     genStmts stmts scopeEnv
+
+genDcls :: [AbsGrammar.DclBlock Env AbsGrammar.Type] -> Env -> StateTAC ()
+genDcls (dcBlock:dcBlocks) env = do
+    genDcl dcBlock env;
+    genDcls dcBlocks env;
+        where
+            genDcl :: AbsGrammar.DclBlock Env AbsGrammar.Type -> Env -> StateTAC ()
+            genDcl dclBlk env = case dclBlk of
+                AbsGrammar.DclBlockCsBlock csBlock -> error "TODO: implementare genCsBlock"
+                AbsGrammar.DclBlockFcBlock fcBlock -> error "TODO: implementare genFcBlock"
+                AbsGrammar.DclBlockPcBlock pcBlock -> error "TODO: implementare genPcBlock"
+                AbsGrammar.DclBlockVrBlock vrBlock -> error "TODO: implementare genVrBlock"
+
 
 genStmts :: [AbsGrammar.Stmt Env AbsGrammar.Type] -> Env -> StateTAC ()
 genStmts (stmt:stmts) env = do
     genStmt stmt env;
     genStmts stmts env;
-genStmts [] env = do (i,l) <- get; put(i,l)
+        where
+            genStmt :: AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> StateTAC ()
+            genStmt stmt env = case stmt of
+                AbsGrammar.StmtAssign _ _ -> genStmtAssign stmt env
+                AbsGrammar.StmtDecl _ -> error "TODO: implementare genStmtDecl"
+                AbsGrammar.StmtComp _ -> genStmtComp stmt env
+                AbsGrammar.StmtCall _ -> error "TODO: implementare genStmtCall"
+                AbsGrammar.StmtSelect _ -> error "TODO: implementare genStmtSelect"
+                AbsGrammar.StmtIter _ -> error "TODO: implementare genStmtIter"
+                AbsGrammar.StmtReturn _ -> error "TODO: implementare genStmtReturn"
 
-genStmt :: AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> StateTAC ()
-genStmt stmt env = case stmt of
-    AbsGrammar.StmtAssign _ _ -> genStmtAssign stmt env
-    AbsGrammar.StmtDecl _ -> error "TODO: implementare genStmtDecl"
-    AbsGrammar.StmtComp _ -> genStmtComp stmt env
-    AbsGrammar.StmtCall _ -> error "TODO: implementare genStmtCall"
-    AbsGrammar.StmtSelect _ -> error "TODO: implementare genStmtSelect"
-    AbsGrammar.StmtIter _ -> error "TODO: implementare genStmtIter"
-    AbsGrammar.StmtReturn _ -> error "TODO: implementare genStmtReturn"
+genStmts [] env = do return ();
+
 
 genStmtAssign :: AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> StateTAC ()
 genStmtAssign (AbsGrammar.StmtAssign lexpr rexpr) env = do
