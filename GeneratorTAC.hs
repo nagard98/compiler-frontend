@@ -18,8 +18,15 @@ data TACOp =
         | TACSub
         | TACDiv
         | TACMul
+        | TACMod
         | TACOr
         | TACAnd
+        | TACEq
+        | TACNotEq
+        | TACLessT
+        | TACGreatT
+        | TACEqLessT
+        | TACEqGreatT
         | TACNot
         | TACNeg
         | TACRef
@@ -27,7 +34,7 @@ data TACOp =
     deriving (Show)
 
 data TACInst =
-    TACBinAss Addr Addr TACOp Addr
+      TACBinAss Addr Addr TACOp Addr
     | TACUnAss Addr TACOp Addr
     | TACNulAss Addr Addr
     | TACUncdJmp TACLabel
@@ -118,7 +125,7 @@ genExpr expr env = case expr of
     (AbsGrammar.UnaryExpression _ _ _) -> genUnrExpr expr env
     (AbsGrammar.BinaryExpression _ _ _ _) -> genBinExpr expr env
     (AbsGrammar.ExprLiteral _) -> genLitExpr expr env
-    (AbsGrammar.ExprCall _ _) -> error "TODO: Add call expr gen"
+    (AbsGrammar.ExprCall _ _) -> error "TODO: implementare genExprCall"
     (AbsGrammar.BaseExpr _ _) -> genBaseExpr expr env
 
 -- TODO: valutare come usare tp(fare cast) ed env
@@ -159,7 +166,15 @@ binToTACOp opr = case opr of
     AbsGrammar.Sub -> TACSub
     AbsGrammar.Div -> TACDiv
     AbsGrammar.Mul -> TACMul
-    _ -> error "TODO: Add missing TAC Binary operators"
+    AbsGrammar.Mod -> TACMod
+    AbsGrammar.Or -> TACOr
+    AbsGrammar.And -> TACAnd
+    AbsGrammar.Eq -> TACEq
+    AbsGrammar.NotEq -> TACNotEq
+    AbsGrammar.LessT -> TACLessT
+    AbsGrammar.GreatT -> TACGreatT
+    AbsGrammar.EqLessT -> TACEqLessT
+    AbsGrammar.EqGreatT -> TACEqGreatT
 
 unrToTACOp :: AbsGrammar.UnaryOperator -> TACOp
 unrToTACOp opr = case opr of
