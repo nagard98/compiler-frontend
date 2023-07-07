@@ -109,6 +109,7 @@ data BaseType
     | BaseType_char
     | BaseType_string
     | BaseType_error
+    | BaseType_void
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data CompType = Array TokInteger TokInteger Type | Pointer BaseType

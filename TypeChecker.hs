@@ -317,7 +317,7 @@ parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) (arg:args) ) (Params 
                         _ -> Params prms
 
 parseProcedure :: Env -> Errors -> Call infType -> Prms -> (Env, Errors, EXPR Type)
-parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) NoParams = (env, errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) [] ) (TypeBaseType BaseType_error) ) ) -- TODO: tipo void e non error
+parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) NoParams = (env, errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) [] ) (TypeBaseType BaseType_void) ) )
 parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) (Params prms) = (env, ("Error at " ++ show tokpos ++ ": mismatch in number of parameters"):errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) [] ) (TypeBaseType BaseType_error) ) )
 parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) args ) NoParams = (env, ("Error at " ++ show tokpos ++ ": mismatch in number of parameters"):errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) [] ) (TypeBaseType BaseType_error) ) )
 parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) (arg:args) ) (Params (prm:prms) ) = 

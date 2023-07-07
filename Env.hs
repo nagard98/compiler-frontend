@@ -39,11 +39,10 @@ instance Show EnvData where
     show _ = "CANT_SHOW. IMPLEMENT ME!"
 
 -- Initial environment with default procedures
--- TODO: le procedure "write" quale tipo devono restituire?
-defaultEnv = foldl1 Map.union [ Map.singleton "writeInt" (DefaultProc (TypeBaseType BaseType_integer) ),
-                                  Map.singleton "writeReal" (DefaultProc (TypeBaseType BaseType_integer) ),
-                                  Map.singleton "writeChar" (DefaultProc (TypeBaseType BaseType_integer) ),
-                                  Map.singleton "writeString" (DefaultProc (TypeBaseType BaseType_integer) ),
+defaultEnv = foldl1 Map.union [ Map.singleton "writeInt" (DefaultProc (TypeBaseType BaseType_void) ),
+                                  Map.singleton "writeReal" (DefaultProc (TypeBaseType BaseType_void) ),
+                                  Map.singleton "writeChar" (DefaultProc (TypeBaseType BaseType_void) ),
+                                  Map.singleton "writeString" (DefaultProc (TypeBaseType BaseType_void) ),
                                   Map.singleton "readInt" (DefaultProc (TypeBaseType BaseType_integer) ),
                                   Map.singleton "readReal" (DefaultProc (TypeBaseType BaseType_real) ),
                                   Map.singleton "readChar" (DefaultProc (TypeBaseType BaseType_char) ),
