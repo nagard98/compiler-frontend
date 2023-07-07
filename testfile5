@@ -1,0 +1,7 @@
+program HelloMath;
+var b: integer;
+var a: real;
+begin
+    b := 3;
+    a := 4.5 * (-b);
+end.
