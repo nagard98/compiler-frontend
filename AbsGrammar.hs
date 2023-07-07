@@ -10,6 +10,7 @@ module AbsGrammar where
 
 import Prelude (Char, Double, Integer, Int, String)
 import qualified Prelude as C (Eq, Ord, Show, Read)
+import Prelude (Show (show),(++))
 import qualified Data.String
 
 type Position = (Int, Int)
@@ -100,7 +101,7 @@ data IdElem = IdElement TokIdent
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Type = TypeBaseType BaseType | TypeCompType CompType
-  deriving (C.Eq, C.Ord, C.Show, C.Read)
+  deriving (C.Eq, C.Ord, C.Read)
 
 data BaseType
     = BaseType_integer
@@ -110,10 +111,10 @@ data BaseType
     | BaseType_string
     | BaseType_error
     | BaseType_void
-  deriving (C.Eq, C.Ord, C.Show, C.Read)
+  deriving (C.Eq, C.Ord, C.Read)
 
 data CompType = Array TokInteger TokInteger Type | Pointer BaseType
-  deriving (C.Eq, C.Ord, C.Show, C.Read)
+  deriving (C.Eq, C.Ord, C.Read)
 
 data EXPR infType =
       UnaryExpression {operator1 :: UnaryOperator, exp :: EXPR infType, tp :: infType}
@@ -141,3 +142,19 @@ data Literal
     | RealToInt Literal
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
+instance C.Show Type where
+    show (TypeCompType comptype) = show comptype
+    show (TypeBaseType basetype) = show basetype
+    
+instance C.Show CompType where
+    show (Array (TokInteger (_,i1)) (TokInteger (_,i2)) t) = "Array ["++i1++".."++i2++ "] of type " ++ show t 
+    show (Pointer basetype) = "Pointer of " ++ show basetype
+
+instance C.Show BaseType where
+    show (BaseType_integer) = "Integer"
+    show (BaseType_boolean) = "Bool"
+    show (BaseType_real) = "Real"
+    show (BaseType_char) = "Char"
+    show (BaseType_string) = "String"
+    show (BaseType_error) = "Error"
+    show (BaseType_void) = "Void"
