@@ -3,11 +3,11 @@
 program HelloMath;
 var a: array[1..10]of integer; 
 var b: integer;
-function incr(x: integer): integer;
-begin return x+1 end;
+function sum(x,y: integer): integer;
+begin return x+y end;
 begin
   {b := a[3];}
-  b := incr(b) {test chiamata funzione}
+  b := sum(b,a[3]) {test chiamata funzione}
 {*
   var a2: integer;
   var c: ^integer;

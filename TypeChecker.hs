@@ -302,42 +302,50 @@ parseArguments env errs (arg:args) res = parseArguments env2 err2 args (res++[pa
 
 parseFunction :: Env -> Errors -> Call infType -> Prms -> Type -> (Env, Errors, EXPR Type)
 parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) NoParams t = (env, errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) [] ) t ) )
-parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) (Params prms) t = (env, ("Error at " ++ show tokpos ++ ": mismatch in number of parameters"):errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) [] ) (TypeBaseType BaseType_error) ) )
-parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) args ) NoParams t = (env, ("Error at " ++ show tokpos ++ ": mismatch in number of parameters"):errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) [] ) (TypeBaseType BaseType_error) ) )
-parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) (arg:args) ) (Params (prm:prms) ) t = 
+parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) (Params prms) t = (env, ("Error at " ++ show tokpos ++ ": mismatch in number of arguments"):errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) [] ) (TypeBaseType BaseType_error) ) )
+parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) args ) NoParams t = (env, ("Error at " ++ show tokpos ++ ": mismatch in number of arguments"):errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) [] ) (TypeBaseType BaseType_error) ) )
+parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) args ) (Params (prm:prms) ) t = 
     if compatible
         then
-            parseFunction env2 err2 (CallArgs (TokIdent (tokpos,tokid)) args ) newparams t
+            parseFunction env2 err2 (CallArgs (TokIdent (tokpos,tokid)) args2 ) newparams t
         else
-            parseFunction env2 (("Error at " ++ show tokpos ++ ": arguments not compatible"):err2) (CallArgs (TokIdent (tokpos,tokid)) args ) newparams (TypeBaseType BaseType_error)
+            parseFunction env2 err2 (CallArgs (TokIdent (tokpos,tokid)) args2 ) newparams (TypeBaseType BaseType_error)
     where
-        (env2, err2, compatible) = compatibleArgument env errs arg prm
+        (env2, err2, args2, compatible) = compareArguments env errs tokpos args prm True
         newparams = case prms of
                         [] -> NoParams
                         _ -> Params prms
 
 parseProcedure :: Env -> Errors -> Call infType -> Prms -> (Env, Errors, EXPR Type)
 parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) NoParams = (env, errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) [] ) (TypeBaseType BaseType_void) ) )
-parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) (Params prms) = (env, ("Error at " ++ show tokpos ++ ": mismatch in number of parameters"):errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) [] ) (TypeBaseType BaseType_error) ) )
-parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) args ) NoParams = (env, ("Error at " ++ show tokpos ++ ": mismatch in number of parameters"):errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) [] ) (TypeBaseType BaseType_error) ) )
-parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) (arg:args) ) (Params (prm:prms) ) = 
+parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) (Params prms) = (env, ("Error at " ++ show tokpos ++ ": mismatch in number of arguments"):errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) [] ) (TypeBaseType BaseType_error) ) )
+parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) args ) NoParams = (env, ("Error at " ++ show tokpos ++ ": mismatch in number of arguments"):errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) [] ) (TypeBaseType BaseType_error) ) )
+parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) args ) (Params (prm:prms) ) = 
     if compatible
         then
-            parseProcedure env2 err2 (CallArgs (TokIdent (tokpos,tokid)) args ) newparams
+            parseProcedure env2 err2 (CallArgs (TokIdent (tokpos,tokid)) args2 ) newparams
         else
-            parseProcedure env2 (("Error at " ++ show tokpos ++ ": arguments not compatible"):err2) (CallArgs (TokIdent (tokpos,tokid)) args ) newparams
+            parseProcedure env2 err2 (CallArgs (TokIdent (tokpos,tokid)) args2 ) newparams
     where
-        (env2, err2, compatible) = compatibleArgument env errs arg prm
+        (env2, err2, args2, compatible) = compareArguments env errs tokpos args prm True
         newparams = case prms of
                         [] -> NoParams
                         _ -> Params prms
- 
--- TODO: usare token inclusi in Prm per stampare migliori messaggi di errore (che indicano precisamente la colonna del parametro errato)
-compatibleArgument :: Env-> Errors -> EXPR infType -> Prm -> (Env, Errors, Bool)
-compatibleArgument env errs expr (Param _ _ t) = (env2, err2, (getTypeFromExpression parsedexpr) == t) 
+
+-- Parses arguments of the same type defined together and print accurate error messages with position of arguments
+-- Boolean parameter keeps track of whether all arguments are of correct type
+compareArguments :: Env -> Errors -> Position -> [EXPR infType] -> Prm -> Bool -> (Env, Errors, [EXPR infType], Bool)
+compareArguments env errs p [] (Param _ [] t) comp = (env, errs, [], comp)
+compareArguments env errs p args (Param _ [] t) comp = (env, errs, args, comp)
+compareArguments env errs p [] (Param _ toks t) comp = (env, errs, [], False)
+compareArguments env errs p (expr:args) (Param m ((IdElement (TokIdent (_,parid))):toks) t) comp = 
+    if (getTypeFromExpression parsedexpr) == t
+    then
+        compareArguments env2 err2 p args (Param m toks t) comp
+    else
+        compareArguments env2 (("Error at "++ show p ++": parameter "++ parid ++" is assigned type " ++ show (getTypeFromExpression parsedexpr) ++ " but it should be of type " ++ show t):err2) p args (Param m toks t) False
     where
         (env2, err2, parsedexpr) = parseExpression env errs expr
-
 
 parseBinaryBooleanExpression :: Env -> Errors -> BinaryOperator -> EXPR infType -> EXPR infType -> (Env, Errors, EXPR Type)
 parseBinaryBooleanExpression env errs op exp1 exp2
