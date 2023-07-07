@@ -1,6 +1,8 @@
 module TypeChecker where
 import AbsGrammar
 import Env
+import Text.Parsec (parserReturn)
+import Data.Text.Array (new)
 
 type Errors = [String]
 emptyErrors :: [String]
@@ -32,7 +34,7 @@ parseSingleDclBlock env errors blk = case blk of
 
     -- add info about variables to the environment
     DclBlockVrBlock (VarBlock vrDefs) -> (newEnv, errors, DclBlockVrBlock (VarBlock vrDefs))
-        where 
+        where
             -- savese info about variables type in env 
             parseVrDefs :: [VrDef] -> Env -> Env
             parseVrDefs [] env = env
@@ -143,9 +145,30 @@ parseStatement stmt env errs = case stmt of
             -- Iterazione
             (StmtIter iter) -> (env, errs, exStmtIter )
             -- Return
-            (StmtReturn return) -> (env, errs, exStmtReturn )
+            -- (StmtReturn return)  -> parseReturn (StmtReturn return) env errs
+            (StmtReturn return)  ->  (env, "THIS IS A NEW ERROR":errs, exStmtReturn )
 
--- TODO: implement parseReturn 
+-- parseReturn :: Stmt env infType -> Env -> Errors -> (Env, Errors, Stmt Env Type)
+-- parseReturn (StmtReturn (Ret expr)) env errs = 
+--     case Env.lookup "return" env of 
+--     Just (Return expectedType) ->
+--         if sup expectedType (getTypeFromExpression parsedExpr) /= expectedType
+--             then ( newEnv,
+--                     "returned type not compatibile with return type of function": newErrs, 
+--                      StmtReturn (Ret parsedExpr))
+--             else
+--                 -- everything is ok, return the parsed expression 
+--                 (newEnv, newErrs, StmtReturn (Ret parsedExpr))
+--     Nothing -> 
+--         -- Theoretically this should never happen, 
+--         -- since the return type of the fucntion is saved in the environment when the function is parsed
+--         (newEnv,
+--         "Internal Type checking error: return type of function x in pos (x, y) was not saved in the environment": newErrs,
+--         StmtReturn (Ret parsedExpr))
+
+--     where (newEnv, newErrs, parsedExpr) = parseExpression env errs expr
+
+
 
 parseAssignment :: Stmt env infType -> Env -> Errors -> (Env, Errors, Stmt Env Type)
 parseAssignment ass env errs = case ass of
