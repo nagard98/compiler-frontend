@@ -272,29 +272,71 @@ parseExpression env errs (UnaryExpression Reference exp t) = case getTypeFromExp
 parseExpression env errs (ExprLiteral literal) = (env, errs, (ExprLiteral literal) )
 
 -- Function calls
--- parseExpression env errs (ExprCall call t) = parseFunctionCall env errs call
+parseExpression env errs (ExprCall call t) = parseFunctionCall env errs call
 
 -- Base Expressions: identifies or array elements
 parseExpression env errs (BaseExpr bexpr t) = parseBaseExpression env errs bexpr
 
-parseExpression env errs expr = (env, errs, (ExprLiteral (LiteralInteger (TokInteger ((0,0), "10")))) ) -- temporaneamente ogni espressione non specificata diventa il numero 10
+-- parseExpression env errs expr = (env, errs, (ExprLiteral (LiteralInteger (TokInteger ((0,0), "10")))) ) -- temporaneamente ogni espressione non specificata diventa il numero 10 (ora ridondante)
 
 
--- parseFunctionCall :: Env -> Errors -> Call inftType -> (Env, Errors, EXPR Type)
--- parseFunctionCall env errs (CallArgs (TokIdent (tokpos,tokid)) args ) = case Env.lookup tokid env of
---     Just (Function pos parameters t) -> parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) args ) parameters t
---     Just (Procedure pos parameters) -> parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) args ) parameters
---     Just (DefaultProc t) -> (env, errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) args ) t ) ) --TODO: refactoring procedure default nell'environment
---     Just (Constant pos t) -> (env, ("Error at " ++ show tokpos ++". Identifier " ++ tokid ++" is used as a function/procedure but it is a constant."):errs,
---                 (ExprCall (CallArgs (TokIdent (tokpos,tokid)) args ) (TypeBaseType BaseType_error) ) )
---     Just (VarType pos t) -> (env, ("Error at " ++ show tokpos ++". Identifier " ++ tokid ++" is used as a function/procedure but it is a variable."):errs,
---                 (ExprCall (CallArgs (TokIdent (tokpos,tokid)) args ) (TypeBaseType BaseType_error) ) ) 
---     Nothing -> (env, ("Error at " ++ show tokpos ++". Unknown identifier: " ++ tokid ++" is used but has never been declared."):errs,
---                 (ExprCall (CallArgs (TokIdent (tokpos,tokid)) args ) (TypeBaseType BaseType_error) ) ) 
+parseFunctionCall :: Env -> Errors -> Call infType -> (Env, Errors, EXPR Type)
+parseFunctionCall env errs (CallArgs (TokIdent (tokpos,tokid)) args ) = case Env.lookup tokid env of
+    Just (Function pos parameters t) -> parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) args ) parameters t
+    Just (Procedure pos parameters) -> parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) args ) parameters
+    Just (DefaultProc t) -> (env, errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) parsedargs ) t ) ) --TODO: refactoring procedure default nell'environment
+    Just (Constant pos t) -> (env, ("Error at " ++ show tokpos ++". Identifier " ++ tokid ++" is used as a function/procedure but it is a constant."):errs,
+                (ExprCall (CallArgs (TokIdent (tokpos,tokid)) parsedargs ) (TypeBaseType BaseType_error) ) )
+    Just (VarType pos t) -> (env, ("Error at " ++ show tokpos ++". Identifier " ++ tokid ++" is used as a function/procedure but it is a variable."):errs,
+                (ExprCall (CallArgs (TokIdent (tokpos,tokid)) parsedargs ) (TypeBaseType BaseType_error) ) ) 
+    Nothing -> (env, ("Error at " ++ show tokpos ++". Unknown identifier: " ++ tokid ++" is used but has never been declared."):errs,
+                (ExprCall (CallArgs (TokIdent (tokpos,tokid)) parsedargs ) (TypeBaseType BaseType_error) ) ) 
+    where
+        (env2, err2, parsedargs) = parseArguments env errs args []
 
--- -- TODO
--- parseFunction :: Env -> Errors -> Call infType -> Type -> (Env, Errors, EXPR Type)
--- parseProcedure :: Env -> Errors -> Call infType -> (Env, Errors, EXPR Type)
+parseArguments :: Env -> Errors -> [EXPR infType] -> [EXPR Type] -> (Env, Errors, [EXPR Type])
+parseArguments env errs [] res = (env, errs, res)
+parseArguments env errs (arg:args) res = parseArguments env2 err2 args (res++[parsedexpr])
+    where
+        (env2, err2, parsedexpr) = parseExpression env errs arg
+
+parseFunction :: Env -> Errors -> Call infType -> Prms -> Type -> (Env, Errors, EXPR Type)
+parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) NoParams t = (env, errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) [] ) t ) )
+parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) (Params prms) t = (env, ("Error at " ++ show tokpos ++ ": mismatch in number of parameters"):errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) [] ) (TypeBaseType BaseType_error) ) )
+parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) args ) NoParams t = (env, ("Error at " ++ show tokpos ++ ": mismatch in number of parameters"):errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) [] ) (TypeBaseType BaseType_error) ) )
+parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) (arg:args) ) (Params (prm:prms) ) t = 
+    if compatible
+        then
+            parseFunction env2 err2 (CallArgs (TokIdent (tokpos,tokid)) args ) newparams t
+        else
+            parseFunction env2 (("Error at " ++ show tokpos ++ ": arguments not compatible"):err2) (CallArgs (TokIdent (tokpos,tokid)) args ) newparams (TypeBaseType BaseType_error)
+    where
+        (env2, err2, compatible) = compatibleArgument env errs arg prm
+        newparams = case prms of
+                        [] -> NoParams
+                        _ -> Params prms
+
+parseProcedure :: Env -> Errors -> Call infType -> Prms -> (Env, Errors, EXPR Type)
+parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) NoParams = (env, errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) [] ) (TypeBaseType BaseType_error) ) ) -- TODO: tipo void e non error
+parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) (Params prms) = (env, ("Error at " ++ show tokpos ++ ": mismatch in number of parameters"):errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) [] ) (TypeBaseType BaseType_error) ) )
+parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) args ) NoParams = (env, ("Error at " ++ show tokpos ++ ": mismatch in number of parameters"):errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) [] ) (TypeBaseType BaseType_error) ) )
+parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) (arg:args) ) (Params (prm:prms) ) = 
+    if compatible
+        then
+            parseProcedure env2 err2 (CallArgs (TokIdent (tokpos,tokid)) args ) newparams
+        else
+            parseProcedure env2 (("Error at " ++ show tokpos ++ ": arguments not compatible"):err2) (CallArgs (TokIdent (tokpos,tokid)) args ) newparams
+    where
+        (env2, err2, compatible) = compatibleArgument env errs arg prm
+        newparams = case prms of
+                        [] -> NoParams
+                        _ -> Params prms
+ 
+-- TODO: usare token inclusi in Prm per stampare migliori messaggi di errore (che indicano precisamente la colonna del parametro errato)
+compatibleArgument :: Env-> Errors -> EXPR infType -> Prm -> (Env, Errors, Bool)
+compatibleArgument env errs expr (Param _ _ t) = (env2, err2, (getTypeFromExpression parsedexpr) == t) 
+    where
+        (env2, err2, parsedexpr) = parseExpression env errs expr
 
 
 parseBinaryBooleanExpression :: Env -> Errors -> BinaryOperator -> EXPR infType -> EXPR infType -> (Env, Errors, EXPR Type)

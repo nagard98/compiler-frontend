@@ -3,8 +3,11 @@
 program HelloMath;
 var a: array[1..10]of integer; 
 var b: integer;
+function incr(x: integer): integer;
+begin return x+1 end;
 begin
-  b := a[3];
+  {b := a[3];}
+  b := incr(b) {test chiamata funzione}
 {*
   var a2: integer;
   var c: ^integer;
