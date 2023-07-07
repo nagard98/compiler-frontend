@@ -18,16 +18,25 @@ data TACOp =
         | TACSub
         | TACDiv
         | TACMul
+        | TACMod
         | TACOr
         | TACAnd
+        | TACEq
+        | TACNotEq
+        | TACLessT
+        | TACGreatT
+        | TACEqLessT
+        | TACEqGreatT
         | TACNot
         | TACNeg
         | TACRef
         | TACDeref
+        -- TODO: usare un tipo specifico per TAC
+        | TACCast AbsGrammar.Type
     deriving (Show)
 
 data TACInst =
-    TACBinAss Addr Addr TACOp Addr
+      TACBinAss Addr Addr TACOp Addr
     | TACUnAss Addr TACOp Addr
     | TACNulAss Addr Addr
     | TACUncdJmp TACLabel
@@ -36,7 +45,7 @@ data TACInst =
     | TACIndxLd Addr Addr Addr
     deriving (Show)
 
--- TODO : implementare correttamente; soluzione solo temporanea
+-- TODO : implementare correttamente in modo che recuperi l'addr dal env; soluzione solo temporanea
 getIdAddr :: String -> Env -> StateTAC Addr
 getIdAddr id env = newIdAddr
 
@@ -118,7 +127,7 @@ genExpr expr env = case expr of
     (AbsGrammar.UnaryExpression _ _ _) -> genUnrExpr expr env
     (AbsGrammar.BinaryExpression _ _ _ _) -> genBinExpr expr env
     (AbsGrammar.ExprLiteral _) -> genLitExpr expr env
-    (AbsGrammar.ExprCall _ _) -> error "TODO: Add call expr gen"
+    (AbsGrammar.ExprCall _ _) -> error "TODO: implementare genExprCall"
     (AbsGrammar.BaseExpr _ _) -> genBaseExpr expr env
 
 -- TODO: valutare come usare tp(fare cast) ed env
@@ -126,6 +135,10 @@ genUnrExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Env -> StateTAC Addr
 genUnrExpr (AbsGrammar.UnaryExpression op exp1 tp) env = do
     tmpAddr <- newTmpAddr;
     exprAddr <- genExpr exp1 env;
+    exprType <- getExprType exp1;
+
+    exprAddr <- castIfNecessary exprAddr exprType tp;
+
     addInstr (TACUnAss tmpAddr (unrToTACOp op) exprAddr);
     return tmpAddr;
 genUnrExpr _ _ = error "TODO: gestire errore genUnrExpr"
@@ -135,10 +148,35 @@ genBinExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Env -> StateTAC Addr
 genBinExpr (AbsGrammar.BinaryExpression op exp1 exp2 infType) env = do
     tmpAddr <- newTmpAddr;
     exprAddr1 <- genExpr exp1 env;
+    expr1Type <- getExprType exp1;
     exprAddr2 <- genExpr exp2 env;
+    expr2Type <- getExprType exp2;
+
+    exprAddr1 <- castIfNecessary exprAddr1 expr1Type infType;
+    exprAddr2 <- castIfNecessary exprAddr2 expr2Type infType;
+
     addInstr (TACBinAss tmpAddr exprAddr1 (binToTACOp op) exprAddr2);
     return tmpAddr;
 genBinExpr _ _ = error "TODO: gestire errore genBinExpr"
+
+castIfNecessary :: Addr -> AbsGrammar.Type -> AbsGrammar.Type -> StateTAC Addr
+castIfNecessary exprAddr exprType castType = do
+    if exprType == castType 
+        then return exprAddr;
+        else do 
+            tmpAddr <- newTmpAddr;
+            addInstr (TACUnAss tmpAddr (TACCast castType) exprAddr)
+            return tmpAddr;
+
+
+getExprType :: AbsGrammar.EXPR AbsGrammar.Type -> StateTAC AbsGrammar.Type
+getExprType expr = case expr of
+    AbsGrammar.UnaryExpression _ _ tp -> return tp;
+    AbsGrammar.BinaryExpression _ _ _ tp -> return tp;
+    AbsGrammar.ExprCall _ tp -> return tp;
+    AbsGrammar.BaseExpr _ tp -> return tp;
+    AbsGrammar.ExprLiteral lit -> return (AbsGrammar.TypeBaseType (Env.getTypeFromLiteral lit));
+
 
 genLitExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Env -> StateTAC Addr
 genLitExpr (AbsGrammar.ExprLiteral lit) env = return (TacLit lit)
@@ -159,7 +197,15 @@ binToTACOp opr = case opr of
     AbsGrammar.Sub -> TACSub
     AbsGrammar.Div -> TACDiv
     AbsGrammar.Mul -> TACMul
-    _ -> error "TODO: Add missing TAC Binary operators"
+    AbsGrammar.Mod -> TACMod
+    AbsGrammar.Or -> TACOr
+    AbsGrammar.And -> TACAnd
+    AbsGrammar.Eq -> TACEq
+    AbsGrammar.NotEq -> TACNotEq
+    AbsGrammar.LessT -> TACLessT
+    AbsGrammar.GreatT -> TACGreatT
+    AbsGrammar.EqLessT -> TACEqLessT
+    AbsGrammar.EqGreatT -> TACEqGreatT
 
 unrToTACOp :: AbsGrammar.UnaryOperator -> TACOp
 unrToTACOp opr = case opr of
