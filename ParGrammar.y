@@ -111,14 +111,6 @@ BEBlock :: { AbsGrammar.BEBlock }
 BEBlock
   : 'begin' ListStmt 'end' { AbsGrammar.BegEndBlock $2 }
 
---BegEndStmt :: { AbsGrammar.BegEndStmt }
---BegEndStmt
- -- : Stmt ';' { AbsGrammar.BegEndStmt1 $1 }
-  --| DclBlock { AbsGrammar.BegEndStmtDclBlock $1 }
-
---ListBegEndStmt :: { [AbsGrammar.BegEndStmt] }
---ListBegEndStmt
- -- : {- empty -} { [] } | BegEndStmt ListBegEndStmt { (:) $1 $2 }
 
 Stmt :: { AbsGrammar.Stmt }
 Stmt

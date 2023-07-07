@@ -6,6 +6,9 @@ import qualified Control.Monad.Except as AbsGrammar
 import Env
 import qualified Data.Sequence as DS
 
+-- Stato che contiene
+--  1) contatore del numero di variabili temporanee create
+--  2) Sequenza di istruzioni TAC generate
 type StateTAC = State (Int, DS.Seq TACInst)
 
 data TACLabel =
@@ -49,6 +52,17 @@ data TACInst =
 getIdAddr :: String -> Env -> StateTAC Addr
 getIdAddr id env = newIdAddr
 
+-- TODO : implementare correttamente; soluzione solo temporanea
+newIdAddr :: StateTAC Addr
+newIdAddr = do
+    (k, ls) <- get;
+    put (k+1, ls);
+    return (int2VarName k)
+
+-- TODO : soluzione solo temporanea; rimuovere quando implementato correttamente
+int2VarName :: Int -> Addr
+int2VarName k = ProgVar ("v" ++ show k) 
+
 newTmpAddr :: StateTAC Addr
 newTmpAddr = do
     (k, ls)<-get;
@@ -57,16 +71,6 @@ newTmpAddr = do
 
 int2TmpName :: Int -> Addr
 int2TmpName k = Temporary ("t" ++ show k)
-
--- TODO : implementare correttamente; soluzione solo temporanea
-newIdAddr :: StateTAC Addr
-newIdAddr = do
-    (k, ls) <- get;
-    put (k+1, ls);
-    return (int2VarName k)
-
-int2VarName :: Int -> Addr
-int2VarName k = ProgVar ("v" ++ show k) 
 
 genTAC :: AbsGrammar.P Env AbsGrammar.Type -> DS.Seq TACInst
 genTAC prog = getInstrList (execState (genProg prog) (0, DS.empty))
@@ -130,7 +134,7 @@ genExpr expr env = case expr of
     (AbsGrammar.ExprCall _ _) -> error "TODO: implementare genExprCall"
     (AbsGrammar.BaseExpr _ _) -> genBaseExpr expr env
 
--- TODO: valutare come usare tp(fare cast) ed env
+
 genUnrExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Env -> StateTAC Addr
 genUnrExpr (AbsGrammar.UnaryExpression op exp1 tp) env = do
     tmpAddr <- newTmpAddr;
@@ -143,7 +147,7 @@ genUnrExpr (AbsGrammar.UnaryExpression op exp1 tp) env = do
     return tmpAddr;
 genUnrExpr _ _ = error "TODO: gestire errore genUnrExpr"
 
--- TODO: valutare come usare tp(fare cast) ed env
+
 genBinExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Env -> StateTAC Addr
 genBinExpr (AbsGrammar.BinaryExpression op exp1 exp2 infType) env = do
     tmpAddr <- newTmpAddr;
@@ -158,6 +162,7 @@ genBinExpr (AbsGrammar.BinaryExpression op exp1 exp2 infType) env = do
     addInstr (TACBinAss tmpAddr exprAddr1 (binToTACOp op) exprAddr2);
     return tmpAddr;
 genBinExpr _ _ = error "TODO: gestire errore genBinExpr"
+
 
 castIfNecessary :: Addr -> AbsGrammar.Type -> AbsGrammar.Type -> StateTAC Addr
 castIfNecessary exprAddr exprType castType = do
@@ -214,6 +219,7 @@ unrToTACOp opr = case opr of
     AbsGrammar.Reference -> TACRef
     AbsGrammar.Dereference -> TACDeref
 
+-- struttura dati che rappresenta i 3 tipi di address utilizzabili in TAC
 data Addr =
       ProgVar { var :: String }
     | TacLit { tacLit :: AbsGrammar.Literal }

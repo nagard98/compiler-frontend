@@ -32,10 +32,6 @@ transBEBlock :: (Show env, Show infType)  => AbsGrammar.BEBlock env infType -> R
 transBEBlock x = case x of
   AbsGrammar.BegEndBlock stmts env -> failure x
 
---transBegEndStmt :: AbsGrammar.BegEndStmt -> Result
---transBegEndStmt x = case x of
-  --AbsGrammar.BegEndStmt1 stmt -> failure x
-  --AbsGrammar.BegEndStmtDclBlock dclblock -> failure x
 
 transStmt :: (Show env, Show infType)  => AbsGrammar.Stmt env infType -> Result
 transStmt x = case x of

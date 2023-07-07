@@ -166,14 +166,6 @@ instance Print (AbsGrammar.BEBlock env infType) where
   prt i = \case
     AbsGrammar.BegEndBlock stmts env -> prPrec i 0 (concatD [doc (showString "begin"), prt 0 stmts, doc (showString "end")])
 
---instance Print AbsGrammar.BegEndStmt where
-  --prt i = \case
-    --AbsGrammar.BegEndStmt1 stmt -> prPrec i 0 (concatD [prt 0 stmt, doc (showString ";")])
-    --AbsGrammar.BegEndStmtDclBlock dclblock -> prPrec i 0 (concatD [prt 0 dclblock])
-
---instance Print [AbsGrammar.BegEndStmt] where
-  --prt _ [] = concatD []
-  --prt _ (x:xs) = concatD [prt 0 x, prt 0 xs]
 
 instance Print (AbsGrammar.Stmt env infType) where
   prt i = \case

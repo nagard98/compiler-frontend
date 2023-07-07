@@ -8,8 +8,6 @@ emptyErrors = []
 
 -- Type Checking starting point
 parseTree :: P env infType -> Env -> Errors -> (Env, Errors, P Env Type)
--- TODO: anche qui valutare se restituire newEnv o env1; Probabilmente dovremmo aggiungere anche un
--- campo env a Prog che indichi l'environment globale
 parseTree (Prog pBlock dclBlock beBlock _) env errs = (newEnv, newErrors, Prog pBlock dBlks beBlks globEnv)
     where
         (globEnv, errors1, dBlks) = parseDclBlocks env errs dclBlock
@@ -39,7 +37,6 @@ parseSingleDclBlock env errors blk = case blk of
             parseVrDefs (def:vrDefs) env = case def of
                 VarDefinition idElements t -> parseVrDefs vrDefs newEnv
                     where
-                        -- TODO : probabilmente necessaria gestione errori
                         (newEnv, newErrs, _) = parseIds idElements t env []
 
             newEnv = parseVrDefs vrDefs env
@@ -58,14 +55,12 @@ parseSingleDclBlock env errors blk = case blk of
 
     -- add info about functions to the environment
     -- info are: function position, function name, parameters, return type
-    -- TODO: pass global environment to begin-end block and parse inner statemets
     DclBlockFcBlock fB@(FuncBlock idTok@(TokIdent (pos, id)) params retType beb) -> (tmpEnv, errors, DclBlockFcBlock (FuncBlock idTok params retType annBEB))
         where
             -- add to env return type (needed for type checking of the return statement) and function info
             tmpEnv = Env.mergeEnvs env (Env.fromList [(id, Function pos params retType), ("return", Return retType)])
 
             (pEnv, pErrs, pPrms) = parseParams params [] tmpEnv errors
-            --TODO : valutare quale env far restituire a parseSingleDclBlock; tmpEnv? oppure fEnv?
             (fEnv, fErrs, annBEB) = parseBEBlock pEnv errors beb
 
     -- add info about procedures to the environment. Same as functions but without return type
@@ -177,8 +172,6 @@ parseLitAssignment (TokIdent (idPos, idVal)) literal env errors = case Env.looku
                 (TypeBaseType BaseType_real, BaseType_integer) -> (env, errors, StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) (ExprLiteral (IntToReal literal) ))
                 (TypeBaseType BaseType_integer, BaseType_real) -> (env, errors, StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) (ExprLiteral (RealToInt literal) ))
                 -- In case of errors the tree is not annotated. 
-                -- TODO: maybe we should annotate it with the type of the literal? or don't annotate it at all?
-                -- Per il momento ho aggiunto un come tipo envType
                 (_, _)  -> (env, ("Error at " ++ show idPos ++ ". Incompatible types: you can't assign a value of type " ++ show (getTypeFromLiteral literal) ++ " to " ++ idVal ++ " because it has type " ++ show envType) :errors, StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) (ExprLiteral literal) )
     Nothing -> (env,
                 ("Error at " ++ show idPos ++
@@ -254,7 +247,7 @@ parseExpression env errs (BinaryExpression EqLessT exp1 exp2 t) = parseBinaryRel
 parseExpression env errs (BinaryExpression GreatT exp1 exp2 t) = parseBinaryRelationExpression env errs GreatT exp1 exp2
 parseExpression env errs (BinaryExpression EqGreatT exp1 exp2 t) = parseBinaryRelationExpression env errs EqGreatT exp1 exp2
 
--- Dereference --TODO: consentire puntatori ad array e ad altri puntatori?
+-- Dereference
 parseExpression env errs (UnaryExpression Dereference exp t) = case getTypeFromExpression parsedexp of
     TypeBaseType basetype -> (env2, errs2, (UnaryExpression Dereference parsedexp (TypeCompType (Pointer basetype)) ))
     otherwise -> (env2, ("Error. Dereference operation on type "++ show (getTypeFromExpression parsedexp) ++" is not allowed because it is not a base type."):errs2, (UnaryExpression Dereference parsedexp (TypeBaseType BaseType_error) ))
@@ -310,7 +303,6 @@ parseBinaryBooleanExpression env errs op exp1 exp2
         getStringFromOperator Or = "'Or'"
         getStringFromOperator _ = ""
 
--- TODO: nodo di casting implicito nel caso di operazione tra numeri interi e reali? (es. 10*1.1)
 parseBinaryArithmeticExpression :: Env -> Errors -> BinaryOperator -> EXPR infType -> EXPR infType -> (Env, Errors, EXPR Type)
 parseBinaryArithmeticExpression env errs op exp1 exp2
     -- 3 cases: 1) first element not numeric, 2) second argument not numeric, 3) no errors

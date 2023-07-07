@@ -45,8 +45,6 @@ VarDefinition.      VrDef ::= [IdElem] ":" Type;
 separator nonempty VrDef "," ;
 
 ConstBlock.         CsBlock ::= "const" [CsDef];
---TODO: valutare quali tipi possono essere costanti
---TODO: forse possibile iniziallizzare con una costante prima definita; possiamo valutare più tardi; [NON FONDAMENTALE]
 ConstDefinition.    CsDef ::= IdElem "=" Literal;
 separator nonempty CsDef ",";
 

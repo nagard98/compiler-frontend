@@ -28,17 +28,16 @@ newtype TokString = TokString (Position, String)
 newtype TokBoolean = TokBoolean (Position, String)
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
+-- blocco programma annotato con l'environment globale
 data P env infType = Prog PBlock [DclBlock env infType] (BEBlock env infType) env
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data PBlock = ProgBlock TokIdent
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
+-- blocchi BegEnd annotati con l'environment
 data BEBlock env infType = BegEndBlock [Stmt env infType] env
   deriving (C.Eq, C.Ord, C.Show, C.Read)
-
---data BegEndStmt = BegEndStmt1 Stmt | BegEndStmtDclBlock DclBlock
---  deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Stmt env infType
     = StmtDecl (DclBlock env infType)
@@ -114,6 +113,7 @@ data BaseType
 data CompType = Array TokInteger TokInteger Type | Pointer BaseType
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
+-- espressioni annotate con il tipo inferito
 data EXPR infType =
       UnaryExpression {operator1 :: UnaryOperator, exp :: EXPR infType, tp :: infType}
     | BinaryExpression {operator2 :: BinaryOperator, exp1, exp2 :: EXPR infType, tp :: infType }
