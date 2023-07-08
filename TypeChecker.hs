@@ -63,7 +63,9 @@ parseSingleDclBlock env errors blk = case blk of
         (finalEnv, finalErrors, DclBlockFcBlock (FuncBlock idTok params retType annotatedBEB))
         where
             -- add to env return type (needed for type checking of the return statement) and function info
-            tmpEnv = Env.mergeEnvs env (Env.fromList [(id, Function pos params retType), ("return", Return retType)])
+            -- IMPORTANT NOTE: env must be the secondo argument of mergeEnvs, otherwise the new "return" key will not be updated
+            -- this is because the underlying function union (t1, t2) of Data.Map prefers t1 when duplicated keys are encountered 
+            tmpEnv = Env.mergeEnvs (Env.fromList [(id, Function pos params retType), ("return", Return retType)]) env
 
             (tmpEnv2, tmpErrors2, annotatedParams) = parseParams params [] tmpEnv errors
 
@@ -117,7 +119,6 @@ parseStatements env errors allStmts =  q env errors allStmts []
 exStmtCall = StmtCall (CallArgs (TokIdent ((0,0),"funzioneDiEsempio")) [])
 exStmtSelect = StmtSelect (StmtIf (ExprLiteral (LiteralInteger (TokInteger ((36,30), "10")))) (StmtReturn (Ret (ExprLiteral (LiteralInteger (TokInteger ((36,30), "10")) ) ) )) )
 exStmtIter = StmtIter (StmtWhileDo (ExprLiteral (LiteralInteger (TokInteger ((36,30), "10")))) (StmtReturn (Ret (ExprLiteral (LiteralInteger (TokInteger ((36,30), "10")) ) ) )) )
-exStmtReturn = StmtReturn (Ret (ExprLiteral (LiteralInteger (TokInteger ((36,30), "10")) ) ) )
 
 
 parseStatement :: Stmt stmtenv infType -> Env -> Errors -> (Env, Errors, Stmt Env Type)
@@ -144,28 +145,28 @@ parseStatement stmt env errs = case stmt of
             -- Iterazione
             (StmtIter iter) -> (env, errs, exStmtIter )
             -- Return
-            -- (StmtReturn return)  -> parseReturn (StmtReturn return) env errs
-            (StmtReturn return)  ->  (env, "THIS IS A NEW ERROR":errs, exStmtReturn )
+            (StmtReturn return)  -> parseReturn (StmtReturn return) env errs
 
--- parseReturn :: Stmt env infType -> Env -> Errors -> (Env, Errors, Stmt Env Type)
--- parseReturn (StmtReturn (Ret expr)) env errs = 
---     case Env.lookup "return" env of 
---     Just (Return expectedType) ->
---         if sup expectedType (getTypeFromExpression parsedExpr) /= expectedType
---             then ( newEnv,
---                     "returned type not compatibile with return type of function": newErrs, 
---                      StmtReturn (Ret parsedExpr))
---             else
---                 -- everything is ok, return the parsed expression 
---                 (newEnv, newErrs, StmtReturn (Ret parsedExpr))
---     Nothing -> 
---         -- Theoretically this should never happen, 
---         -- since the return type of the fucntion is saved in the environment when the function is parsed
---         (newEnv,
---         "Internal Type checking error: return type of function x in pos (x, y) was not saved in the environment": newErrs,
---         StmtReturn (Ret parsedExpr))
+parseReturn :: Stmt env infType -> Env -> Errors -> (Env, Errors, Stmt Env Type)
+parseReturn (StmtReturn (Ret expr)) env errs = 
+    case Env.lookup "return" env of 
+    Just (Return expectedType) ->
+        if sup expectedType (getTypeFromExpression parsedExpr) /= expectedType
+            then ( newEnv,
+                    "returned type not compatibile with return type of function": newErrs, 
+                     StmtReturn (Ret parsedExpr))
+            else
+                -- everything is ok, return the parsed expression 
+                (newEnv, newErrs, StmtReturn (Ret parsedExpr))
+    Nothing -> 
+        -- Theoretically this should never happen, 
+        -- since the return type of the fucntion is saved in the environment when the function is parsed
+        (newEnv,
+        "Internal Type checking error: return type of function x in pos (x, y) was not saved in the environment": newErrs,
+        StmtReturn (Ret parsedExpr))
 
---     where (newEnv, newErrs, parsedExpr) = parseExpression env errs expr
+    where 
+        (newEnv, newErrs, parsedExpr) = parseExpression env errs expr
 
 
 
