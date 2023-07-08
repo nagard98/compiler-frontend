@@ -1,9 +1,0 @@
-{Example used to test the parsing of the return statement}
-
-program Hello1;
-begin
-    function incr (num: integer) : boolean;
-    begin
-        return num+1;
-    end;
-end.

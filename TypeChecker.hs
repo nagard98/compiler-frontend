@@ -86,11 +86,13 @@ parseDclCsBlock env errors (DclBlockCsBlock (ConstBlock csDefs)) = do
 parseDclFcBlock :: Env -> Errors -> DclBlock env infType -> StateCount (Env, Errors, DclBlock Env Type)
 parseDclFcBlock env errors (DclBlockFcBlock fB@(FuncBlock idTok@(TokIdent (pos, id)) params retType beb)) = do 
     -- add to env return type (needed for type checking of the return statement) and function info
-    tmpEnv <- Env.mergeEnvs env (Env.fromList [(id, Function pos params retType), ("return", Return retType)])
-    (pEnv, pErrs, pPrms) <- parseParams params [] tmpEnv errors
-    --TODO : valutare quale env far restituire a parseSingleDclBlock; tmpEnv? oppure fEnv?
-    (fEnv, fErrs, annBEB) <- parseBEBlock pEnv errors beb
-    return (tmpEnv, errors, DclBlockFcBlock (FuncBlock idTok params retType annBEB))
+    -- IMPORTANT NOTE: env must be the secondo argument of mergeEnvs, otherwise the new "return" key will not be updated
+    -- this is because the underlying function union (t1, t2) of Data.Map prefers t1 when duplicated keys are encountered 
+    tmpEnv <- Env.mergeEnvs (Env.fromList [(id, Function pos params retType), ("return", Return retType id pos)]) env
+    (tmpEnv2, tmpErrors2, annotatedParams) <- parseParams params [] tmpEnv errors
+    (finalEnv, finalErrors, annotatedBEB) <- parseBEBlock tmpEnv2 tmpErrors2 beb
+
+    return (finalEnv, finalErrors, DclBlockFcBlock (FuncBlock idTok params retType annotatedBEB))
 
 
 parseDclPcBlock :: Env -> Errors -> DclBlock env infType -> StateCount (Env, Errors, DclBlock Env Type)
@@ -146,7 +148,6 @@ parseStatements env errors allStmts =  q env errors allStmts []
 exStmtCall = StmtCall (CallArgs (TokIdent ((0,0),"funzioneDiEsempio")) [])
 exStmtSelect = StmtSelect (StmtIf (ExprLiteral (LiteralInteger (TokInteger ((36,30), "10")))) (StmtReturn (Ret (ExprLiteral (LiteralInteger (TokInteger ((36,30), "10")) ) ) )) )
 exStmtIter = StmtIter (StmtWhileDo (ExprLiteral (LiteralInteger (TokInteger ((36,30), "10")))) (StmtReturn (Ret (ExprLiteral (LiteralInteger (TokInteger ((36,30), "10")) ) ) )) )
-exStmtReturn = StmtReturn (Ret (ExprLiteral (LiteralInteger (TokInteger ((36,30), "10")) ) ) )
 
 
 parseStatement :: Stmt stmtenv infType -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
@@ -174,31 +175,30 @@ parseStatement stmt env errs = case stmt of
             -- Iterazione
             (StmtIter iter) -> return (env, errs, exStmtIter )
             -- Return
-            -- (StmtReturn return)  -> parseReturn (StmtReturn return) env errs
-            (StmtReturn retr) -> return (env, errs, exStmtReturn)
+            (StmtReturn return)  -> parseReturn (StmtReturn return) env errs
             -------------------------------------------------------------
 
--- parseReturn :: Stmt env infType -> Env -> Errors -> (Env, Errors, Stmt Env Type)
--- parseReturn (StmtReturn (Ret expr)) env errs = 
---     case Env.lookup "return" env of 
---     Just (Return expectedType) ->
---         if sup expectedType (getTypeFromExpression parsedExpr) /= expectedType
---             then ( newEnv,
---                     "returned type not compatibile with return type of function": newErrs, 
---                      StmtReturn (Ret parsedExpr))
---             else
---                 -- everything is ok, return the parsed expression 
---                 (newEnv, newErrs, StmtReturn (Ret parsedExpr))
---     Nothing -> 
---         -- Theoretically this should never happen, 
---         -- since the return type of the fucntion is saved in the environment when the function is parsed
---         (newEnv,
---         "Internal Type checking error: return type of function x in pos (x, y) was not saved in the environment": newErrs,
---         StmtReturn (Ret parsedExpr))
-
---     where (newEnv, newErrs, parsedExpr) = parseExpression env errs expr
-
-
+parseReturn :: Stmt env infType -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
+parseReturn (StmtReturn (Ret expr)) env errs = do
+    (newEnv, newErrs, parsedExpr) <- parseExpression env errs expr
+    case Env.lookup "return" env of 
+        Just (Return expectedType funName funPos) ->
+            if sup expectedType (getTypeFromExpression parsedExpr) /= expectedType
+                then return ( newEnv,
+                        ("Function " ++ funName ++ " at " ++ show funPos ++ 
+                        " expects a " ++ show expectedType ++ " to be returned " ++
+                        "but the expression following the return statement has type " ++ show (getTypeFromExpression parsedExpr) ) : newErrs, 
+                        StmtReturn (Ret parsedExpr))
+                else
+                    -- everything is ok, return the parsed expression 
+                    return (newEnv, newErrs, StmtReturn (Ret parsedExpr))
+        Nothing -> 
+            -- Theoretically this should never happen, 
+            -- since the return type of the function is saved in the environment when the function prototype is parsed
+            return (newEnv,
+            "Internal type checking error: can't find expected return type of current function in the environment": newErrs,
+            StmtReturn (Ret parsedExpr)) 
+        
 
 parseAssignment :: Stmt env infType -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
 parseAssignment ass env errs = case ass of

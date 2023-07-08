@@ -1,0 +1,13 @@
+{Example used to test the parsing of the return statement}
+
+program Hello1;
+begin
+    {This function is ok}
+    function incr (num: integer) : integer;
+    begin return num+1; end;
+
+
+    {This function is NOT ok}
+    function inc2 (num: integer) : boolean;
+    begin return num+1; end;
+end.

@@ -22,7 +22,7 @@ data EnvData =    VarType Position Type Addr
                 | Function Position Prms Type
                 | Procedure Position Prms
                 | Constant Position Type Addr
-                | Return Type
+                | Return Type String Position -- (expected return type from current function, function name, function position)
 
 -- data Parameter = Parameter TokIdent Modality Type deriving Show
 
@@ -39,7 +39,7 @@ instance Show EnvData where
     show (DefaultProc t) = " default procedure of type " ++ show t
     show (Function p prms tp) = "{function, " ++ show p ++ ", " ++ show prms ++ ", " ++ show tp ++ "}"
     show (Procedure p prms) = "{procedure, " ++ show p ++ ", " ++ show prms ++  "}"
-    show (Return t) = "{exected return type: " ++ show t  ++ "}" 
+    show (Return t _ _) = "{exected return type: " ++ show t  ++ "}" 
     -- TODO: this line can be reached if show function is not implemented for all type of params
     -- at the moment, it is not implemented for pointers. This line can be removed when all types can be printed
     show _ = "CANT_SHOW. IMPLEMENT ME!"
