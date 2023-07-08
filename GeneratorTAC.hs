@@ -4,69 +4,9 @@ import Control.Monad.Trans.State
 import qualified AbsGrammar
 import qualified Control.Monad.Except as AbsGrammar
 import Env
+import HelperTAC
 import qualified Data.Sequence as DS
 
-type StateTAC = State (Int, DS.Seq TACInst)
-
-data TACLabel =
-      FuncLab
-    | Fall
-    deriving (Show)
-
-data TACOp =
-          TACAdd
-        | TACSub
-        | TACDiv
-        | TACMul
-        | TACMod
-        | TACOr
-        | TACAnd
-        | TACEq
-        | TACNotEq
-        | TACLessT
-        | TACGreatT
-        | TACEqLessT
-        | TACEqGreatT
-        | TACNot
-        | TACNeg
-        | TACRef
-        | TACDeref
-        -- TODO: usare un tipo specifico per TAC
-        | TACCast AbsGrammar.Type
-    deriving (Show)
-
-data TACInst =
-      TACBinAss Addr Addr TACOp Addr
-    | TACUnAss Addr TACOp Addr
-    | TACNulAss Addr Addr
-    | TACUncdJmp TACLabel
-    | TACCndJmp Addr TACOp Addr TACLabel
-    | TACIndxStr Addr Addr Addr
-    | TACIndxLd Addr Addr Addr
-    deriving (Show)
-
--- TODO : implementare correttamente in modo che recuperi l'addr dal env; soluzione solo temporanea
-getIdAddr :: String -> Env -> StateTAC Addr
-getIdAddr id env = newIdAddr
-
-newTmpAddr :: StateTAC Addr
-newTmpAddr = do
-    (k, ls)<-get;
-    put (k+1, ls);
-    return (int2TmpName k)
-
-int2TmpName :: Int -> Addr
-int2TmpName k = Temporary ("t" ++ show k)
-
--- TODO : implementare correttamente; soluzione solo temporanea
-newIdAddr :: StateTAC Addr
-newIdAddr = do
-    (k, ls) <- get;
-    put (k+1, ls);
-    return (int2VarName k)
-
-int2VarName :: Int -> Addr
-int2VarName k = ProgVar ("v" ++ show k) 
 
 genTAC :: AbsGrammar.P Env AbsGrammar.Type -> DS.Seq TACInst
 genTAC prog = getInstrList (execState (genProg prog) (0, DS.empty))
@@ -191,31 +131,4 @@ addInstr tacInst = do
     (tmpCount, tacInstrs) <- get;
     put (tmpCount, tacInstrs DS.|> tacInst)
 
-binToTACOp :: AbsGrammar.BinaryOperator -> TACOp
-binToTACOp opr = case opr of
-    AbsGrammar.Add -> TACAdd
-    AbsGrammar.Sub -> TACSub
-    AbsGrammar.Div -> TACDiv
-    AbsGrammar.Mul -> TACMul
-    AbsGrammar.Mod -> TACMod
-    AbsGrammar.Or -> TACOr
-    AbsGrammar.And -> TACAnd
-    AbsGrammar.Eq -> TACEq
-    AbsGrammar.NotEq -> TACNotEq
-    AbsGrammar.LessT -> TACLessT
-    AbsGrammar.GreatT -> TACGreatT
-    AbsGrammar.EqLessT -> TACEqLessT
-    AbsGrammar.EqGreatT -> TACEqGreatT
 
-unrToTACOp :: AbsGrammar.UnaryOperator -> TACOp
-unrToTACOp opr = case opr of
-    AbsGrammar.Not -> TACNot
-    AbsGrammar.Negation -> TACNeg
-    AbsGrammar.Reference -> TACRef
-    AbsGrammar.Dereference -> TACDeref
-
-data Addr =
-      ProgVar { var :: String }
-    | TacLit { tacLit :: AbsGrammar.Literal }
-    | Temporary { tempInt :: String }
-    deriving (Show)

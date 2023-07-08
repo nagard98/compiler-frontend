@@ -23,9 +23,10 @@ import LexGrammar   ( Token, mkPosToken )
 import ParGrammar   ( pP, myLexer )
 import PrintGrammar ( Print, printTree )
 import SkelGrammar  ()
-import TypeChecker ( parseTree, emptyErrors) -- includere Type Checker
+import TypeChecker ( launchStatSemAnalysis, emptyErrors) -- includere Type Checker
 import Env
 import GeneratorTAC
+import Control.Monad.State.Lazy
 
 type Err        = Either String
 type ParseFun a = [Token] -> Err a
@@ -52,7 +53,7 @@ run v p s =
       putStrLn "\nParse Successful!"
       -- showTree v tree
       putStrLn "\nTYPE CHECKING STARTING..."
-      let (env, errors, annotatedTree) = parseTree tree emptyEnv {-defaultEnv-} emptyErrors
+      let (env, errors, annotatedTree) = launchStatSemAnalysis tree
       putStrLn "\nThe environment is:"
       print env
       putStrLn "\nThe errors/warnings are :"

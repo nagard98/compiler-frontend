@@ -1,7 +1,12 @@
 module Env where
 
+import Prelude hiding (lookup)
 import qualified Data.Map as Map
 import AbsGrammar
+import HelperTAC
+import Control.Monad.State.Lazy
+
+type StateCount = State Int
 
 -- This is the global environment.
 -- first argument is the key type, second one the value type 
@@ -12,23 +17,24 @@ emptyEnv = Map.empty
 -- Needed for modelling how data of the map entries in Env should be
 -- E.g. variable types: the key is the name of the variable, data created using VarType constructor
 -- TODO: create new constructors as needed
-data EnvData = VarType Position Type
+data EnvData =    VarType Position Type Addr
                 | DefaultProc Type
                 | Function Position Prms Type
                 | Procedure Position Prms
-                | Constant Position Type
+                | Constant Position Type Addr
                 | Return Type
 
 -- data Parameter = Parameter TokIdent Modality Type deriving Show
 
 -- TODO: aggiungere gli altri casi per gestire EnvData
 -- TODO: rifare implementazione di procedure default, per le read servono gli argomenti
+-- TODO: aggiunti campo addr ad alcuni tipi di EnvData; stampare anche quelli
 -- make EnvData printable
 instance Show EnvData where
-    show (VarType p (TypeBaseType t)) = "{variable, " ++ show p ++ ", " ++ show t ++ "}"
-    show (VarType p (TypeCompType (Pointer t))) = "{variable, " ++ show p ++ ", pointer to " ++ show t ++ "}"
-    show (VarType p (TypeCompType (Array (TokInteger (_,i1)) (TokInteger (_,i2)) t))) = "{variable, " ++ show p ++ ", array ["++ i1++".."++ i2++ "] of " ++ show t ++ "}"
-    show (Constant p (TypeBaseType t)) = "{constant, " ++ show p ++ ", " ++ show t ++ "}"
+    show (VarType p (TypeBaseType t) adr) = "{variable, " ++ show p ++ ", " ++ show t ++ "}"
+    show (VarType p (TypeCompType (Pointer t)) adr) = "{variable, " ++ show p ++ ", pointer to " ++ show t ++ "}"
+    show (VarType p (TypeCompType (Array (TokInteger (_,i1)) (TokInteger (_,i2)) t)) adr) = "{variable, " ++ show p ++ ", array ["++ i1++".."++ i2++ "] of " ++ show t ++ "}"
+    show (Constant p (TypeBaseType t) addr) = "{constant, " ++ show p ++ ", " ++ show t ++ "}"
     show (DefaultProc (TypeBaseType t)) = " default procedure of type " ++ show t -- TODO: why two implementation of DefaultProc?
     show (DefaultProc t) = " default procedure of type " ++ show t
     show (Function p prms tp) = "{function, " ++ show p ++ ", " ++ show prms ++ ", " ++ show tp ++ "}"
@@ -51,16 +57,32 @@ defaultEnv = foldl1 Map.union [ Map.singleton "writeInt" (DefaultProc (TypeBaseT
 
 -- TODO : aggiungere generazione warning quando un identificatore nel env viene sovrascritto? Forse bisogna passare
 -- anche errs come parametro?
-mergeEnvs :: Env -> Env -> Env
-mergeEnvs = Map.union
+mergeEnvs :: Env -> Env -> StateCount Env
+mergeEnvs e1 e2 = return $ Map.union e1 e2
 
 -- TODO : aggiungere generazione warning quando un identificatore nel env viene sovrascritto? Forse bisogna passare
 -- anche errs come parametro?
-insert :: String -> EnvData -> Env -> Env
-insert = Map.insert
+insert :: String -> EnvData -> Env -> StateCount Env
+insert id entry env = return $ Map.insert id entry env
 
 lookup :: String -> Env -> Maybe EnvData
 lookup = Map.lookup
+
+getIdAddr :: String -> Env -> StateTAC Addr
+getIdAddr id env = case lookup id env of
+    Just (VarType _ _ addr) -> return addr
+    Just (Constant _ _ addr) -> return addr
+    _ -> error "TODO : errore id non trovato in env per recuper addr; funzione getIdAddr"
+
+-- TODO : implementare correttamente; soluzione solo temporanea
+newIdAddr :: String -> StateCount Addr
+newIdAddr id = do
+    count <- get;
+    put (count + 1);
+    return (int2IdName id count)
+
+int2IdName :: String -> Int -> Addr
+int2IdName id k = ProgVar (show id ++ show k)
 
 fromList :: [(String, EnvData)] -> Env 
 fromList = Map.fromList
