@@ -65,7 +65,7 @@ parseSingleDclBlock env errors blk = case blk of
             -- add to env return type (needed for type checking of the return statement) and function info
             -- IMPORTANT NOTE: env must be the secondo argument of mergeEnvs, otherwise the new "return" key will not be updated
             -- this is because the underlying function union (t1, t2) of Data.Map prefers t1 when duplicated keys are encountered 
-            tmpEnv = Env.mergeEnvs (Env.fromList [(id, Function pos params retType), ("return", Return retType)]) env
+            tmpEnv = Env.mergeEnvs (Env.fromList [(id, Function pos params retType), ("return", Return retType id pos)]) env
 
             (tmpEnv2, tmpErrors2, annotatedParams) = parseParams params [] tmpEnv errors
 
@@ -150,23 +150,26 @@ parseStatement stmt env errs = case stmt of
 parseReturn :: Stmt env infType -> Env -> Errors -> (Env, Errors, Stmt Env Type)
 parseReturn (StmtReturn (Ret expr)) env errs = 
     case Env.lookup "return" env of 
-    Just (Return expectedType) ->
-        if sup expectedType (getTypeFromExpression parsedExpr) /= expectedType
+    Just (Return expectedType funName funPos) ->
+        if sup expectedType funType /= expectedType
             then ( newEnv,
-                    "returned type not compatibile with return type of function": newErrs, 
+                    ("Function " ++ funName ++ " at " ++ show funPos ++ 
+                    " expects a " ++ show expectedType ++ " to be returned " ++
+                    "but the expression following the return statement has type " ++ show funType) : newErrs, 
                      StmtReturn (Ret parsedExpr))
             else
                 -- everything is ok, return the parsed expression 
                 (newEnv, newErrs, StmtReturn (Ret parsedExpr))
     Nothing -> 
         -- Theoretically this should never happen, 
-        -- since the return type of the fucntion is saved in the environment when the function is parsed
+        -- since the return type of the function is saved in the environment when the function prototype is parsed
         (newEnv,
-        "Internal Type checking error: return type of function x in pos (x, y) was not saved in the environment": newErrs,
+        "Internal type checking error: can't find expected return type of current function in the environment": newErrs,
         StmtReturn (Ret parsedExpr))
 
     where 
         (newEnv, newErrs, parsedExpr) = parseExpression env errs expr
+        funType = getTypeFromExpression parsedExpr
 
 
 
