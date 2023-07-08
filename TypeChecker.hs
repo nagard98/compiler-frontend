@@ -175,9 +175,8 @@ parseStatement stmt env errs = case stmt of
             (StmtIter iter) -> return (env, errs, exStmtIter )
             -- Return
             -- (StmtReturn return)  -> parseReturn (StmtReturn return) env errs
-            --(StmtReturn return) -> return (env, ("THIS IS A NEW ERROR":errs), exStmtReturn )
+            (StmtReturn retr) -> return (env, errs, exStmtReturn)
             -------------------------------------------------------------
-            _ -> error "correggi return stmt in parseStmts"
 
 -- parseReturn :: Stmt env infType -> Env -> Errors -> (Env, Errors, Stmt Env Type)
 -- parseReturn (StmtReturn (Ret expr)) env errs = 
