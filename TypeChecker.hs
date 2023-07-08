@@ -58,17 +58,16 @@ parseSingleDclBlock env errors blk = case blk of
 
             newEnv = parseConsDefs csDefs env
 
-    -- add info about functions to the environment
-    -- info are: function position, function name, parameters, return type
-    -- TODO: pass global environment to begin-end block and parse inner statemets
-    DclBlockFcBlock fB@(FuncBlock idTok@(TokIdent (pos, id)) params retType beb) -> (tmpEnv, errors, DclBlockFcBlock (FuncBlock idTok params retType annBEB))
+    -- add info about functions to the environment (position, name, parameters, return type) and parse function body
+    DclBlockFcBlock fB@(FuncBlock idTok@(TokIdent (pos, id)) params retType beb) -> 
+        (finalEnv, finalErrors, DclBlockFcBlock (FuncBlock idTok params retType annotatedBEB))
         where
             -- add to env return type (needed for type checking of the return statement) and function info
             tmpEnv = Env.mergeEnvs env (Env.fromList [(id, Function pos params retType), ("return", Return retType)])
 
-            (pEnv, pErrs, pPrms) = parseParams params [] tmpEnv errors
-            --TODO : valutare quale env far restituire a parseSingleDclBlock; tmpEnv? oppure fEnv?
-            (fEnv, fErrs, annBEB) = parseBEBlock pEnv errors beb
+            (tmpEnv2, tmpErrors2, annotatedParams) = parseParams params [] tmpEnv errors
+
+            (finalEnv, finalErrors, annotatedBEB) = parseBEBlock tmpEnv2 tmpErrors2 beb
 
     -- add info about procedures to the environment. Same as functions but without return type
     DclBlockPcBlock pB@(ProcBlock idTok@(TokIdent (pos, id)) params beb) -> (tmpEnv, errors, DclBlockPcBlock (ProcBlock idTok params annBEB))
