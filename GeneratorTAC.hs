@@ -2,37 +2,99 @@ module GeneratorTAC where
 
 import Control.Monad.Trans.State
 import qualified AbsGrammar
-import qualified Control.Monad.Except as AbsGrammar
 import Env
 import HelperTAC
 import qualified Data.Sequence as DS
 
 
 genTAC :: AbsGrammar.P Env AbsGrammar.Type -> DS.Seq TACInst
-genTAC prog = getInstrList (execState (genProg prog) (0, DS.empty))
+genTAC prog = getInstrList (execState (genProg prog) (0, DS.empty, newStack ))
     where
-        getInstrList :: (Int, DS.Seq TACInst) -> DS.Seq TACInst
-        getInstrList (_, instrList) = instrList
+        getInstrList :: (Int, DS.Seq TACInst, Stack (DS.Seq TACInst)) -> DS.Seq TACInst
+        getInstrList (_, instrList, _) = instrList
 
 genProg :: AbsGrammar.P Env AbsGrammar.Type -> StateTAC ()
 genProg (AbsGrammar.Prog pBlock dclBlocks (AbsGrammar.BegEndBlock stmts scopeEnv) globEnv) = do
-    --genDcls dclBlock globEnv
+    genDcls dclBlocks globEnv
     genStmts stmts scopeEnv
 
 genDcls :: [AbsGrammar.DclBlock Env AbsGrammar.Type] -> Env -> StateTAC ()
+genDcls [] _ = return ()
 genDcls (dcBlock:dcBlocks) env = do
     genDcl dcBlock env;
     genDcls dcBlocks env;
         where
             genDcl :: AbsGrammar.DclBlock Env AbsGrammar.Type -> Env -> StateTAC ()
             genDcl dclBlk env = case dclBlk of
-                AbsGrammar.DclBlockCsBlock csBlock -> error "TODO: implementare genCsBlock"
-                AbsGrammar.DclBlockFcBlock fcBlock -> error "TODO: implementare genFcBlock"
-                AbsGrammar.DclBlockPcBlock pcBlock -> error "TODO: implementare genPcBlock"
-                AbsGrammar.DclBlockVrBlock vrBlock -> error "TODO: implementare genVrBlock"
+                AbsGrammar.DclBlockCsBlock csBlock -> genCsDcl csBlock env
+                AbsGrammar.DclBlockFcBlock fcBlock -> genFcDcl fcBlock env
+                AbsGrammar.DclBlockPcBlock pcBlock -> genPcDcl pcBlock env
+                AbsGrammar.DclBlockVrBlock vrBlock -> genVrDcl vrBlock env
+
+
+genCsDcl :: AbsGrammar.CsBlock -> Env -> StateTAC ()
+genCsDcl (AbsGrammar.ConstBlock csDefs) env = return ()
+    --TODO: in realtà sembra non necessario in quanto abbiamo già costanti nel env, salvate come literal
+    {-genCsDefs csDefs env
+    where
+        genCsDefs :: [AbsGrammar.CsDef] -> Env -> StateTAC ()
+        genCsDefs [] _ = return ()
+        genCsDefs ((AbsGrammar.ConstDefinition (AbsGrammar.IdElement (AbsGrammar.TokIdent (_, id))) lit):csDefs) env = do
+            case Env.lookup id env of
+                Just (Constant _ _ addr) -> addInstr (TACNulAss addr (TacLit lit))
+                _ -> error "TODO: genVrDefIds -> id non esiste in env"
+            genCsDefs csDefs env-}
+
+
+genFcDcl :: AbsGrammar.FcBlock Env AbsGrammar.Type -> Env -> StateTAC ()
+genFcDcl (AbsGrammar.FuncBlock (AbsGrammar.TokIdent (_,id)) prms tp (AbsGrammar.BegEndBlock stmts scopeEnv)) env = 
+    case Env.lookup id env of
+        Just (Function _ _ _ addr) -> do
+            newStrm <- createNewStream
+            -- TODO: implementa aggiunta label a prima istruzione stream
+            pushStream (newStrm DS.|> LabelNext (FuncLab addr))
+            genStmts stmts scopeEnv
+            --TODO: sembra che sia obbligatorio verificare in analisi semantica statica
+            --che le funzioni abbiano un return
+            closeCurrentStream 
+        _ -> error "TODO: genFcDcl -> id funzione non esiste nell' env"
+
+--TODO: controlla se funzionano bene parametri; ovvero addr sono quelli giusti
+genPcDcl :: AbsGrammar.PcBlock Env AbsGrammar.Type -> Env -> StateTAC ()
+genPcDcl (AbsGrammar.ProcBlock (AbsGrammar.TokIdent (_,id)) prms (AbsGrammar.BegEndBlock stmts scopeEnv)) env =
+    case Env.lookup id env of
+        Just (Procedure ps _ addr) -> do
+            newStrm <- createNewStream
+            -- TODO: implementa aggiunta label a prima istruzione stream
+            pushStream (newStrm DS.|> LabelNext (FuncLab addr))
+            genStmts stmts scopeEnv
+            addInstr TACReturnVoid
+            closeCurrentStream 
+        _ -> error "TODO: genPcDcl -> id procedura non esiste nell' env"
+
+
+genVrDcl :: AbsGrammar.VrBlock -> Env -> StateTAC ()
+genVrDcl (AbsGrammar.VarBlock vrDefs) env = do
+    genVrDefs vrDefs env
+    where
+        genVrDefs :: [AbsGrammar.VrDef] -> Env -> StateTAC ()
+        genVrDefs [] _ = return ()
+        genVrDefs ((AbsGrammar.VarDefinition ids _):vrDefs) env = do
+            genVrDefIds ids env
+            genVrDefs vrDefs env
+            where
+                genVrDefIds :: [AbsGrammar.IdElem] -> Env -> StateTAC ()
+                genVrDefIds [] _ = return ()
+                genVrDefIds ((AbsGrammar.IdElement (AbsGrammar.TokIdent (_,id))):ids) env = do
+                    case Env.lookup id env of
+                        Just (VarType _ tp addr) -> addInstr (TACNulAss addr (getVarDefaultVal tp))
+                        _ -> error "TODO: genVrDefIds -> id non esiste in env"
+                    genVrDefIds ids env
+                
 
 
 genStmts :: [AbsGrammar.Stmt Env AbsGrammar.Type] -> Env -> StateTAC ()
+genStmts [] _ = return ()
 genStmts (stmt:stmts) env = do
     genStmt stmt env;
     genStmts stmts env;
@@ -40,14 +102,12 @@ genStmts (stmt:stmts) env = do
             genStmt :: AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> StateTAC ()
             genStmt stmt env = case stmt of
                 AbsGrammar.StmtAssign _ _ -> genStmtAssign stmt env
-                AbsGrammar.StmtDecl _ -> error "TODO: implementare genStmtDecl"
+                AbsGrammar.StmtDecl _ -> genStmtDecl stmt env
                 AbsGrammar.StmtComp _ -> genStmtComp stmt env
-                AbsGrammar.StmtCall _ -> error "TODO: implementare genStmtCall"
+                AbsGrammar.StmtCall _ -> genStmtCall stmt env
                 AbsGrammar.StmtSelect _ -> error "TODO: implementare genStmtSelect"
                 AbsGrammar.StmtIter _ -> error "TODO: implementare genStmtIter"
-                AbsGrammar.StmtReturn _ -> error "TODO: implementare genStmtReturn"
-
-genStmts [] env = do return ();
+                AbsGrammar.StmtReturn _ -> genStmtReturn stmt env
 
 
 genStmtAssign :: AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> StateTAC ()
@@ -57,10 +117,26 @@ genStmtAssign (AbsGrammar.StmtAssign lexpr rexpr) env = do
     addInstr (TACNulAss varAddr exprAddr)
 genStmtAssign _ _ = error "TODO: gestire errore genStmtAssign"
 
+genStmtDecl :: AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> StateTAC ()
+genStmtDecl (AbsGrammar.StmtDecl dclBlock) env = genDcls [dclBlock] env
+genStmtDecl _ _ = error "TODO: gestire errore genStmtDecl"
+
 genStmtComp :: AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> StateTAC ()
 genStmtComp (AbsGrammar.StmtComp (AbsGrammar.BegEndBlock stmts envScope)) env = genStmts stmts envScope
 genStmtComp _ _ = error "TODO: gestire errore genStmtComp"
 
+genStmtCall :: AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> StateTAC ()
+genStmtCall (AbsGrammar.StmtCall (AbsGrammar.CallArgs (AbsGrammar.TokIdent (_,callId)) args)) env = 
+    case Env.lookup callId env of
+        Just (Procedure pos prms addr) -> do
+            genArgs args env
+            addInstr (TACPCall addr (length args))
+        _ -> error "TODO:: genStmtCall -> errore, non esiste procedura con questo nome"
+
+genStmtReturn :: AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> StateTAC ()
+genStmtReturn (AbsGrammar.StmtReturn (AbsGrammar.Ret expr)) env = do
+    exprAddr <- genExpr expr env
+    addInstr (TACReturn exprAddr)
 
 genExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Env -> StateTAC Addr
 genExpr expr env = case expr of
@@ -125,6 +201,8 @@ genExprCall :: AbsGrammar.EXPR AbsGrammar.Type -> Env -> StateTAC Addr
 genExprCall (AbsGrammar.ExprCall (AbsGrammar.CallArgs (AbsGrammar.TokIdent (_,callId)) args) tp) env = 
     case Env.lookup callId env of
         Just (Env.Function _ _ retType fAddr) -> do
+            --TODO : valutare se necessario fare cast qui; forse non serve considerando
+            -- che genExpr fa dei cast
             genArgs args env
             tmpAddr <- newTmpAddr
             addInstr (TACFCall tmpAddr fAddr (length args))
@@ -133,7 +211,6 @@ genExprCall (AbsGrammar.ExprCall (AbsGrammar.CallArgs (AbsGrammar.TokIdent (_,ca
 
 genArgs :: [AbsGrammar.EXPR AbsGrammar.Type] -> Env -> StateTAC ()
 genArgs (arg:args) env = do
-    error "Generating args"
     tmpArgAddr <- genExpr arg env
     addInstr (TACParam tmpArgAddr)
     genArgs args env
@@ -147,7 +224,12 @@ genBaseExpr (AbsGrammar.BaseExpr bexpr tp) env = case bexpr of
 
 addInstr :: TACInst -> StateTAC ()
 addInstr tacInst = do
-    (tmpCount, tacInstrs) <- get;
-    put (tmpCount, tacInstrs DS.|> tacInst)
+    (tmpCount, tacInstrs, stackStrms) <- get;
+    if null stackStrms
+        then put (tmpCount, tacInstrs DS.|> tacInst, stackStrms)
+        else do
+            (strm, stack) <- pop stackStrms
+            newStack <- push (strm DS.|> tacInst) stack 
+            put (tmpCount, tacInstrs, newStack)
 
 

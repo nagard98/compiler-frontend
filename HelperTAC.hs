@@ -3,16 +3,48 @@ import qualified AbsGrammar
 import Control.Monad.Trans.State
 import qualified Data.Sequence as DS
 
+type Stack a =  [a]
+
+push :: a -> Stack a -> StateTAC (Stack a)
+push val stack = return $ val:stack
+
+pop :: Stack a -> StateTAC (a, Stack a)
+pop (val:stack) = return (val, stack)
+pop [] = error "TODO: trying to pop empty stack" 
+
+peek :: Stack a -> (a, Stack a)
+peek stack@(val:_) = (val, stack)
+peek [] = error "TODO: trying to pop empty stack" 
+
+newStack :: Stack a
+newStack = []
+
+createNewStream :: StateTAC (DS.Seq TACInst)
+createNewStream = return DS.empty
+
+closeCurrentStream :: StateTAC ()
+closeCurrentStream = do
+    (cnt, instrLs, stackStrms) <- get
+    (topStream, newStack) <- pop stackStrms
+    put (cnt, instrLs DS.>< topStream, newStack)
+
+pushStream :: DS.Seq TACInst -> StateTAC ()
+pushStream stream = do
+    (cnt, instrLs, stackStrms) <- get
+    newStack <- push stream stackStrms
+    put (cnt, instrLs, newStack)
+
+
 data Addr =
       ProgVar { var :: String }
     | TacLit { tacLit :: AbsGrammar.Literal }
     | Temporary { tempInt :: String }
     deriving (Show)
 
-type StateTAC = State (Int, DS.Seq TACInst)
+type StateTAC = State (Int, DS.Seq TACInst, Stack (DS.Seq TACInst))
 
 data TACLabel =
-      FuncLab
+      FuncLab Addr
     | Fall
     deriving (Show)
 
@@ -51,13 +83,15 @@ data TACInst =
     | TACFCall Addr Addr Int
     | TACReturnVoid
     | TACReturn Addr
+    | TACLabelledInstr TACLabel TACInst
+    | LabelNext TACLabel
     deriving (Show)
 
 
 newTmpAddr :: StateTAC Addr
 newTmpAddr = do
-    (k, ls)<-get;
-    put (k+1, ls);
+    (k, ls, stackStrm)<-get;
+    put (k+1, ls, stackStrm);
     return (int2TmpName k)
 
 int2TmpName :: Int -> Addr
@@ -85,3 +119,12 @@ unrToTACOp opr = case opr of
     AbsGrammar.Negation -> TACNeg
     AbsGrammar.Reference -> TACRef
     AbsGrammar.Dereference -> TACDeref
+
+
+getVarDefaultVal :: AbsGrammar.Type -> Addr
+getVarDefaultVal tp = case tp of
+    AbsGrammar.TypeBaseType (AbsGrammar.BaseType_integer) ->
+        TacLit (AbsGrammar.LiteralInteger (AbsGrammar.TokInteger ((0,0),"0")))
+    AbsGrammar.TypeBaseType (AbsGrammar.BaseType_real) -> 
+        TacLit (AbsGrammar.LiteralDouble (AbsGrammar.TokDouble ((0,0),"0.0")))
+    _ -> error "TODO: getVarDefaultVal -> implementa valore default per altri tipi"
