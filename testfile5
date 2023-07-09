@@ -1,7 +1,19 @@
-program HelloMath;
-var b: integer;
+program TACTest;
+
+var b, z: integer;
 var a: real;
+
+var u,v: real;
+
+{ TODO : valutare perchè non posso passare un int ad una funzione che richede real
+function f (k,l : real) : real;
 begin
-    b := 3;
-    a := 4.5 * (-b);
+end;
+
+begin
+    u := 6.1;
+    v := 9.8;
+{    b := 3;
+{    a := 4.5 * (-b);
+    z := u(u,v);
 end.

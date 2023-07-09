@@ -46,6 +46,11 @@ data TACInst =
     | TACCndJmp Addr TACOp Addr TACLabel
     | TACIndxStr Addr Addr Addr
     | TACIndxLd Addr Addr Addr
+    | TACParam Addr
+    | TACPCall Addr Int
+    | TACFCall Addr Addr Int
+    | TACReturnVoid
+    | TACReturn Addr
     deriving (Show)
 
 

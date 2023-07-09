@@ -87,8 +87,9 @@ parseDclFcBlock :: Env -> Errors -> DclBlock env infType -> StateCount (Env, Err
 parseDclFcBlock env errors (DclBlockFcBlock fB@(FuncBlock idTok@(TokIdent (pos, id)) params retType beb)) = do 
     -- add to env return type (needed for type checking of the return statement) and function info
     -- IMPORTANT NOTE: env must be the secondo argument of mergeEnvs, otherwise the new "return" key will not be updated
-    -- this is because the underlying function union (t1, t2) of Data.Map prefers t1 when duplicated keys are encountered 
-    tmpEnv <- Env.mergeEnvs (Env.fromList [(id, Function pos params retType), ("return", Return retType id pos)]) env
+    -- this is because the underlying function union (t1, t2) of Data.Map prefers t1 when duplicated keys are encountered
+    fcAddr <- Env.newIdAddr id 
+    tmpEnv <- Env.mergeEnvs (Env.fromList [(id, Function pos params retType fcAddr), ("return", Return retType id pos)]) env
     (tmpEnv2, tmpErrors2, annotatedParams) <- parseParams params [] tmpEnv errors
     (finalEnv, finalErrors, annotatedBEB) <- parseBEBlock tmpEnv2 tmpErrors2 beb
 
@@ -97,7 +98,8 @@ parseDclFcBlock env errors (DclBlockFcBlock fB@(FuncBlock idTok@(TokIdent (pos, 
 
 parseDclPcBlock :: Env -> Errors -> DclBlock env infType -> StateCount (Env, Errors, DclBlock Env Type)
 parseDclPcBlock env errors (DclBlockPcBlock pB@(ProcBlock idTok@(TokIdent (pos, id)) params beb)) = do
-    tmpEnv <- Env.insert id (Procedure pos params) env
+    pcAddr <- Env.newIdAddr id
+    tmpEnv <- Env.insert id (Procedure pos params pcAddr) env
     (pEnv, pErrs, pPrms) <- parseParams params [] tmpEnv errors
     (fEnv, fErrs, annBEB) <- parseBEBlock pEnv errors beb
 
@@ -339,8 +341,8 @@ parseFunctionCall :: Env -> Errors -> Call infType -> StateCount (Env, Errors, E
 parseFunctionCall env errs (CallArgs (TokIdent (tokpos,tokid)) args ) = do 
     (env2, err2, parsedargs) <- parseArguments env errs args []
     case Env.lookup tokid env of
-        Just (Function pos parameters t) -> parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) args ) parameters t
-        Just (Procedure pos parameters) -> parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) args ) parameters
+        Just (Function pos parameters t _) -> parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) args ) parameters t
+        Just (Procedure pos parameters _) -> parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) args ) parameters
         Just (DefaultProc t) -> return (env, errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) parsedargs ) t ) ) --TODO: refactoring procedure default nell'environment
         Just (Constant pos t addr) -> return (env, ("Error at " ++ show tokpos ++". Identifier " ++ tokid ++" is used as a function/procedure but it is a constant."):errs,
                     (ExprCall (CallArgs (TokIdent (tokpos,tokid)) parsedargs ) (TypeBaseType BaseType_error) ) )
@@ -371,7 +373,6 @@ parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) args ) (Params (prm:p
             parseFunction env2 err2 (CallArgs (TokIdent (tokpos,tokid)) args2 ) newparams t
         else
             parseFunction env2 err2 (CallArgs (TokIdent (tokpos,tokid)) args2 ) newparams (TypeBaseType BaseType_error)
-    where
         
 
 parseProcedure :: Env -> Errors -> Call infType -> Prms -> StateCount (Env, Errors, EXPR Type)

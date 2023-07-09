@@ -67,7 +67,7 @@ genExpr expr env = case expr of
     (AbsGrammar.UnaryExpression _ _ _) -> genUnrExpr expr env
     (AbsGrammar.BinaryExpression _ _ _ _) -> genBinExpr expr env
     (AbsGrammar.ExprLiteral _) -> genLitExpr expr env
-    (AbsGrammar.ExprCall _ _) -> error "TODO: implementare genExprCall"
+    (AbsGrammar.ExprCall _ _) -> genExprCall expr env
     (AbsGrammar.BaseExpr _ _) -> genBaseExpr expr env
 
 -- TODO: valutare come usare tp(fare cast) ed env
@@ -120,6 +120,25 @@ getExprType expr = case expr of
 
 genLitExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Env -> StateTAC Addr
 genLitExpr (AbsGrammar.ExprLiteral lit) env = return (TacLit lit)
+
+genExprCall :: AbsGrammar.EXPR AbsGrammar.Type -> Env -> StateTAC Addr
+genExprCall (AbsGrammar.ExprCall (AbsGrammar.CallArgs (AbsGrammar.TokIdent (_,callId)) args) tp) env = 
+    case Env.lookup callId env of
+        Just (Env.Function _ _ retType fAddr) -> do
+            genArgs args env
+            tmpAddr <- newTmpAddr
+            addInstr (TACFCall tmpAddr fAddr (length args))
+            return tmpAddr
+        _ -> error "TODO : errore in genExprCall; funzione con questo nome non esiste"
+
+genArgs :: [AbsGrammar.EXPR AbsGrammar.Type] -> Env -> StateTAC ()
+genArgs (arg:args) env = do
+    error "Generating args"
+    tmpArgAddr <- genExpr arg env
+    addInstr (TACParam tmpArgAddr)
+    genArgs args env
+
+genArgs [] env = return ()
 
 genBaseExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Env -> StateTAC Addr
 genBaseExpr (AbsGrammar.BaseExpr bexpr tp) env = case bexpr of

@@ -19,8 +19,8 @@ emptyEnv = Map.empty
 -- TODO: create new constructors as needed
 data EnvData =    VarType Position Type Addr
                 | DefaultProc Type
-                | Function Position Prms Type
-                | Procedure Position Prms
+                | Function Position Prms Type Addr
+                | Procedure Position Prms Addr
                 | Constant Position Type Addr
                 | Return Type String Position -- (expected return type from current function, function name, function position)
 
@@ -37,8 +37,8 @@ instance Show EnvData where
     show (Constant p (TypeBaseType t) addr) = "{constant, " ++ show p ++ ", " ++ show t ++ "}"
     show (DefaultProc (TypeBaseType t)) = " default procedure of type " ++ show t -- TODO: why two implementation of DefaultProc?
     show (DefaultProc t) = " default procedure of type " ++ show t
-    show (Function p prms tp) = "{function, " ++ show p ++ ", " ++ show prms ++ ", " ++ show tp ++ "}"
-    show (Procedure p prms) = "{procedure, " ++ show p ++ ", " ++ show prms ++  "}"
+    show (Function p prms tp _) = "{function, " ++ show p ++ ", " ++ show prms ++ ", " ++ show tp ++ "}"
+    show (Procedure p prms _) = "{procedure, " ++ show p ++ ", " ++ show prms ++  "}"
     show (Return t _ _) = "{exected return type: " ++ show t  ++ "}" 
     -- TODO: this line can be reached if show function is not implemented for all type of params
     -- at the moment, it is not implemented for pointers. This line can be removed when all types can be printed

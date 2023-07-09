@@ -12,7 +12,7 @@ import Prelude
   , Show, show
   , IO, (>>), (>>=), mapM_, putStrLn
   , FilePath
-  , getContents, readFile, print
+  , getContents, readFile, print, null
   )
 import System.Environment ( getArgs )
 import System.Exit        ( exitFailure )
@@ -62,8 +62,12 @@ run v p s =
       print tree
       putStrLn "\nThe annotated tree is:"
       print annotatedTree
-      --putStrLn "\n\nSTARTING GENERATION TAC..."
-      --print $ genTAC annotatedTree
+      if null errors 
+        then do
+          putStrLn "\n\nSTARTING GENERATION TAC..."
+          print $ genTAC annotatedTree
+        else
+          putStrLn "\n\nGENERATION TAC ABORTED DUE TO ERRORS IN STATIC SEMANTIC ANALYSIS..."
   where
   ts = myLexer s
   showPosToken ((l,c),t) = concat [ show l, ":", show c, "\t", show t ]
