@@ -166,7 +166,7 @@ parseStatement stmt env errs = case stmt of
                 return (env2, err2, (StmtComp block))
 
             -- Assegnamento
-            (StmtAssign expr1 expr2) -> parseAssignment (StmtAssign expr1 expr2) env errs
+            (StmtAssign expr1 expr2) -> parseAssignment expr1 expr2 env errs
 
             --TODO: fare vero parsing senza utilizzare nodi generici per il resto dei casi
 
@@ -202,34 +202,30 @@ parseReturn (StmtReturn (Ret expr)) env errs = do
             StmtReturn (Ret parsedExpr)) 
         
 
-parseAssignment :: Stmt env infType -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
-parseAssignment ass env errs = case ass of
+parseAssignment :: EXPR infType -> EXPR infType -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
+parseAssignment expr1 expr2 env errs = case (expr1, expr2) of
             -- Assegno a variabile un letterale
-            StmtAssign (BaseExpr (Identifier tId) tp) (ExprLiteral literal) -> parseLitAssignment tId literal env errs
+            ( (BaseExpr (Identifier tId) tp), (ExprLiteral literal) ) -> parseLitAssignment tId literal env errs
             -- Assegno a variabile valore espressione generica: 1) parsing dell'espressione e trovo il tipo; 2) controllo compatibilità con letterale in assegnamento
-            StmtAssign (BaseExpr (Identifier tId) tp) expr -> do
+            ( (BaseExpr (Identifier tId) tp), expr ) -> do
                 (env2, errs2, parsedexpr) <- parseExpression env errs expr
                 parseIdExprAssignment tId parsedexpr env2 errs2
             -- Puntatore è un l-value valido
-            StmtAssign (UnaryExpression Dereference expr1 t) expr2 -> do
+            ( (UnaryExpression Dereference expr1 t), expr2 ) -> do
                 (env2, err2, parsedexpr1) <- parseExpression env errs (UnaryExpression Dereference expr1 t)
                 (env3, err3, parsedexpr2) <- parseExpression env2 err2 expr2
                 parseExprExprAssignment parsedexpr1 parsedexpr2 env3 err3
             -- Riferimento ad un puntatore è un l-value valido            
-            StmtAssign (UnaryExpression Reference expr1 t) expr2 -> do
+            ( (UnaryExpression Reference expr1 t), expr2 ) -> do
                 (env2, err2, parsedexpr1) <- parseExpression env errs (UnaryExpression Reference expr1 t)
                 (env3, err3, parsedexpr2) <- parseExpression env2 err2 expr2                
                 parseExprExprAssignment parsedexpr1 parsedexpr2 env3 err3      
             -- Il resto dei possibili l-value non è valido
-            StmtAssign expr1 expr2 -> do
+            ( expr1, expr2 ) -> do
                 (env2, err2, parsedexpr1) <- parseExpression env errs expr1
                 (env3, err3, parsedexpr2) <- parseExpression env2 err2 expr2
                 -- TODO: includere posizione e stringa della espressione sinistra nel messaggio di errore
                 return (env3, ("Error: invalid l-value in assignment"):err3, (StmtAssign parsedexpr1 parsedexpr2) )
-
-            -- TODO: stessa cosa del caso in parseSingleDclBlock, rimuovere caso generico finale
-            _ -> return ( env, errs, StmtAssign (BaseExpr (Identifier (TokIdent ((0,0),"TODO"))) (TypeBaseType BaseType_real)) (ExprLiteral (LiteralDouble (TokDouble ((0,0),"111.111")))) )
-
 
 
 -- check if literal type matches with the one saved in the environment. 
