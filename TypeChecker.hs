@@ -504,11 +504,13 @@ getTypeFromExpression (BaseExpr exp t) = t
 
 -- Type compatibility for operations
 sup :: Type -> Type -> Type
-sup (TypeBaseType BaseType_integer) (TypeBaseType BaseType_real) = TypeBaseType BaseType_real
-sup (TypeBaseType BaseType_real) (TypeBaseType BaseType_integer) = TypeBaseType BaseType_real
-sup (TypeBaseType BaseType_char) (TypeBaseType BaseType_string) = TypeBaseType BaseType_string
-sup (TypeBaseType BaseType_string) (TypeBaseType BaseType_char) = TypeBaseType BaseType_string
-sup _ _ = TypeBaseType BaseType_error
+sup t1 t2
+    | t1 == t2 = t1
+    | t1 == (TypeBaseType BaseType_integer) && t2 == (TypeBaseType BaseType_real) = (TypeBaseType BaseType_real)
+    | t1 == (TypeBaseType BaseType_real) && t2 == (TypeBaseType BaseType_integer) = (TypeBaseType BaseType_real)
+    | t1 == (TypeBaseType BaseType_char) && t2 == (TypeBaseType BaseType_string) = (TypeBaseType BaseType_string)
+    | t1 == (TypeBaseType BaseType_string) && t2 == (TypeBaseType BaseType_char) = (TypeBaseType BaseType_string)
+    | otherwise = (TypeBaseType BaseType_error)
 
 
 
