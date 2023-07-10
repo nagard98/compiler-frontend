@@ -166,20 +166,24 @@ parseStatement stmt env errs = case stmt of
             -- Assegnamento
             (StmtAssign expr1 expr2) -> parseAssignment expr1 expr2 env errs
 
-            --TODO: fare vero parsing senza utilizzare nodi generici per il resto dei casi
-
-            -- Chiamata funzione
-            (StmtCall call) -> return (env, errs, exStmtCall )
-            -- Select
-            (StmtSelect sel) -> return (env, errs, exStmtSelect )
             -- Iterazione
             (StmtIter iter) -> parseIter (StmtIter iter) env errs
 
             -- Return
             (StmtReturn return)  -> parseReturn (StmtReturn return) env errs
+
+            -- TODO: fare vero parsing senza utilizzare nodi generici per il resto dei casi
+            -- Chiamata funzione
+            (StmtCall call) -> return (env, errs, exStmtCall )
+            -- Select
+            -- TODO: in case of single statement, remember to wrap it in a begin-end block!
+            (StmtSelect sel) -> return (env, errs, exStmtSelect )
+
             -------------------------------------------------------------
 
 -- TODO: add positional info to errors
+-- TODO: in case of single statement, remember to wrap it in a begin-end block!
+
 parseIter :: Stmt env infType -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
 -- parsing of while-do statement
 parseIter (StmtIter (StmtWhileDo expr stmt)) env errs = do
