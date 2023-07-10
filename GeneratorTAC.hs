@@ -111,12 +111,18 @@ genStmts (stmt:stmts) env = do
                 AbsGrammar.StmtIter _ -> genStmtIter stmt env
                 AbsGrammar.StmtReturn _ -> genStmtReturn stmt env
 
-
+--TODO: gestisci caso assegnamento array
 genStmtAssign :: AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> StateTAC ()
-genStmtAssign (AbsGrammar.StmtAssign lexpr rexpr) env = do
-    varAddr <- genBaseExpr lexpr env;
-    exprAddr <- genExpr rexpr env;
-    addInstr (TACNulAss varAddr exprAddr)
+genStmtAssign (AbsGrammar.StmtAssign lexpr rexpr) env = case lexpr of
+    --TODO: potrebbe essere utile passare giù il tipo; credo di no
+    AbsGrammar.BaseExpr arr@(AbsGrammar.ArrayElem _ _) tp -> do
+        (baseAddr, offset, _) <- genArrayExpr arr env
+        exprAddr <- genExpr rexpr env;
+        addInstr (TACIndxStr baseAddr offset exprAddr)
+    _ -> do
+        varAddr <- genBaseExpr lexpr env;
+        exprAddr <- genExpr rexpr env;
+        addInstr (TACNulAss varAddr exprAddr)
 genStmtAssign _ _ = error "TODO: gestire errore genStmtAssign"
 
 genStmtDecl :: AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> StateTAC ()
@@ -333,8 +339,48 @@ genArgs [] env = return ()
 
 genBaseExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Env -> StateTAC Addr
 genBaseExpr (AbsGrammar.BaseExpr bexpr tp) env = case bexpr of
-    (AbsGrammar.Identifier (AbsGrammar.TokIdent (_, id))) -> do getIdAddr id env
-    (AbsGrammar.ArrayElem _ _) -> error "TODO: implementare genBaseExpr per ArrayElem"
+    
+    (AbsGrammar.Identifier (AbsGrammar.TokIdent (_, id))) -> do 
+        getIdAddr id env
+    
+    arr@(AbsGrammar.ArrayElem _ _) -> do
+        (baseAddr, offset, _) <- genArrayExpr arr env
+        elemAddr <- newTmpAddr
+        addInstr (TACIndxLd elemAddr baseAddr offset)
+        return elemAddr
+
+genBaseExpr _ _ = error "TODO: genBaseExpr -> gestire altri casi mancanti"
+
+genArrayExpr :: AbsGrammar.BEXPR AbsGrammar.Type -> Env -> StateTAC (Addr, Addr, AbsGrammar.Type)
+genArrayExpr (AbsGrammar.ArrayElem (AbsGrammar.Identifier (AbsGrammar.TokIdent (_,id))) indexExpr) env = 
+    case Env.lookup id env of
+    
+        Just (VarType _ tp baseAddr) -> do
+            offset <- newTmpAddr
+            indexAddr <- genExpr indexExpr env
+            sizeAddr <- genLitExpr (convertIntToExpr (sizeof tp)) env
+            addInstr (TACBinAss offset indexAddr TACMul sizeAddr)
+            return (baseAddr, offset, tp)
+    
+        _ -> error "TODO: genArrayExpr -> id non esiste nel env"
+
+genArrayExpr (AbsGrammar.ArrayElem arr@(AbsGrammar.ArrayElem _ _) indexExpr) env = do
+    (baseAddr, lastOffset, lastArrType) <- genArrayExpr arr env
+    tp <- case lastArrType of
+        AbsGrammar.TypeCompType (AbsGrammar.Array _ _ nextArrType) -> return nextArrType
+        _ -> error "TODO: genArrayExpr -> verifica cosa serve con altri tipi"
+    tmp <- newTmpAddr
+    offset <- newTmpAddr
+    indexAddr <- genExpr indexExpr env
+    --TODO: valutare se possibile scriverlo meglio
+    sizeAddr <- genLitExpr (convertIntToExpr (sizeof tp)) env
+    addInstr (TACBinAss tmp indexAddr TACMul sizeAddr)
+    addInstr (TACBinAss offset tmp TACAdd lastOffset)
+    return (baseAddr, offset, tp)
+
+genArrayExpr _ _ = error "TODO: genArrayExpr -> non è un array"
+
+    
 
 addInstr :: TACInst -> StateTAC ()
 addInstr tacInst = do

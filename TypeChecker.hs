@@ -240,7 +240,12 @@ parseAssignment expr1 expr2 env errs = case (expr1, expr2) of
             ( (UnaryExpression Reference expr1 t), expr2 ) -> do
                 (env2, err2, parsedexpr1) <- parseExpression env errs (UnaryExpression Reference expr1 t)
                 (env3, err3, parsedexpr2) <- parseExpression env2 err2 expr2                
-                parseExprExprAssignment parsedexpr1 parsedexpr2 env3 err3      
+                parseExprExprAssignment parsedexpr1 parsedexpr2 env3 err3
+
+
+            --TODO: manca il caso in cui l-value sia un array 
+
+
             -- Il resto dei possibili l-value non è valido
             ( expr1, expr2 ) -> do
                 (env2, err2, parsedexpr1) <- parseExpression env errs expr1
