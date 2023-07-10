@@ -407,12 +407,11 @@ parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) args ) (Params (prm:
     newparams <- case prms of
                 [] -> return NoParams
                 _ -> return $ Params prms
-    --TODO : perchè viene chiamata la stessa funzione nei 2 rami del if
     if compatible
         then
             parseProcedure env2 err2 (CallArgs (TokIdent (tokpos,tokid)) args2 ) newparams
         else
-            parseProcedure env2 err2 (CallArgs (TokIdent (tokpos,tokid)) args2 ) newparams
+            parseProcedure env2 (("Error at " ++ show tokpos ++ ": arguments not compatible"):err2) (CallArgs (TokIdent (tokpos,tokid)) args ) newparams
 
 -- Parses arguments of the same type defined together and print accurate error messages with position of arguments
 -- Boolean parameter keeps track of whether all arguments are of correct type
