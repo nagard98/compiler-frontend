@@ -1,12 +1,12 @@
 program TACTest;
 
-{var b, z: integer;
+var b, z: integer;
 {var a: real;
 
 {var u,v: real;
 const pk = 3.14;
 { TODO : valutare perchè non posso passare un int ad una funzione che richede real
-procedure f (k,l : real);
+{*procedure f (k,l : real);
 begin
     var o:real;
     procedure g(b,m:real);
@@ -20,10 +20,14 @@ function m (q:real):real;
 begin
     {TODO: c'è qualche problema con analisi semantica statica in quanto segna errore qui
     {      dice ["Function m at (19,10) expects a Real to be returned but the expression following the return statement has type Real"]
-    {return 0.0;
+    return 0.0;
 end;
+*}
 
 begin
+{    if b>4 then z:= 55;
+    while b>4 do z:= 55;
+    b:=33;
 {    u := 6.1;
 {    v := 9.8;
 {    b := 3;

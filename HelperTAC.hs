@@ -43,8 +43,10 @@ data Addr =
 
 type StateTAC = State (Int, DS.Seq TACInst, Stack (DS.Seq TACInst))
 
+--TODO: pensare se è necessario sistemare i label
 data TACLabel =
       FuncLab Addr
+    | StmtLab String
     | Fall
     deriving (Show)
 
@@ -97,6 +99,13 @@ newTmpAddr = do
 int2TmpName :: Int -> Addr
 int2TmpName k = Temporary ("t" ++ show k)
 
+--TODO: implementa per bene generazione label
+newLabel :: StateTAC TACLabel
+newLabel = do
+    (k, ls, stackStrm)<-get;
+    put (k+1, ls, stackStrm);
+    return (StmtLab ("L" ++ show k) )
+
 binToTACOp :: AbsGrammar.BinaryOperator -> TACOp
 binToTACOp opr = case opr of
     AbsGrammar.Add -> TACAdd
@@ -119,6 +128,16 @@ unrToTACOp opr = case opr of
     AbsGrammar.Negation -> TACNeg
     AbsGrammar.Reference -> TACRef
     AbsGrammar.Dereference -> TACDeref
+
+
+notRel :: AbsGrammar.BinaryOperator -> TACOp
+notRel opr = case opr of
+    AbsGrammar.Eq -> TACNotEq
+    AbsGrammar.NotEq -> TACEq
+    AbsGrammar.LessT -> TACEqGreatT
+    AbsGrammar.GreatT -> TACEqLessT
+    AbsGrammar.EqLessT -> TACGreatT
+    AbsGrammar.EqGreatT -> TACLessT
 
 
 getVarDefaultVal :: AbsGrammar.Type -> Addr
