@@ -149,8 +149,6 @@ parseStatements env errors allStmts =  q env errors allStmts []
 -- Esempi provvisori di statement per cui non è ancora stato definito il parsing
 exStmtCall = StmtCall (CallArgs (TokIdent ((0,0),"funzioneDiEsempio")) [])
 exStmtSelect = StmtSelect (StmtIf (ExprLiteral (LiteralInteger (TokInteger ((36,30), "10")))) (StmtReturn (Ret (ExprLiteral (LiteralInteger (TokInteger ((36,30), "10")) ) ) )) )
-exStmtIter = StmtIter (StmtWhileDo (ExprLiteral (LiteralInteger (TokInteger ((36,30), "10")))) (StmtReturn (Ret (ExprLiteral (LiteralInteger (TokInteger ((36,30), "10")) ) ) )) )
-
 
 parseStatement :: Stmt stmtenv infType -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
 parseStatement stmt env errs = case stmt of
@@ -175,10 +173,29 @@ parseStatement stmt env errs = case stmt of
             -- Select
             (StmtSelect sel) -> return (env, errs, exStmtSelect )
             -- Iterazione
-            (StmtIter iter) -> return (env, errs, exStmtIter )
+            (StmtIter iter) -> parseIter (StmtIter iter) env errs
+
             -- Return
             (StmtReturn return)  -> parseReturn (StmtReturn return) env errs
             -------------------------------------------------------------
+
+-- TODO: add positional info to errors
+parseIter :: Stmt env infType -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
+-- parsing of while-do statement
+parseIter (StmtIter (StmtWhileDo expr stmt)) env errs = do
+    (env1, errs1, parsedExpr) <- parseExpression env errs expr
+    (newEnv, newErrs, parsedStmt) <- parseStatement stmt env1 errs1
+    if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean
+        then return (newEnv, newErrs, StmtIter (StmtWhileDo parsedExpr parsedStmt))
+        else return (newEnv, newErrs ++ ["ERROR: condition of while-do statement is not boolean"], StmtIter (StmtWhileDo parsedExpr parsedStmt)) 
+
+-- parsing of repeat-until statement
+parseIter (StmtIter (StmtRepeat stmt expr)) env errs = do
+    (env1, errs1, parsedStmt) <- parseStatement stmt env errs
+    (newEnv, newErrs, parsedExpr) <- parseExpression env1 errs1 expr
+    if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean
+        then return (newEnv, newErrs, StmtIter (StmtRepeat parsedStmt parsedExpr))
+        else return (newEnv, newErrs ++ ["ERROR: condition of repeat-until statement is not boolean"], StmtIter (StmtRepeat parsedStmt parsedExpr))
 
 parseReturn :: Stmt env infType -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
 parseReturn (StmtReturn (Ret expr)) env errs = do
