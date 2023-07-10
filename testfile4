@@ -2,12 +2,12 @@
 
 program HelloMath;
 var a: array[1..10]of integer; 
-var b: integer;
+var b: ^integer;
 function sum(x,y: integer): integer;
 begin return x+y end;
 begin
   {b := a[3];}
-  b := sum(b,a[3]) {test chiamata funzione}
+  @b := sum(@b,a[3]) {test chiamata funzione}
 {*
   var a2: integer;
   var c: ^integer;

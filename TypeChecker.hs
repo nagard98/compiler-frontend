@@ -209,10 +209,27 @@ parseAssignment ass env errs = case ass of
             -- Assegno a variabile valore espressione generica: 1) parsing dell'espressione e trovo il tipo; 2) controllo compatibilità con letterale in assegnamento
             StmtAssign (BaseExpr (Identifier tId) tp) expr -> do
                 (env2, errs2, parsedexpr) <- parseExpression env errs expr
-                parseExprAssignment tId parsedexpr env2 errs2                    
+                parseIdExprAssignment tId parsedexpr env2 errs2
+            -- Puntatore è un l-value valido
+            StmtAssign (UnaryExpression Dereference expr1 t) expr2 -> do
+                (env2, err2, parsedexpr1) <- parseExpression env errs (UnaryExpression Dereference expr1 t)
+                (env3, err3, parsedexpr2) <- parseExpression env2 err2 expr2
+                parseExprExprAssignment parsedexpr1 parsedexpr2 env3 err3
+            -- Riferimento ad un puntatore è un l-value valido            
+            StmtAssign (UnaryExpression Reference expr1 t) expr2 -> do
+                (env2, err2, parsedexpr1) <- parseExpression env errs (UnaryExpression Reference expr1 t)
+                (env3, err3, parsedexpr2) <- parseExpression env2 err2 expr2                
+                parseExprExprAssignment parsedexpr1 parsedexpr2 env3 err3      
+            -- Il resto dei possibili l-value non è valido
+            StmtAssign expr1 expr2 -> do
+                (env2, err2, parsedexpr1) <- parseExpression env errs expr1
+                (env3, err3, parsedexpr2) <- parseExpression env2 err2 expr2
+                -- TODO: includere posizione e stringa della espressione sinistra nel messaggio di errore
+                return (env3, ("Error: invalid l-value in assignment"):err3, (StmtAssign parsedexpr1 parsedexpr2) )
 
             -- TODO: stessa cosa del caso in parseSingleDclBlock, rimuovere caso generico finale
             _ -> return ( env, errs, StmtAssign (BaseExpr (Identifier (TokIdent ((0,0),"TODO"))) (TypeBaseType BaseType_real)) (ExprLiteral (LiteralDouble (TokDouble ((0,0),"111.111")))) )
+
 
 
 -- check if literal type matches with the one saved in the environment. 
@@ -242,9 +259,10 @@ parseLitAssignment (TokIdent (idPos, idVal)) literal env errors = case Env.looku
                 StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) (TypeBaseType BaseType_error)) (ExprLiteral literal))
 
 -- Given identifier and expression (already parsed with inferred type!) assigns type to token of identifier
-parseExprAssignment :: TokIdent -> EXPR Type -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
-parseExprAssignment (TokIdent (idPos, idVal)) expr env errors = case Env.lookup idVal env of
+parseIdExprAssignment :: TokIdent -> EXPR Type -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
+parseIdExprAssignment (TokIdent (idPos, idVal)) expr env errors = case Env.lookup idVal env of
     Just (VarType envPos envType addr) ->
+        -- TODO: qui andrebbe applicato il sup e non verificata uguaglianza: risolvere problema wrapper IntToFloat e FloatToInt solo su literal
         if envType == getTypeFromExpression expr
             then return (
                 env,
@@ -262,6 +280,15 @@ parseExprAssignment (TokIdent (idPos, idVal)) expr env errors = case Env.lookup 
                 ". Unknown identifier: " ++ idVal ++
                 " is used but has never been declared."):errors,
                 StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) (TypeBaseType BaseType_error)) expr)
+
+
+parseExprExprAssignment :: EXPR Type -> EXPR Type -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
+parseExprExprAssignment expr1 expr2 env errs = 
+    -- TODO: qui andrebbe applicato il sup e non verificata uguaglianza: risolvere problema wrapper IntToFloat e FloatToInt solo su literal
+    -- TODO: includere posizione e stringa della espressione sinistra nel messaggio di errore
+    if getTypeFromExpression expr1 == getTypeFromExpression expr2
+        then return (env, errs, (StmtAssign expr1 expr2) )
+        else return (env, ("Error. Incompatible types in assignment: you can't assign a value of type " ++ show (getTypeFromExpression expr2) ++ " to value of type " ++ show (getTypeFromExpression expr1) ++ "."):errs, (StmtAssign expr1 expr2) )
 
 
 -- Given current environment, errors and syntax tree, returns annotated tree and updated environment and errors
