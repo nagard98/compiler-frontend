@@ -65,7 +65,7 @@ parseDclVrBlock env errors (DclBlockVrBlock (VarBlock vrDefs)) = do
             parseVrDefs :: [VrDef] -> Env -> StateCount Env
             parseVrDefs ((VarDefinition idElements t):vrDefs) env = do
                 -- TODO : probabilmente necessaria gestione errori (ovvero restituire anche errori)
-                (tmpEnv, tmpErrs, _) <- parseIds idElements t env []
+                (tmpEnv, tmpErrs, _) <- parseIds idElements Modality_var t env []
                 return tmpEnv
             parseVrDefs _ env = return env
                         
@@ -110,7 +110,7 @@ parseParams :: Prms -> [Prm] -> Env -> Errors -> StateCount (Env, Errors, Prms)
 parseParams prms accPrms env errs = do 
     case prms of
         (Params ( p@(Param mod idList typ):ps )) -> do
-            (tmpEnv, tmpErrs, _) <- parseIds idList typ env errs
+            (tmpEnv, tmpErrs, _) <- parseIds idList mod typ env errs
             (pEnv,pErrs, pPrms) <- parseParams (Params ps) (p:accPrms) tmpEnv tmpErrs
             return (pEnv, pErrs, pPrms)
                 
@@ -119,12 +119,12 @@ parseParams prms accPrms env errs = do
         NoParams -> return (env, errs, prms)
 
 
-parseIds :: [IdElem] -> Type -> Env -> Errors -> StateCount (Env, Errors, [IdElem])
-parseIds [] typ env errs = return (env, errs, [])
-parseIds ( idElem@(IdElement (TokIdent (pos, id))):ids) typ env errs = do
+parseIds :: [IdElem] -> Modality -> Type -> Env -> Errors -> StateCount (Env, Errors, [IdElem])
+parseIds [] mod typ env errs = return (env, errs, [])
+parseIds ( idElem@(IdElement (TokIdent (pos, id))):ids) mod typ env errs = do
     idAddr <- newIdAddr id
-    tmpEnv <- Env.insert id (VarType pos typ idAddr) env
-    (newEnv, newErrs, newIds) <- parseIds ids typ tmpEnv errs
+    tmpEnv <- Env.insert id (VarType mod pos typ idAddr) env
+    (newEnv, newErrs, newIds) <- parseIds ids mod typ tmpEnv errs
     return (newEnv, errs, idElem:newIds)
 
 
@@ -278,7 +278,7 @@ parseAssignment expr1 expr2 env errs = case (expr1, expr2) of
 -- If it doesn't return current environment and a new error message
 parseLitAssignment:: TokIdent -> Literal -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
 parseLitAssignment (TokIdent (idPos, idVal)) literal env errors = case Env.lookup idVal env of
-    Just (VarType envPos envType addr) ->
+    Just (VarType mod envPos envType addr) ->
         if envType == TypeBaseType (getTypeFromLiteral literal)
             then return (
                 env,
@@ -303,7 +303,7 @@ parseLitAssignment (TokIdent (idPos, idVal)) literal env errors = case Env.looku
 -- Given identifier and expression (already parsed with inferred type!) assigns type to token of identifier
 parseIdExprAssignment :: TokIdent -> EXPR Type -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
 parseIdExprAssignment (TokIdent (idPos, idVal)) expr env errors = case Env.lookup idVal env of
-    Just (VarType envPos envType addr) ->
+    Just (VarType mod envPos envType addr) ->
         if envType == getTypeFromExpression expr
             then return (
                 env,
@@ -433,7 +433,7 @@ parseFunctionCall env errs (CallArgs (TokIdent (tokpos,tokid)) args ) = do
         Just (DefaultProc t) -> return (env, errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) parsedargs ) t ) ) --TODO: refactoring procedure default nell'environment
         Just (Constant pos t addr) -> return (env, ("Error at " ++ show tokpos ++". Identifier " ++ tokid ++" is used as a function/procedure but it is a constant."):errs,
                     (ExprCall (CallArgs (TokIdent (tokpos,tokid)) parsedargs ) (TypeBaseType BaseType_error) ) )
-        Just (VarType pos t addr) -> return (env, ("Error at " ++ show tokpos ++". Identifier " ++ tokid ++" is used as a function/procedure but it is a variable."):errs,
+        Just (VarType mod pos t addr) -> return (env, ("Error at " ++ show tokpos ++". Identifier " ++ tokid ++" is used as a function/procedure but it is a variable."):errs,
                     (ExprCall (CallArgs (TokIdent (tokpos,tokid)) parsedargs ) (TypeBaseType BaseType_error) ) ) 
         Nothing -> return (env, ("Error at " ++ show tokpos ++". Unknown identifier: " ++ tokid ++" is used but has never been declared."):errs,
                     (ExprCall (CallArgs (TokIdent (tokpos,tokid)) parsedargs ) (TypeBaseType BaseType_error) ) ) 
@@ -567,7 +567,7 @@ parseBinaryRelationExpression env errs op exp1 exp2 = do
 parseBaseExpression :: Env -> Errors -> BEXPR infType -> StateCount (Env, Errors, EXPR Type)
 -- parse identifiers
 parseBaseExpression env errs (Identifier (TokIdent (tokpos,tokid)) ) = case Env.lookup tokid env of
-    Just (VarType _ envType addr) -> return (env, errs, (BaseExpr (Identifier (TokIdent (tokpos,tokid)) ) envType ) )
+    Just (VarType mod _ envType addr) -> return (env, errs, (BaseExpr (Identifier (TokIdent (tokpos,tokid)) ) envType ) )
     Just (Constant _ envType addr) -> return (env, errs, (BaseExpr (Identifier (TokIdent (tokpos,tokid)) ) envType ) )
     Nothing -> return (env, ("Error at " ++ show tokpos ++". Unknown identifier: " ++ tokid ++" is used but has never been declared."):errs,
                 (BaseExpr (Identifier (TokIdent (tokpos,tokid)) ) (TypeBaseType BaseType_error) ) )
