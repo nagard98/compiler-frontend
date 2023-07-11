@@ -182,24 +182,32 @@ parseStatement stmt env errs = case stmt of
             -------------------------------------------------------------
 
 -- TODO: add positional info to errors
--- TODO: in case of single statement, remember to wrap it in a begin-end block!
-
 parseIter :: Stmt env infType -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
 -- parsing of while-do statement
 parseIter (StmtIter (StmtWhileDo expr stmt)) env errs = do
     (env1, errs1, parsedExpr) <- parseExpression env errs expr
     (newEnv, newErrs, parsedStmt) <- parseStatement stmt env1 errs1
+    let wrappedStmt = wrapInBeginEnd parsedStmt newEnv
     if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean
-        then return (newEnv, newErrs, StmtIter (StmtWhileDo parsedExpr parsedStmt))
-        else return (newEnv, newErrs ++ ["ERROR: condition of while-do statement is not boolean"], StmtIter (StmtWhileDo parsedExpr parsedStmt)) 
+        then return (newEnv, newErrs, StmtIter (StmtWhileDo parsedExpr wrappedStmt))
+        else return (newEnv, newErrs ++ ["ERROR: condition of while-do statement is not boolean"], StmtIter (StmtWhileDo parsedExpr wrappedStmt)) 
 
 -- parsing of repeat-until statement
 parseIter (StmtIter (StmtRepeat stmt expr)) env errs = do
     (env1, errs1, parsedStmt) <- parseStatement stmt env errs
+    let wrappedStmt = wrapInBeginEnd parsedStmt env1
     (newEnv, newErrs, parsedExpr) <- parseExpression env1 errs1 expr
     if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean
-        then return (newEnv, newErrs, StmtIter (StmtRepeat parsedStmt parsedExpr))
-        else return (newEnv, newErrs ++ ["ERROR: condition of repeat-until statement is not boolean"], StmtIter (StmtRepeat parsedStmt parsedExpr))
+        then return (newEnv, newErrs, StmtIter (StmtRepeat wrappedStmt parsedExpr))
+        else return (newEnv, newErrs ++ ["ERROR: condition of repeat-until statement is not boolean"], StmtIter (StmtRepeat wrappedStmt parsedExpr))
+
+
+-- If the provided statement is not insiede a begin-end block, wraps it in one
+-- This is needed to simplify TAC generation by having to deal only with begin-end blocks containing statements
+-- With the current grammar the body of a iteration (or an if-else) statement can be eather a single statement or a begin-end block with other statements
+wrapInBeginEnd :: Stmt Env infType -> Env -> Stmt Env infType
+wrapInBeginEnd (StmtComp (BegEndBlock stmts begEnv)) _ = StmtComp (BegEndBlock stmts begEnv)
+wrapInBeginEnd stmt stmEnv = StmtComp (BegEndBlock [stmt] stmEnv)
 
 parseReturn :: Stmt env infType -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
 parseReturn (StmtReturn (Ret expr)) env errs = do

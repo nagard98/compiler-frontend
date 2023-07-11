@@ -32,7 +32,7 @@ begin
     b := 0;
     repeat
         begin
-        writeln("value of a: ", a);
+        writeln("value of b: ", b);
         b := b + 1
         end
     until b+10; {the problem is here!}
