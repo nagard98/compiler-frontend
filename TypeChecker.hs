@@ -172,12 +172,14 @@ parseStatement stmt env errs = case stmt of
             -- Return
             (StmtReturn return)  -> parseReturn (StmtReturn return) env errs
 
+            -- Select
+            -- TODO: in case of single statement, remember to wrap it in a begin-end block!
+            -- (StmtSelect sel) -> return (env, errs, exStmtSelect )
+            (StmtSelect sel) -> parseSelection (StmtSelect sel) env errs
+
             -- TODO: fare vero parsing senza utilizzare nodi generici per il resto dei casi
             -- Chiamata funzione
             (StmtCall call) -> return (env, errs, exStmtCall )
-            -- Select
-            -- TODO: in case of single statement, remember to wrap it in a begin-end block!
-            (StmtSelect sel) -> return (env, errs, exStmtSelect )
 
             -------------------------------------------------------------
 
@@ -201,6 +203,23 @@ parseIter (StmtIter (StmtRepeat stmt expr)) env errs = do
         then return (newEnv, newErrs, StmtIter (StmtRepeat wrappedStmt parsedExpr))
         else return (newEnv, newErrs ++ ["ERROR: condition of repeat-until statement is not boolean"], StmtIter (StmtRepeat wrappedStmt parsedExpr))
 
+parseSelection :: Stmt env infType -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
+parseSelection (StmtSelect (StmtIf expr stmt)) env errs = do
+    (env1, errs1, parsedExpr) <- parseExpression env errs expr
+    (newEnv, newErrs, parsedStmt) <- parseStatement stmt env1 errs1
+    let wrappedStmt = wrapInBeginEnd parsedStmt newEnv
+    if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean
+        then return (newEnv, newErrs, StmtSelect (StmtIf parsedExpr wrappedStmt))
+        else return (newEnv, newErrs ++ ["ERROR: condition of if statement is not boolean"], StmtSelect (StmtIf parsedExpr wrappedStmt))
+parseSelection (StmtSelect (StmtIfElse expr stmt1 stmt2)) env errs = do
+    (env1, errs1, parsedExpr) <- parseExpression env errs expr
+    (newEnv1, newErrs1, parsedStmt1) <- parseStatement stmt1 env1 errs1
+    let wrappedStmt1 = wrapInBeginEnd parsedStmt1 newEnv1
+    (newEnv2, newErrs2, parsedStmt2) <- parseStatement stmt2 newEnv1 newErrs1
+    let wrappedStmt2 = wrapInBeginEnd parsedStmt2 newEnv2
+    if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean
+        then return (newEnv2, newErrs2, StmtSelect (StmtIfElse parsedExpr wrappedStmt1 wrappedStmt2))
+        else return (newEnv2, newErrs2 ++ ["ERROR: condition of if-else statement is not boolean"], StmtSelect (StmtIfElse parsedExpr wrappedStmt1 wrappedStmt2))
 
 -- If the provided statement is not insiede a begin-end block, wraps it in one
 -- This is needed to simplify TAC generation by having to deal only with begin-end blocks containing statements

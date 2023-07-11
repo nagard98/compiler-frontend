@@ -1,0 +1,20 @@
+{Example used to test the parsing of selection statements}
+
+program HelloSel;
+var a : integer;
+
+begin
+   a := 100;
+   
+{ok if-else statement}   
+   if( a < 20 ) then
+      writeln("a is less than 20")
+   else
+      begin
+         writeln("a is not less than 20");
+      end;
+
+{WRONG if statement. condition is not boolean}   
+   if( a * 20 ) then
+      writeln("a is less than 20")
+end.
