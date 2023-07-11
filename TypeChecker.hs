@@ -219,7 +219,8 @@ parseAssignment expr1 expr2 env errs = case (expr1, expr2) of
             ( (UnaryExpression Reference expr1 t), expr2 ) -> do
                 (env2, err2, parsedexpr1) <- parseExpression env errs (UnaryExpression Reference expr1 t)
                 (env3, err3, parsedexpr2) <- parseExpression env2 err2 expr2                
-                parseExprExprAssignment parsedexpr1 parsedexpr2 env3 err3      
+                parseExprExprAssignment parsedexpr1 parsedexpr2 env3 err3    
+            -- TODO: assegnazione ad elementi di array per ora è considerata non valida
             -- Il resto dei possibili l-value non è valido
             ( expr1, expr2 ) -> do
                 (env2, err2, parsedexpr1) <- parseExpression env errs expr1
@@ -242,8 +243,8 @@ parseLitAssignment (TokIdent (idPos, idVal)) literal env errors = case Env.looku
                 )
             else case (envType, getTypeFromLiteral literal ) of
                 -- 3 cases: casting int->real, real->int or incompatible types
-                (TypeBaseType BaseType_real, BaseType_integer) -> return (env, errors, StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) (ExprLiteral (IntToReal literal) ))
-                (TypeBaseType BaseType_integer, BaseType_real) -> return (env, errors, StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) (ExprLiteral (RealToInt literal) ))
+                (TypeBaseType BaseType_real, BaseType_integer) -> return (env, errors, StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) (IntToReal (ExprLiteral literal)) )
+                (TypeBaseType BaseType_integer, BaseType_real) -> return (env, errors, StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) (RealToInt (ExprLiteral literal)) )
                 -- In case of errors the tree is not annotated. 
                 -- TODO: maybe we should annotate it with the type of the literal? or don't annotate it at all?
                 -- Per il momento ho aggiunto un come tipo envType
@@ -258,7 +259,6 @@ parseLitAssignment (TokIdent (idPos, idVal)) literal env errors = case Env.looku
 parseIdExprAssignment :: TokIdent -> EXPR Type -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
 parseIdExprAssignment (TokIdent (idPos, idVal)) expr env errors = case Env.lookup idVal env of
     Just (VarType envPos envType addr) ->
-        -- TODO: qui andrebbe applicato il sup e non verificata uguaglianza: risolvere problema wrapper IntToFloat e FloatToInt solo su literal
         if envType == getTypeFromExpression expr
             then return (
                 env,
@@ -267,8 +267,8 @@ parseIdExprAssignment (TokIdent (idPos, idVal)) expr env errors = case Env.looku
                 )
             else case (envType, getTypeFromExpression expr ) of
                 -- 3 cases: 1) casting int->real, 2) casting real->int, 3) incompatible types
-                (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) -> return (env, errors, StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) expr )
-                (TypeBaseType BaseType_integer, TypeBaseType BaseType_real) -> return (env, errors, StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) expr )
+                (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) -> return (env, errors, StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) (IntToReal expr) )
+                (TypeBaseType BaseType_integer, TypeBaseType BaseType_real) -> return (env, errors, StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) (RealToInt expr) )
                 (_, _)  -> return (env, ("Error at " ++ show idPos ++ ". Incompatible types: you can't assign a value of type " ++ show (getTypeFromExpression expr) ++ " to " ++ idVal ++ " because it has type " ++ show envType) :errors, StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) expr )
 
     Nothing -> return (env,
@@ -280,11 +280,13 @@ parseIdExprAssignment (TokIdent (idPos, idVal)) expr env errors = case Env.looku
 
 parseExprExprAssignment :: EXPR Type -> EXPR Type -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
 parseExprExprAssignment expr1 expr2 env errs = 
-    -- TODO: qui andrebbe applicato il sup e non verificata uguaglianza: risolvere problema wrapper IntToFloat e FloatToInt solo su literal
-    -- TODO: includere posizione e stringa della espressione sinistra nel messaggio di errore
+    -- TODO: includere posizione e stringa dell'espressione sinistra nel messaggio di errore
     if getTypeFromExpression expr1 == getTypeFromExpression expr2
         then return (env, errs, (StmtAssign expr1 expr2) )
-        else return (env, ("Error. Incompatible types in assignment: you can't assign a value of type " ++ show (getTypeFromExpression expr2) ++ " to value of type " ++ show (getTypeFromExpression expr1) ++ "."):errs, (StmtAssign expr1 expr2) )
+        else case (getTypeFromExpression expr1, getTypeFromExpression expr2) of
+            (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) -> return (env, errs, (StmtAssign expr1 (IntToReal expr2)))
+            (TypeBaseType BaseType_integer, TypeBaseType BaseType_real) -> return (env, errs, (StmtAssign expr1 (RealToInt expr2)))
+            otherwise -> return (env, ("Error. Incompatible types in assignment: you can't assign a value of type " ++ show (getTypeFromExpression expr2) ++ " to value of type " ++ show (getTypeFromExpression expr1) ++ "."):errs, (StmtAssign expr1 expr2) )
 
 
 -- Given current environment, errors and syntax tree, returns annotated tree and updated environment and errors
@@ -357,15 +359,32 @@ parseExpression env errs (ExprCall call t) = parseFunctionCall env errs call
 -- Base Expressions: identifies or array elements
 parseExpression env errs (BaseExpr bexpr t) = parseBaseExpression env errs bexpr
 
--- parseExpression env errs expr = (env, errs, (ExprLiteral (LiteralInteger (TokInteger ((0,0), "10")))) ) -- temporaneamente ogni espressione non specificata diventa il numero 10 (ora ridondante)
+-- Type casted expressions: verify that types match
+-- Real to Integer
+parseExpression env errs (RealToInt expr) = do
+    (env2, errs2, parsedexpr) <- parseExpression env errs expr
+    case getTypeFromExpression parsedexpr of
+        TypeBaseType BaseType_real -> return (env2, errs2, (RealToInt parsedexpr) )
+        TypeBaseType BaseType_integer -> return (env2, ("Warning: removed unneeded implicit type casting"):errs2, parsedexpr) -- expression is integer already: remove type casting wrapper
+        otherwise -> return (env2, ("Error: type casting from Real to Integer applied to type " ++ show (getTypeFromExpression parsedexpr) ++ "."):errs2, (RealToInt parsedexpr))
 
+-- Integer to Real
+parseExpression env errs (IntToReal expr) = do
+    (env2, errs2, parsedexpr) <- parseExpression env errs expr
+    case getTypeFromExpression parsedexpr of
+        TypeBaseType BaseType_integer -> return (env2, errs2, (IntToReal parsedexpr) )
+        TypeBaseType BaseType_real -> return (env2, ("Warning: removed unneeded implicit type casting"):errs2, parsedexpr) -- expression is real already: remove type casting wrapper
+        otherwise -> return (env2, ("Error: type casting from Integer to Real applied to type " ++ show (getTypeFromExpression parsedexpr) ++ "."):errs2, (IntToReal parsedexpr))
+
+
+-- parseExpression env errs expr = return (env, errs, (ExprLiteral (LiteralInteger (TokInteger ((0,0), "10")))) ) -- temporaneamente ogni espressione non specificata diventa il numero 10 (ora ridondante)
 
 parseFunctionCall :: Env -> Errors -> Call infType -> StateCount (Env, Errors, EXPR Type)
 parseFunctionCall env errs (CallArgs (TokIdent (tokpos,tokid)) args ) = do 
     (env2, err2, parsedargs) <- parseArguments env errs args []
     case Env.lookup tokid env of
-        Just (Function pos parameters t _) -> parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) args ) parameters t
-        Just (Procedure pos parameters _) -> parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) args ) parameters
+        Just (Function pos parameters t _) -> parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) parsedargs ) parameters t []
+        Just (Procedure pos parameters _) -> parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) parsedargs ) parameters []
         Just (DefaultProc t) -> return (env, errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) parsedargs ) t ) ) --TODO: refactoring procedure default nell'environment
         Just (Constant pos t addr) -> return (env, ("Error at " ++ show tokpos ++". Identifier " ++ tokid ++" is used as a function/procedure but it is a constant."):errs,
                     (ExprCall (CallArgs (TokIdent (tokpos,tokid)) parsedargs ) (TypeBaseType BaseType_error) ) )
@@ -382,52 +401,57 @@ parseArguments env errs (arg:args) res = do
     parseArguments env2 err2 args (res++[parsedexpr])
         
 
-parseFunction :: Env -> Errors -> Call infType -> Prms -> Type -> StateCount (Env, Errors, EXPR Type)
-parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) NoParams t = return (env, errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) [] ) t ) )
-parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) (Params prms) t = return (env, ("Error at " ++ show tokpos ++ ": mismatch in number of arguments"):errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) [] ) (TypeBaseType BaseType_error) ) )
-parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) args ) NoParams t = return (env, ("Error at " ++ show tokpos ++ ": mismatch in number of arguments"):errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) [] ) (TypeBaseType BaseType_error) ) )
-parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) args ) (Params (prm:prms) ) t = do
-    (env2, err2, args2, compatible) <- compareArguments env errs tokpos args prm True
+-- Last parameter is list of parsed expressions (call arguments) that have been type casted if needed
+-- Parameters: env, errors, call, params, parsedargs
+parseFunction :: Env -> Errors -> Call Type -> Prms -> Type -> [EXPR Type] -> StateCount (Env, Errors, EXPR Type)
+parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) NoParams t pargs = return (env, errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) pargs ) t ) )
+parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) (Params prms) t pargs = return (env, ("Error at " ++ show tokpos ++ ": mismatch in number of arguments"):errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) pargs ) (TypeBaseType BaseType_error) ) )
+parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) args ) NoParams t pargs = return (env, ("Error at " ++ show tokpos ++ ": mismatch in number of arguments"):errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) (pargs++args) ) (TypeBaseType BaseType_error) ) )
+parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) args ) (Params (prm:prms) ) t pargs = do
+    (env2, err2, args2, compatible, pargs2) <- compareArguments env errs tokpos args prm True pargs
     newparams <- case prms of
                     [] -> return NoParams
                     _ -> return (Params prms)
     if compatible
         then
-            parseFunction env2 err2 (CallArgs (TokIdent (tokpos,tokid)) args2 ) newparams t
+            parseFunction env2 err2 (CallArgs (TokIdent (tokpos,tokid)) args2 ) newparams t pargs2
         else
-            parseFunction env2 err2 (CallArgs (TokIdent (tokpos,tokid)) args2 ) newparams (TypeBaseType BaseType_error)
+            parseFunction env2 err2 (CallArgs (TokIdent (tokpos,tokid)) args2 ) newparams (TypeBaseType BaseType_error) pargs2
         
-
-parseProcedure :: Env -> Errors -> Call infType -> Prms -> StateCount (Env, Errors, EXPR Type)
-parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) NoParams = return (env, errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) [] ) (TypeBaseType BaseType_void) ) )
-parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) (Params prms) = return (env, ("Error at " ++ show tokpos ++ ": mismatch in number of arguments"):errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) [] ) (TypeBaseType BaseType_error) ) )
-parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) args ) NoParams = return (env, ("Error at " ++ show tokpos ++ ": mismatch in number of arguments"):errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) [] ) (TypeBaseType BaseType_error) ) )
-parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) args ) (Params (prm:prms) ) = do
-    (env2, err2, args2, compatible) <- compareArguments env errs tokpos args prm True
+parseProcedure :: Env -> Errors -> Call Type -> Prms -> [EXPR Type] -> StateCount (Env, Errors, EXPR Type)
+parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) NoParams pargs = return (env, errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) pargs ) (TypeBaseType BaseType_void) ) )
+parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) (Params prms) pargs = return (env, ("Error at " ++ show tokpos ++ ": mismatch in number of arguments"):errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) pargs ) (TypeBaseType BaseType_error) ) )
+parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) args ) NoParams pargs = return (env, ("Error at " ++ show tokpos ++ ": mismatch in number of arguments"):errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) (pargs++args) ) (TypeBaseType BaseType_error) ) )
+parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) args ) (Params (prm:prms) ) pargs = do
+    (env2, err2, args2, compatible, pargs2) <- compareArguments env errs tokpos args prm True pargs
     newparams <- case prms of
                 [] -> return NoParams
                 _ -> return $ Params prms
     if compatible
         then
-            parseProcedure env2 err2 (CallArgs (TokIdent (tokpos,tokid)) args2 ) newparams
+            parseProcedure env2 err2 (CallArgs (TokIdent (tokpos,tokid)) args2 ) newparams pargs2
         else
-            parseProcedure env2 (("Error at " ++ show tokpos ++ ": arguments not compatible"):err2) (CallArgs (TokIdent (tokpos,tokid)) args ) newparams
+            parseProcedure env2 (("Error at " ++ show tokpos ++ ": arguments not compatible"):err2) (CallArgs (TokIdent (tokpos,tokid)) args ) newparams pargs2
 
 -- Parses arguments of the same type defined together and print accurate error messages with position of arguments
--- Boolean parameter keeps track of whether all arguments are of correct type
-compareArguments :: Env -> Errors -> Position -> [EXPR infType] -> Prm -> Bool -> StateCount (Env, Errors, [EXPR infType], Bool)
-compareArguments env errs p [] (Param _ [] t) comp = return (env, errs, [], comp)
-compareArguments env errs p args (Param _ [] t) comp = return (env, errs, args, comp)
-compareArguments env errs p [] (Param _ toks t) comp = return (env, errs, [], False)
-compareArguments env errs p (expr:args) (Param m ((IdElement (TokIdent (_,parid))):toks) t) comp = do
+-- Boolean parameter keeps track of whether all arguments are of correct type, Last list of expressions are function call arguments type casted if needed
+compareArguments :: Env -> Errors -> Position -> [EXPR Type] -> Prm -> Bool -> [EXPR Type] -> StateCount (Env, Errors, [EXPR Type], Bool, [EXPR Type])
+compareArguments env errs p [] (Param _ [] t) comp pargs = return (env, errs, [], comp, pargs)
+compareArguments env errs p args (Param _ [] t) comp pargs = return (env, errs, args, comp, pargs)
+compareArguments env errs p [] (Param _ toks t) comp pargs = return (env, errs, [], False, pargs)
+compareArguments env errs p (expr:args) (Param m ((IdElement (TokIdent (_,parid))):toks) t) comp pargs = do
     (env2, err2, parsedexpr) <- parseExpression env errs expr
+    -- confronto tra parametri, diversi casi: 1) int to real, 2) real to int, 3) incompatibile --TODO: type casting CharToString e StringToChar?
     if (getTypeFromExpression parsedexpr) == t
         then
-            compareArguments env2 err2 p args (Param m toks t) comp
+            compareArguments env2 err2 p args (Param m toks t) comp (pargs++[parsedexpr])
         else
-            compareArguments env2 (("Error at "++ show p ++": parameter "++ parid ++" is assigned type " ++ show (getTypeFromExpression parsedexpr) ++ " but it should be of type " ++ show t):err2) p args (Param m toks t) False
+            case ((getTypeFromExpression parsedexpr),t) of
+                (TypeBaseType BaseType_integer, TypeBaseType BaseType_real) -> compareArguments env2 err2 p args (Param m toks t) comp (pargs++[(IntToReal parsedexpr)])
+                (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) -> compareArguments env2 err2 p args (Param m toks t) comp (pargs++[(RealToInt parsedexpr)])
+                otherwise -> compareArguments env2 (("Error at "++ show p ++": parameter "++ parid ++" is assigned type " ++ show (getTypeFromExpression parsedexpr) ++ " but it should be of type " ++ show t):err2) p args (Param m toks t) False (pargs++[parsedexpr])
+            
         
-
 parseBinaryBooleanExpression :: Env -> Errors -> BinaryOperator -> EXPR infType -> EXPR infType -> StateCount (Env, Errors, EXPR Type)
 parseBinaryBooleanExpression env errs op exp1 exp2 = do
     (env2, errs2, parsedexp1) <- parseExpression env errs exp1
@@ -438,12 +462,12 @@ parseBinaryBooleanExpression env errs op exp1 exp2 = do
             then return (env3, ("Error. " ++ "Second argument of "++ getStringFromOperator op ++" operator is of type " ++ show (getTypeFromExpression parsedexp2) ++ " instead of boolean."):errs3, (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ))
             else return (env3, errs3, (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_boolean) ))
     where
+        -- string form of operator for printing error messages
         getStringFromOperator :: BinaryOperator -> [Char]
         getStringFromOperator And = "'And'"
         getStringFromOperator Or = "'Or'"
         getStringFromOperator _ = ""
 
--- TODO: nodo di casting implicito nel caso di operazione tra numeri interi e reali? (es. 10*1.1)
 parseBinaryArithmeticExpression :: Env -> Errors -> BinaryOperator -> EXPR infType -> EXPR infType -> StateCount (Env, Errors, EXPR Type)
 parseBinaryArithmeticExpression env errs op exp1 exp2 = do
     (env2, errs2, parsedexp1) <- parseExpression env errs exp1
@@ -453,9 +477,13 @@ parseBinaryArithmeticExpression env errs op exp1 exp2 = do
         then return (env3, ("Error. " ++ "First argument of "++ getStringFromOperator op ++ "operator is of type " ++ show (getTypeFromExpression parsedexp1) ++ " instead of numeric (integer or real)."):errs3, (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ))
         else if getTypeFromExpression parsedexp2 /= TypeBaseType BaseType_integer && getTypeFromExpression parsedexp2 /= TypeBaseType BaseType_real 
             then return (env3, ("Error. " ++ "Second argument of "++getStringFromOperator op++" operator is of type " ++ show (getTypeFromExpression parsedexp2) ++ " instead of numeric (integer or real)."):errs3, (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ))
-            else return (env3, errs3, (BinaryExpression op parsedexp1 parsedexp2 (getType op parsedexp1 parsedexp2) ))
+            -- 3 casi: 1) primo int secondo real, 2) primo real secondo int, 3) no type casting
+            else case (getTypeFromExpression parsedexp1, getTypeFromExpression parsedexp2) of
+                    (TypeBaseType BaseType_integer, TypeBaseType BaseType_real) -> return (env3, errs3, (BinaryExpression op (IntToReal parsedexp1) parsedexp2 (getType op parsedexp1 parsedexp2) ))
+                    (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) -> return (env3, errs3, (BinaryExpression op parsedexp1 (IntToReal parsedexp2) (getType op parsedexp1 parsedexp2) ))
+                    otherwise -> return (env3, errs3, (BinaryExpression op parsedexp1 parsedexp2 (getType op parsedexp1 parsedexp2) ))                   
     where
-        -- string for of operator for printing error messages
+        -- string form of operator for printing error messages
         getStringFromOperator :: BinaryOperator -> [Char]
         getStringFromOperator Add = "'+'"
         getStringFromOperator Sub = "'-'"
@@ -463,7 +491,7 @@ parseBinaryArithmeticExpression env errs op exp1 exp2 = do
         getStringFromOperator Div = "'/'"
         getStringFromOperator Mod = "'mod'"
         getStringFromOperator _ = ""
-        -- division has always result of real type
+        -- division has always result of real type --   TODO: mantenere questa distinzione?
         getType :: BinaryOperator -> EXPR Type -> EXPR Type -> Type
         getType Div _ _ = TypeBaseType BaseType_real
         getType _ parsedexp1 parsedexp2 = (sup (getTypeFromExpression parsedexp1) (getTypeFromExpression parsedexp2) )
@@ -480,7 +508,7 @@ parseBinaryRelationExpression env errs op exp1 exp2 = do
             else return (env3, errs3, (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_boolean) )) -- result is of boolean type
     where
 
-        -- string for of operator for printing error messages 
+        -- string form of operator for printing error messages 
         getStringFromOperator :: BinaryOperator -> [Char]
         getStringFromOperator Eq = "'='"
         getStringFromOperator NotEq = "'<>'"
@@ -523,6 +551,8 @@ getTypeFromExpression (BinaryExpression op exp1 exp2 t) = t
 getTypeFromExpression (ExprLiteral literal) = (TypeBaseType (getTypeFromLiteral literal) )
 getTypeFromExpression (ExprCall call t) = t
 getTypeFromExpression (BaseExpr exp t) = t
+getTypeFromExpression (IntToReal _) = TypeBaseType BaseType_real
+getTypeFromExpression (RealToInt _) = TypeBaseType BaseType_integer
 
 -- Type compatibility for operations
 sup :: Type -> Type -> Type

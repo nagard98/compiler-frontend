@@ -2,7 +2,7 @@
 
 program HelloMath;
 var a: array[1..10]of integer; 
-var b: ^integer;
+var b: ^real;
 function sum(x,y: integer): integer;
 begin return x+y end;
 begin

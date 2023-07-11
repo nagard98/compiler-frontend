@@ -1,0 +1,38 @@
+{In this file we want to test functions and function calls}
+
+program HelloFunctions;
+
+var a : integer;
+var b : real;
+
+function oneparam(x: integer): integer;
+begin return x end;
+
+function twoparams (x:integer, y:real): real;
+begin return x+y end;
+
+function twoparamstype (x,y:integer): integer;
+begin return x+y end;
+
+begin
+    {Esecuzioni senza errori e senza type casting}
+    {a := oneparam(1);
+    {b := twoparams(1,1.0);
+    {a := twoparamstype(1,2);
+
+{{*
+    {Errori numerosità argomenti}
+    {a := oneparam();
+    {a := oneparam(1,2);
+    {a := twoparams(1);
+    {a := twoparams(1,2.0,3);
+    {a := twoparamstype();
+    {a := twoparamstype(1,2,3,4,5);
+
+    {Type casting di argomenti e risultato}
+    {b := oneparam(1.0);
+    {b := twoparams(1,2);
+    b := twoparamstype(1.0,2.0);
+{*}
+
+end.
