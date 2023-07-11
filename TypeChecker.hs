@@ -148,7 +148,6 @@ parseStatements env errors allStmts =  q env errors allStmts []
 
 -- Esempi provvisori di statement per cui non è ancora stato definito il parsing
 exStmtCall = StmtCall (CallArgs (TokIdent ((0,0),"funzioneDiEsempio")) [])
-exStmtSelect = StmtSelect (StmtIf (ExprLiteral (LiteralInteger (TokInteger ((36,30), "10")))) (StmtReturn (Ret (ExprLiteral (LiteralInteger (TokInteger ((36,30), "10")) ) ) )) )
 
 parseStatement :: Stmt stmtenv infType -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
 parseStatement stmt env errs = case stmt of
@@ -173,8 +172,6 @@ parseStatement stmt env errs = case stmt of
             (StmtReturn return)  -> parseReturn (StmtReturn return) env errs
 
             -- Select
-            -- TODO: in case of single statement, remember to wrap it in a begin-end block!
-            -- (StmtSelect sel) -> return (env, errs, exStmtSelect )
             (StmtSelect sel) -> parseSelection (StmtSelect sel) env errs
 
             -- TODO: fare vero parsing senza utilizzare nodi generici per il resto dei casi
