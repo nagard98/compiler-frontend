@@ -52,7 +52,8 @@ genFcDcl (AbsGrammar.FuncBlock (AbsGrammar.TokIdent (_,id)) prms tp (AbsGrammar.
         Just (Function _ _ _ addr) -> do
             newStrm <- createNewStream
             -- TODO: implementa aggiunta label a prima istruzione stream
-            pushStream (newStrm DS.|> LabelNext (FuncLab addr))
+            pushStream newStrm
+            attachLabelToNext (FuncLab addr)
             genStmts stmts scopeEnv
             --TODO: sembra che sia obbligatorio verificare in analisi semantica statica
             --che le funzioni abbiano un return
@@ -66,7 +67,8 @@ genPcDcl (AbsGrammar.ProcBlock (AbsGrammar.TokIdent (_,id)) prms (AbsGrammar.Beg
         Just (Procedure ps _ addr) -> do
             newStrm <- createNewStream
             -- TODO: implementa aggiunta label a prima istruzione stream
-            pushStream (newStrm DS.|> LabelNext (FuncLab addr))
+            pushStream newStrm
+            attachLabelToNext (FuncLab addr)
             genStmts stmts scopeEnv
             addInstr TACReturnVoid
             closeCurrentStream 
@@ -105,16 +107,22 @@ genStmts (stmt:stmts) env = do
                 AbsGrammar.StmtDecl _ -> genStmtDecl stmt env
                 AbsGrammar.StmtComp _ -> genStmtComp stmt env
                 AbsGrammar.StmtCall _ -> genStmtCall stmt env
-                AbsGrammar.StmtSelect _ -> error "TODO: implementare genStmtSelect"
-                AbsGrammar.StmtIter _ -> error "TODO: implementare genStmtIter"
+                AbsGrammar.StmtSelect _ -> genStmtSelect stmt env
+                AbsGrammar.StmtIter _ -> genStmtIter stmt env
                 AbsGrammar.StmtReturn _ -> genStmtReturn stmt env
 
-
+--TODO: gestisci caso assegnamento array
 genStmtAssign :: AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> StateTAC ()
-genStmtAssign (AbsGrammar.StmtAssign lexpr rexpr) env = do
-    varAddr <- genBaseExpr lexpr env;
-    exprAddr <- genExpr rexpr env;
-    addInstr (TACNulAss varAddr exprAddr)
+genStmtAssign (AbsGrammar.StmtAssign lexpr rexpr) env = case lexpr of
+    --TODO: potrebbe essere utile passare giù il tipo; credo di no
+    AbsGrammar.BaseExpr arr@(AbsGrammar.ArrayElem _ _) tp -> do
+        (baseAddr, offset, _) <- genArrayExpr arr env
+        exprAddr <- genExpr rexpr env;
+        addInstr (TACIndxStr baseAddr offset exprAddr)
+    _ -> do
+        varAddr <- genBaseExpr lexpr env;
+        exprAddr <- genExpr rexpr env;
+        addInstr (TACNulAss varAddr exprAddr)
 genStmtAssign _ _ = error "TODO: gestire errore genStmtAssign"
 
 genStmtDecl :: AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> StateTAC ()
@@ -132,6 +140,117 @@ genStmtCall (AbsGrammar.StmtCall (AbsGrammar.CallArgs (AbsGrammar.TokIdent (_,ca
             genArgs args env
             addInstr (TACPCall addr (length args))
         _ -> error "TODO:: genStmtCall -> errore, non esiste procedura con questo nome"
+
+genStmtSelect :: AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> StateTAC ()
+genStmtSelect (AbsGrammar.StmtSelect selStmt) env = case selStmt of
+    AbsGrammar.StmtIf guard stmt -> do
+        nextStmtLabel <- newLabel
+        genGuard guard Fall nextStmtLabel env
+        --TODO: problema di passare env corretto; se è solo statement e non BEBlock,
+        --come faccio ad avere l'env locale all'interno dell'if
+        --Fare in modo che durante analisi semantica statica all'interno degli if-else, se c'è un unico stmt che
+        --non è un blocco BeginEnd, questo venga inserito facendo da wrapper allo statement
+        genStmts [stmt] env
+        attachLabelToNext nextStmtLabel
+
+    AbsGrammar.StmtIfElse guard tStmt fStmt -> do
+        nextStmtLabel <- newLabel
+        elseStmtLabel <- newLabel
+        genGuard guard Fall elseStmtLabel env
+        genStmts [tStmt] env
+        addInstr (TACUncdJmp nextStmtLabel)
+        genStmts [fStmt] env
+        attachLabelToNext nextStmtLabel
+
+
+genStmtSelect _ _ = error "TODO: gestire errore genStmtSelect"
+
+
+genStmtIter :: AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> StateTAC ()
+genStmtIter (AbsGrammar.StmtIter iterStmt) env = do
+
+    inStmtLabel <- newLabel
+
+    case iterStmt of
+        AbsGrammar.StmtWhileDo guard stmt -> do
+            guardLabel <- newLabel
+            addInstr (TACUncdJmp guardLabel)
+            attachLabelToNext inStmtLabel
+            genStmts [stmt] env
+            attachLabelToNext guardLabel
+            genGuard guard inStmtLabel Fall env
+
+        AbsGrammar.StmtRepeat stmt guard -> do
+            attachLabelToNext inStmtLabel
+            genStmts [stmt] env
+            genGuard guard inStmtLabel Fall env
+
+genStmtIter _ _ =  error "TODO: gestire errore genStmtIter"
+
+
+--TODO: determinare con quale ordine devo fare la valutazione delle guardie
+genGuard :: AbsGrammar.EXPR AbsGrammar.Type -> TACLabel -> TACLabel -> Env -> StateTAC ()
+genGuard guard trueLab falseLab env = case guard of
+
+    (AbsGrammar.BinaryExpression opr b1@expr1 b2@expr2 _) -> case opr of
+
+        AbsGrammar.And -> do
+            b1False <- case falseLab of
+                        Fall -> newLabel
+                        _ -> return falseLab
+
+            genGuard b1 Fall b1False env
+            genGuard b2 trueLab falseLab env
+            case falseLab of
+                Fall -> attachLabelToNext b1False
+                _ -> return ()
+
+        AbsGrammar.Or -> do
+            b1True <- case trueLab of
+                        Fall -> newLabel
+                        _ -> return trueLab
+
+            genGuard b1 b1True Fall env
+            genGuard b2 trueLab falseLab env
+            case trueLab of
+                Fall -> attachLabelToNext b1True
+                _ -> return ()
+
+        _ -> if isRelOp opr
+                then do
+                    e1Addr <- genExpr expr1 env
+                    e2Addr <- genExpr expr2 env
+                    case (trueLab, falseLab) of
+                        (Fall, Fall) -> return ()
+                        (_, Fall) -> addInstr (TACCndJmp e1Addr (binToTACOp opr) e2Addr trueLab)
+                        (Fall, _) -> addInstr (TACCndJmp e1Addr (notRel opr) e2Addr falseLab)
+                        _ -> do
+                            addInstr (TACCndJmp e1Addr (binToTACOp opr) e2Addr trueLab)
+                            addInstr (TACUncdJmp falseLab)
+                            
+                else error "TODO: genGuard -> operatore non è ne logico ne relazionale"
+
+    (AbsGrammar.UnaryExpression opr b1@expr tp) -> case opr of
+        AbsGrammar.Not -> genGuard b1 falseLab trueLab env
+
+    (AbsGrammar.ExprLiteral (AbsGrammar.LiteralBoolean (AbsGrammar.TokBoolean (_, value)))) -> case value of
+        "true" -> addInstr (TACUncdJmp trueLab)
+        "false" -> addInstr (TACUncdJmp falseLab)
+        _ -> error "TODO: genGuard -> valore literal non è ne true ne false"
+
+    _ -> error "TODO: genGuard -> espressione guardia non è compatibile"
+
+    where
+        isRelOp :: AbsGrammar.BinaryOperator -> Bool
+        isRelOp opr = case opr of
+            AbsGrammar.LessT -> True
+            AbsGrammar.GreatT -> True
+            AbsGrammar.EqLessT -> True
+            AbsGrammar.EqGreatT -> True
+            AbsGrammar.NotEq -> True
+            AbsGrammar.Eq -> True
+            _ -> False
+
 
 genStmtReturn :: AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> StateTAC ()
 genStmtReturn (AbsGrammar.StmtReturn (AbsGrammar.Ret expr)) env = do
@@ -174,6 +293,7 @@ genBinExpr (AbsGrammar.BinaryExpression op exp1 exp2 infType) env = do
     addInstr (TACBinAss tmpAddr exprAddr1 (binToTACOp op) exprAddr2);
     return tmpAddr;
 genBinExpr _ _ = error "TODO: gestire errore genBinExpr"
+
 
 castIfNecessary :: Addr -> AbsGrammar.Type -> AbsGrammar.Type -> StateTAC Addr
 castIfNecessary exprAddr exprType castType = do
@@ -219,8 +339,48 @@ genArgs [] env = return ()
 
 genBaseExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Env -> StateTAC Addr
 genBaseExpr (AbsGrammar.BaseExpr bexpr tp) env = case bexpr of
-    (AbsGrammar.Identifier (AbsGrammar.TokIdent (_, id))) -> do getIdAddr id env
-    (AbsGrammar.ArrayElem _ _) -> error "TODO: implementare genBaseExpr per ArrayElem"
+    
+    (AbsGrammar.Identifier (AbsGrammar.TokIdent (_, id))) -> do 
+        getIdAddr id env
+    
+    arr@(AbsGrammar.ArrayElem _ _) -> do
+        (baseAddr, offset, _) <- genArrayExpr arr env
+        elemAddr <- newTmpAddr
+        addInstr (TACIndxLd elemAddr baseAddr offset)
+        return elemAddr
+
+genBaseExpr _ _ = error "TODO: genBaseExpr -> gestire altri casi mancanti"
+
+genArrayExpr :: AbsGrammar.BEXPR AbsGrammar.Type -> Env -> StateTAC (Addr, Addr, AbsGrammar.Type)
+genArrayExpr (AbsGrammar.ArrayElem (AbsGrammar.Identifier (AbsGrammar.TokIdent (_,id))) indexExpr) env = 
+    case Env.lookup id env of
+    
+        Just (VarType _ tp baseAddr) -> do
+            offset <- newTmpAddr
+            indexAddr <- genExpr indexExpr env
+            sizeAddr <- genLitExpr (convertIntToExpr (sizeof tp)) env
+            addInstr (TACBinAss offset indexAddr TACMul sizeAddr)
+            return (baseAddr, offset, tp)
+    
+        _ -> error "TODO: genArrayExpr -> id non esiste nel env"
+
+genArrayExpr (AbsGrammar.ArrayElem arr@(AbsGrammar.ArrayElem _ _) indexExpr) env = do
+    (baseAddr, lastOffset, lastArrType) <- genArrayExpr arr env
+    tp <- case lastArrType of
+        AbsGrammar.TypeCompType (AbsGrammar.Array _ _ nextArrType) -> return nextArrType
+        _ -> error "TODO: genArrayExpr -> verifica cosa serve con altri tipi"
+    tmp <- newTmpAddr
+    offset <- newTmpAddr
+    indexAddr <- genExpr indexExpr env
+    --TODO: valutare se possibile scriverlo meglio
+    sizeAddr <- genLitExpr (convertIntToExpr (sizeof tp)) env
+    addInstr (TACBinAss tmp indexAddr TACMul sizeAddr)
+    addInstr (TACBinAss offset tmp TACAdd lastOffset)
+    return (baseAddr, offset, tp)
+
+genArrayExpr _ _ = error "TODO: genArrayExpr -> non è un array"
+
+    
 
 addInstr :: TACInst -> StateTAC ()
 addInstr tacInst = do
@@ -233,3 +393,5 @@ addInstr tacInst = do
             put (tmpCount, tacInstrs, newStack)
 
 
+attachLabelToNext :: TACLabel -> StateTAC ()
+attachLabelToNext label = addInstr (LabelNext label)

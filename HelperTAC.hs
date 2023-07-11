@@ -2,6 +2,7 @@ module HelperTAC where
 import qualified AbsGrammar
 import Control.Monad.Trans.State
 import qualified Data.Sequence as DS
+import AbsGrammar (TokInteger(TokInteger))
 
 type Stack a =  [a]
 
@@ -43,8 +44,10 @@ data Addr =
 
 type StateTAC = State (Int, DS.Seq TACInst, Stack (DS.Seq TACInst))
 
+--TODO: pensare se è necessario sistemare i label
 data TACLabel =
       FuncLab Addr
+    | StmtLab String
     | Fall
     deriving (Show)
 
@@ -97,6 +100,13 @@ newTmpAddr = do
 int2TmpName :: Int -> Addr
 int2TmpName k = Temporary ("t" ++ show k)
 
+--TODO: implementa per bene generazione label
+newLabel :: StateTAC TACLabel
+newLabel = do
+    (k, ls, stackStrm)<-get;
+    put (k+1, ls, stackStrm);
+    return (StmtLab ("L" ++ show k) )
+
 binToTACOp :: AbsGrammar.BinaryOperator -> TACOp
 binToTACOp opr = case opr of
     AbsGrammar.Add -> TACAdd
@@ -121,10 +131,41 @@ unrToTACOp opr = case opr of
     AbsGrammar.Dereference -> TACDeref
 
 
+notRel :: AbsGrammar.BinaryOperator -> TACOp
+notRel opr = case opr of
+    AbsGrammar.Eq -> TACNotEq
+    AbsGrammar.NotEq -> TACEq
+    AbsGrammar.LessT -> TACEqGreatT
+    AbsGrammar.GreatT -> TACEqLessT
+    AbsGrammar.EqLessT -> TACGreatT
+    AbsGrammar.EqGreatT -> TACLessT
+
+
 getVarDefaultVal :: AbsGrammar.Type -> Addr
 getVarDefaultVal tp = case tp of
     AbsGrammar.TypeBaseType (AbsGrammar.BaseType_integer) ->
         TacLit (AbsGrammar.LiteralInteger (AbsGrammar.TokInteger ((0,0),"0")))
     AbsGrammar.TypeBaseType (AbsGrammar.BaseType_real) -> 
         TacLit (AbsGrammar.LiteralDouble (AbsGrammar.TokDouble ((0,0),"0.0")))
-    _ -> error "TODO: getVarDefaultVal -> implementa valore default per altri tipi"
+    _ -> TacLit (AbsGrammar.LiteralInteger (AbsGrammar.TokInteger ((0,0),"0")))
+
+
+convertIntToExpr :: Int -> AbsGrammar.EXPR AbsGrammar.Type
+convertIntToExpr x = AbsGrammar.ExprLiteral (AbsGrammar.LiteralInteger (AbsGrammar.TokInteger ((0,0), show x)))
+
+
+sizeof :: AbsGrammar.Type -> Int
+sizeof (AbsGrammar.TypeBaseType bType) = case bType of
+    AbsGrammar.BaseType_boolean -> 1
+    AbsGrammar.BaseType_char -> 1
+    AbsGrammar.BaseType_integer -> 4
+    AbsGrammar.BaseType_real -> 4
+    --AbsGrammar.BaseType_string -> 0
+    _ -> error "TODO: invalid type for sizeof"
+
+--TODO: spiega nella relazione come vengono fatti accessi con indici, considerando che possono essere sfasati
+-- (e.g. non partono da zero)
+sizeof (AbsGrammar.TypeCompType cType) = case cType of
+    AbsGrammar.Array (TokInteger (_, start)) (TokInteger (_, end)) tp@(AbsGrammar.TypeBaseType _) -> sizeof tp 
+    AbsGrammar.Array (TokInteger (_, start)) (TokInteger (_, end)) tp -> ((read end :: Int) - (read start :: Int)) * sizeof tp 
+    AbsGrammar.Pointer _-> error "TODO: sizeof -> implementare pointer; valuta se in grammatica può puntare a Type invece che BaseType "

@@ -1,0 +1,39 @@
+{Example used to test the parsing of iteration statements}
+
+program HelloIter;
+
+ var a, b: integer;
+
+begin
+
+{ok while}
+    a := 0;
+    while a < 10 do
+    begin
+        writeln("value of a: ", a);
+        a := a + 1
+    end;
+
+{WRONG while}
+    a := 0;
+    while 3+2 do
+    begin
+        writeln("value of a: ", a);
+        a := a + 1
+    end;
+
+{ok repeat}
+    b := 0;
+    repeat
+        b := b + 1 {notice how a single statement does not need a begin-end block}
+    until b=10;
+
+{WRONG repeat}
+    b := 0;
+    repeat
+        begin
+        writeln("value of a: ", a);
+        b := b + 1
+        end
+    until b+10; {the problem is here!}
+end.

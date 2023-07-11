@@ -149,8 +149,6 @@ parseStatements env errors allStmts =  q env errors allStmts []
 -- Esempi provvisori di statement per cui non è ancora stato definito il parsing
 exStmtCall = StmtCall (CallArgs (TokIdent ((0,0),"funzioneDiEsempio")) [])
 exStmtSelect = StmtSelect (StmtIf (ExprLiteral (LiteralInteger (TokInteger ((36,30), "10")))) (StmtReturn (Ret (ExprLiteral (LiteralInteger (TokInteger ((36,30), "10")) ) ) )) )
-exStmtIter = StmtIter (StmtWhileDo (ExprLiteral (LiteralInteger (TokInteger ((36,30), "10")))) (StmtReturn (Ret (ExprLiteral (LiteralInteger (TokInteger ((36,30), "10")) ) ) )) )
-
 
 parseStatement :: Stmt stmtenv infType -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
 parseStatement stmt env errs = case stmt of
@@ -168,17 +166,40 @@ parseStatement stmt env errs = case stmt of
             -- Assegnamento
             (StmtAssign expr1 expr2) -> parseAssignment expr1 expr2 env errs
 
-            --TODO: fare vero parsing senza utilizzare nodi generici per il resto dei casi
+            -- Iterazione
+            (StmtIter iter) -> parseIter (StmtIter iter) env errs
 
+            -- Return
+            (StmtReturn return)  -> parseReturn (StmtReturn return) env errs
+
+            -- TODO: fare vero parsing senza utilizzare nodi generici per il resto dei casi
             -- Chiamata funzione
             (StmtCall call) -> return (env, errs, exStmtCall )
             -- Select
+            -- TODO: in case of single statement, remember to wrap it in a begin-end block!
             (StmtSelect sel) -> return (env, errs, exStmtSelect )
-            -- Iterazione
-            (StmtIter iter) -> return (env, errs, exStmtIter )
-            -- Return
-            (StmtReturn return)  -> parseReturn (StmtReturn return) env errs
+
             -------------------------------------------------------------
+
+-- TODO: add positional info to errors
+-- TODO: in case of single statement, remember to wrap it in a begin-end block!
+
+parseIter :: Stmt env infType -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
+-- parsing of while-do statement
+parseIter (StmtIter (StmtWhileDo expr stmt)) env errs = do
+    (env1, errs1, parsedExpr) <- parseExpression env errs expr
+    (newEnv, newErrs, parsedStmt) <- parseStatement stmt env1 errs1
+    if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean
+        then return (newEnv, newErrs, StmtIter (StmtWhileDo parsedExpr parsedStmt))
+        else return (newEnv, newErrs ++ ["ERROR: condition of while-do statement is not boolean"], StmtIter (StmtWhileDo parsedExpr parsedStmt)) 
+
+-- parsing of repeat-until statement
+parseIter (StmtIter (StmtRepeat stmt expr)) env errs = do
+    (env1, errs1, parsedStmt) <- parseStatement stmt env errs
+    (newEnv, newErrs, parsedExpr) <- parseExpression env1 errs1 expr
+    if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean
+        then return (newEnv, newErrs, StmtIter (StmtRepeat parsedStmt parsedExpr))
+        else return (newEnv, newErrs ++ ["ERROR: condition of repeat-until statement is not boolean"], StmtIter (StmtRepeat parsedStmt parsedExpr))
 
 parseReturn :: Stmt env infType -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
 parseReturn (StmtReturn (Ret expr)) env errs = do
@@ -219,8 +240,8 @@ parseAssignment expr1 expr2 env errs = case (expr1, expr2) of
             ( (UnaryExpression Reference expr1 t), expr2 ) -> do
                 (env2, err2, parsedexpr1) <- parseExpression env errs (UnaryExpression Reference expr1 t)
                 (env3, err3, parsedexpr2) <- parseExpression env2 err2 expr2                
-                parseExprExprAssignment parsedexpr1 parsedexpr2 env3 err3    
-            -- TODO: assegnazione ad elementi di array per ora è considerata non valida
+                parseExprExprAssignment parsedexpr1 parsedexpr2 env3 err3
+            --TODO: manca il caso in cui l-value sia un array 
             -- Il resto dei possibili l-value non è valido
             ( expr1, expr2 ) -> do
                 (env2, err2, parsedexpr1) <- parseExpression env errs expr1
