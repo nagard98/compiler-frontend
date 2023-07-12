@@ -4,8 +4,8 @@ import Env
 import Text.Parsec (parserReturn)
 import Data.Text.Array (new)
 import HelperTAC
-import Control.Monad.State.Lazy
-import System.Process (CreateProcess(env))
+import Control.Monad.State.Strict
+import Debug.Trace
 
 type Errors = [String]
 emptyErrors :: [String]
@@ -268,8 +268,19 @@ parseAssignment expr1 expr2 env errs = case (expr1, expr2) of
             -- Array elements are valid l-values
             ( (BaseExpr (ArrayElem idexpr iexpr) t), expr ) -> do
                 (env2, err2, parsedexpr) <- parseExpression env errs expr
+                traceM $ "Parsed expr to assign to array elem: " ++ show parsedexpr ++ "\n"
+                
+                --TODO: credo non ti serva fare qui il parse dell'indice; lo fai già in parseBaseExpression quando
+                -- chiami parseExpression su un ArrayElem come fai nell'istruzione dove passi env3 ed err3.
+                -- Per come ho modificato parseArrayAssignment non serve passare più l'indice, ma lascio comunque qui
+                -- in quanto devo capire se intendevi fare qualcos altro
+                -- NOTA: usa traceM per stampare in modo da fare debugging
                 (env3, err3, parsediexpr) <- parseExpression env2 err2 iexpr
+                traceM $ "Parsed expr used as index of array: " ++ show parsediexpr ++ "\n"
+                
                 (env4, err4, parsedidexpr) <- parseExpression env3 err3 (BaseExpr (ArrayElem idexpr iexpr) t)
+                traceM $ "Parsed lexpr: "++show parsedidexpr ++ "\n"
+                
                 parseArrayAssignment parsedidexpr (getTypeFromExpression parsedidexpr) parsediexpr parsedexpr env4 err4
             -- Il resto dei possibili l-value non è valido
             ( expr1, expr2 ) -> do
@@ -281,17 +292,39 @@ parseAssignment expr1 expr2 env errs = case (expr1, expr2) of
 -- Checks if r-expression matches typing with an l-expression that is an element of an array
 parseArrayAssignment:: EXPR Type -> Type -> EXPR Type -> EXPR Type -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
 -- base case: tokid[iexpr] = expr
-parseArrayAssignment (BaseExpr (Identifier (TokIdent (tokpos, tokid))) t) ltype iexpr expr env errs = if ltype == getTypeFromExpression expr --TODO: risolvere errore assegnamento array ad array di array (vedere testfile4)
+{-parseArrayAssignment (BaseExpr (Identifier (TokIdent (tokpos, tokid))) t) ltype iexpr expr env errs = if ltype == getTypeFromExpression expr --TODO: risolvere errore assegnamento array ad array di array (vedere testfile4)
     then
         return (env, errs, (StmtAssign (BaseExpr (ArrayElem (BaseExpr (Identifier (TokIdent (tokpos, tokid))) (getTypeFromBaseExpression (Identifier (TokIdent (tokpos, tokid))) env) ) iexpr) ltype) expr ) )
     else
         -- 3 cases: a) int to real, b) real to int, c) incompatible types -> error
         case (ltype, getTypeFromExpression expr) of
             (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) -> return (env, errs, (StmtAssign (BaseExpr (ArrayElem (BaseExpr (Identifier (TokIdent (tokpos, tokid))) (getTypeFromBaseExpression (Identifier (TokIdent (tokpos, tokid))) env) ) iexpr) ltype) (IntToReal expr) ) )
+
+            --TODO: credo che i casting da real a int non si possano fare in nessun caso, considerando anche il nostro schema delle relazioni fra tipi
             (TypeBaseType BaseType_integer, TypeBaseType BaseType_real) -> return (env, errs, (StmtAssign (BaseExpr (ArrayElem (BaseExpr (Identifier (TokIdent (tokpos, tokid))) (getTypeFromBaseExpression (Identifier (TokIdent (tokpos, tokid))) env) ) iexpr) ltype) (RealToInt expr) ) )
             otherwise -> return (env, ("Error at " ++ show tokpos ++ ". l-Expression is of type " ++ show ltype ++ " but it is assigned value of type "++show (getTypeFromExpression expr) ++"."):errs, (StmtAssign (BaseExpr (ArrayElem (BaseExpr (Identifier (TokIdent (tokpos, tokid))) (getTypeFromBaseExpression (Identifier (TokIdent (tokpos, tokid))) env) ) iexpr) ltype) (IntToReal expr) ) )
+-}
 -- recursive case until id is found
-parseArrayAssignment (BaseExpr (ArrayElem bbexpr iiexpr) t) ltype iexpr expr env errs = parseArrayAssignment bbexpr ltype iiexpr expr env errs
+parseArrayAssignment bExpr@(BaseExpr (ArrayElem bbexpr iiexpr) t) ltype iexpr expr env errs = do
+    if t == rtype
+        then return (env, errs, (StmtAssign bExpr expr))
+            --parseArrayAssignment bbexpr ltype iiexpr expr env errs
+        else 
+            -- 3 cases: a) int to real, b) real to int, c) incompatible types -> error
+            case (t, rtype) of
+                (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) -> return (env, errs, (StmtAssign bExpr (IntToReal expr) ) )
+
+                --TODO: credo che i casting da real a int non si possano fare in nessun caso, considerando anche il nostro schema delle relazioni fra tipi
+                --(TypeBaseType BaseType_integer, TypeBaseType BaseType_real) -> return (env, errs, (StmtAssign (BaseExpr (ArrayElem (BaseExpr (Identifier (TokIdent (tokpos, tokid))) (getTypeFromBaseExpression (Identifier (TokIdent (tokpos, tokid))) env) ) iexpr) ltype) (RealToInt expr) ) )
+                
+                --TODO: implementare posizione con il modo che avevamo discusso
+                -- Durante il parsing le funzioni restituiscono anche 2 posizioni (quella più a sx e quella più a dx)
+                otherwise -> return (env, ("Error at " ++ "TODO"{-show tokpos-} ++ ". l-Expression is of type " ++ show t ++ " but it is assigned value of type "++show rtype ++"."):errs, StmtAssign bExpr (IntToReal expr) )
+
+    where
+        -- Tipo del valore che si vuole assegnare
+        rtype = getTypeFromExpression expr
+
 -- generic expression that is not a base expression
 parseArrayAssignment idexpr ltype iexpr expr env errs = if ltype == getTypeFromExpression expr --TODO: risolvere errore assegnamento array ad array di array (vedere testfile4)
     then
@@ -600,13 +633,19 @@ parseBinaryRelationExpression env errs op exp1 exp2 = do
 
 -- output is of type (BEXPR Type). If (EXPR Type) output is required use parseExpression
 parseBaseExpression:: Env -> Errors -> BEXPR infType -> StateCount (Env, Errors, BEXPR Type, Type)
-parseBaseExpression env errs (Identifier (TokIdent (tokpos,tokid)) ) = case Env.lookup tokid env of
-    Just (VarType mod _ envType addr) -> return (env, errs, (Identifier (TokIdent (tokpos,tokid)) ), envType )
-    Just (Constant _ envType addr) -> return (env, errs, (Identifier (TokIdent (tokpos,tokid)) ), envType )
-    Nothing -> return (env, ("Error at " ++ show tokpos ++". Unknown identifier: " ++ tokid ++" is used but has never been declared."):errs, (Identifier (TokIdent (tokpos,tokid))), TypeBaseType BaseType_error)
+
+parseBaseExpression env errs (Identifier (TokIdent (tokpos,tokid)) ) = 
+    case Env.lookup tokid env of
+        Just (VarType mod _ envType addr) -> return (env, errs, (Identifier (TokIdent (tokpos,tokid)) ), envType )
+        Just (Constant _ envType addr) -> return (env, errs, (Identifier (TokIdent (tokpos,tokid)) ), envType )
+        Nothing -> return (env, ("Error at " ++ show tokpos ++". Unknown identifier: " ++ tokid ++" is used but has never been declared."):errs, (Identifier (TokIdent (tokpos,tokid))), TypeBaseType BaseType_error)
+
 parseBaseExpression env errs (ArrayElem bexpr iexpr) = do
     (env2, err2, parsediexpr) <- parseExpression env errs iexpr -- parsing of index for type checking (and casting if needed)
+    --TODO: con parsediexpr sarebbe necessario verifiicare se l'indice rientra entro i limiti dell'array
+
     (env3, err3, parsedbexpr) <- parseExpression env2 err2 bexpr -- parsing of base expression to get its type: if it is an array type, return type of element of that array; otherwise it is an error
+    
     case (getTypeFromExpression parsedbexpr, getTypeFromExpression parsediexpr) of -- TODO: refactoring possibile di questa parte di codice? --TODO: posizione nei messaggi di errore
         -- cases: 1) array and integer; 2) array and real; 3) array and error; 4) error and integer; 5) error and real; 6) error and error (distinction necessary to generate appropriate error messages)
         (TypeCompType (Array i1 i2 basetype), TypeBaseType BaseType_integer) -> return (env3, err3, (ArrayElem parsedbexpr parsediexpr), basetype)

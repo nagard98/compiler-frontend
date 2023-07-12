@@ -1,10 +1,10 @@
 program TACTest;
 
-{var arr : array [0..100] of array [0..7] of integer; 
+var arr : array [0..100] of array [0..7] of integer ; 
 {var b, z: integer;
 {var a: real;
 
-var u,v,z: real;
+{var u,v,z: real;
 {const pk = 3.14;
 { TODO : valutare perchè non posso passare un int ad una funzione che richede real
 {*function f (k,l : real):real;
@@ -29,8 +29,8 @@ end;
 *}
 
 begin
-{    arr[5][4] := 99;
-    if b>4+5 and u<7.2 then z:= 55;
+    arr[10][3] := 99;
+{    if b>4+5 and u<7.2 then z:= 55;
 {    while b>4 do z:= 55;
 {    b:=33;
 {    u := 6.1;

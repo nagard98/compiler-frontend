@@ -4,7 +4,7 @@ import Prelude hiding (lookup)
 import qualified Data.Map as Map
 import AbsGrammar
 import HelperTAC
-import Control.Monad.State.Lazy
+import Control.Monad.State.Strict
 
 type StateCount = State Int
 
