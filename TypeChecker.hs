@@ -65,7 +65,7 @@ parseDclVrBlock env errors (DclBlockVrBlock (VarBlock vrDefs)) = do
             parseVrDefs :: [VrDef] -> Env -> StateCount Env
             parseVrDefs ((VarDefinition idElements t):vrDefs) env = do
                 -- TODO : probabilmente necessaria gestione errori (ovvero restituire anche errori)
-                (tmpEnv, tmpErrs, _) <- parseIds idElements t env []
+                (tmpEnv, tmpErrs, _) <- parseIds idElements Modality_var t env []
                 return tmpEnv
             parseVrDefs _ env = return env
                         
@@ -110,7 +110,7 @@ parseParams :: Prms -> [Prm] -> Env -> Errors -> StateCount (Env, Errors, Prms)
 parseParams prms accPrms env errs = do 
     case prms of
         (Params ( p@(Param mod idList typ):ps )) -> do
-            (tmpEnv, tmpErrs, _) <- parseIds idList typ env errs
+            (tmpEnv, tmpErrs, _) <- parseIds idList mod typ env errs
             (pEnv,pErrs, pPrms) <- parseParams (Params ps) (p:accPrms) tmpEnv tmpErrs
             return (pEnv, pErrs, pPrms)
                 
@@ -119,12 +119,12 @@ parseParams prms accPrms env errs = do
         NoParams -> return (env, errs, prms)
 
 
-parseIds :: [IdElem] -> Type -> Env -> Errors -> StateCount (Env, Errors, [IdElem])
-parseIds [] typ env errs = return (env, errs, [])
-parseIds ( idElem@(IdElement (TokIdent (pos, id))):ids) typ env errs = do
+parseIds :: [IdElem] -> Modality -> Type -> Env -> Errors -> StateCount (Env, Errors, [IdElem])
+parseIds [] mod typ env errs = return (env, errs, [])
+parseIds ( idElem@(IdElement (TokIdent (pos, id))):ids) mod typ env errs = do
     idAddr <- newIdAddr id
-    tmpEnv <- Env.insert id (VarType pos typ idAddr) env
-    (newEnv, newErrs, newIds) <- parseIds ids typ tmpEnv errs
+    tmpEnv <- Env.insert id (VarType mod pos typ idAddr) env
+    (newEnv, newErrs, newIds) <- parseIds ids mod typ tmpEnv errs
     return (newEnv, errs, idElem:newIds)
 
 
@@ -148,7 +148,6 @@ parseStatements env errors allStmts =  q env errors allStmts []
 
 -- Esempi provvisori di statement per cui non è ancora stato definito il parsing
 exStmtCall = StmtCall (CallArgs (TokIdent ((0,0),"funzioneDiEsempio")) [])
-exStmtSelect = StmtSelect (StmtIf (ExprLiteral (LiteralInteger (TokInteger ((36,30), "10")))) (StmtReturn (Ret (ExprLiteral (LiteralInteger (TokInteger ((36,30), "10")) ) ) )) )
 
 parseStatement :: Stmt stmtenv infType -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
 parseStatement stmt env errs = case stmt of
@@ -172,34 +171,59 @@ parseStatement stmt env errs = case stmt of
             -- Return
             (StmtReturn return)  -> parseReturn (StmtReturn return) env errs
 
+            -- Select
+            (StmtSelect sel) -> parseSelection (StmtSelect sel) env errs
+
             -- TODO: fare vero parsing senza utilizzare nodi generici per il resto dei casi
             -- Chiamata funzione
             (StmtCall call) -> return (env, errs, exStmtCall )
-            -- Select
-            -- TODO: in case of single statement, remember to wrap it in a begin-end block!
-            (StmtSelect sel) -> return (env, errs, exStmtSelect )
 
             -------------------------------------------------------------
 
 -- TODO: add positional info to errors
--- TODO: in case of single statement, remember to wrap it in a begin-end block!
-
 parseIter :: Stmt env infType -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
 -- parsing of while-do statement
 parseIter (StmtIter (StmtWhileDo expr stmt)) env errs = do
     (env1, errs1, parsedExpr) <- parseExpression env errs expr
     (newEnv, newErrs, parsedStmt) <- parseStatement stmt env1 errs1
+    let wrappedStmt = wrapInBeginEnd parsedStmt newEnv
     if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean
-        then return (newEnv, newErrs, StmtIter (StmtWhileDo parsedExpr parsedStmt))
-        else return (newEnv, newErrs ++ ["ERROR: condition of while-do statement is not boolean"], StmtIter (StmtWhileDo parsedExpr parsedStmt)) 
+        then return (newEnv, newErrs, StmtIter (StmtWhileDo parsedExpr wrappedStmt))
+        else return (newEnv, newErrs ++ ["ERROR: condition of while-do statement is not boolean"], StmtIter (StmtWhileDo parsedExpr wrappedStmt)) 
 
 -- parsing of repeat-until statement
 parseIter (StmtIter (StmtRepeat stmt expr)) env errs = do
     (env1, errs1, parsedStmt) <- parseStatement stmt env errs
+    let wrappedStmt = wrapInBeginEnd parsedStmt env1
     (newEnv, newErrs, parsedExpr) <- parseExpression env1 errs1 expr
     if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean
-        then return (newEnv, newErrs, StmtIter (StmtRepeat parsedStmt parsedExpr))
-        else return (newEnv, newErrs ++ ["ERROR: condition of repeat-until statement is not boolean"], StmtIter (StmtRepeat parsedStmt parsedExpr))
+        then return (newEnv, newErrs, StmtIter (StmtRepeat wrappedStmt parsedExpr))
+        else return (newEnv, newErrs ++ ["ERROR: condition of repeat-until statement is not boolean"], StmtIter (StmtRepeat wrappedStmt parsedExpr))
+
+parseSelection :: Stmt env infType -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
+parseSelection (StmtSelect (StmtIf expr stmt)) env errs = do
+    (env1, errs1, parsedExpr) <- parseExpression env errs expr
+    (newEnv, newErrs, parsedStmt) <- parseStatement stmt env1 errs1
+    let wrappedStmt = wrapInBeginEnd parsedStmt newEnv
+    if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean
+        then return (newEnv, newErrs, StmtSelect (StmtIf parsedExpr wrappedStmt))
+        else return (newEnv, newErrs ++ ["ERROR: condition of if statement is not boolean"], StmtSelect (StmtIf parsedExpr wrappedStmt))
+parseSelection (StmtSelect (StmtIfElse expr stmt1 stmt2)) env errs = do
+    (env1, errs1, parsedExpr) <- parseExpression env errs expr
+    (newEnv1, newErrs1, parsedStmt1) <- parseStatement stmt1 env1 errs1
+    let wrappedStmt1 = wrapInBeginEnd parsedStmt1 newEnv1
+    (newEnv2, newErrs2, parsedStmt2) <- parseStatement stmt2 newEnv1 newErrs1
+    let wrappedStmt2 = wrapInBeginEnd parsedStmt2 newEnv2
+    if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean
+        then return (newEnv2, newErrs2, StmtSelect (StmtIfElse parsedExpr wrappedStmt1 wrappedStmt2))
+        else return (newEnv2, newErrs2 ++ ["ERROR: condition of if-else statement is not boolean"], StmtSelect (StmtIfElse parsedExpr wrappedStmt1 wrappedStmt2))
+
+-- If the provided statement is not insiede a begin-end block, wraps it in one
+-- This is needed to simplify TAC generation by having to deal only with begin-end blocks containing statements
+-- With the current grammar the body of a iteration (or an if-else) statement can be eather a single statement or a begin-end block with other statements
+wrapInBeginEnd :: Stmt Env infType -> Env -> Stmt Env infType
+wrapInBeginEnd (StmtComp (BegEndBlock stmts begEnv)) _ = StmtComp (BegEndBlock stmts begEnv)
+wrapInBeginEnd stmt stmEnv = StmtComp (BegEndBlock [stmt] stmEnv)
 
 parseReturn :: Stmt env infType -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
 parseReturn (StmtReturn (Ret expr)) env errs = do
@@ -273,7 +297,7 @@ parseArrayAssignment (ArrayElem bbexpr iiexpr) t iexpr expr env errs = parseArra
 -- If it doesn't return current environment and a new error message
 parseLitAssignment:: TokIdent -> Literal -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
 parseLitAssignment (TokIdent (idPos, idVal)) literal env errors = case Env.lookup idVal env of
-    Just (VarType envPos envType addr) ->
+    Just (VarType mod envPos envType addr) ->
         if envType == TypeBaseType (getTypeFromLiteral literal)
             then return (
                 env,
@@ -298,7 +322,7 @@ parseLitAssignment (TokIdent (idPos, idVal)) literal env errors = case Env.looku
 -- Given identifier and expression (already parsed with inferred type!) assigns type to token of identifier
 parseIdExprAssignment :: TokIdent -> EXPR Type -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
 parseIdExprAssignment (TokIdent (idPos, idVal)) expr env errors = case Env.lookup idVal env of
-    Just (VarType envPos envType addr) ->
+    Just (VarType mod envPos envType addr) ->
         if envType == getTypeFromExpression expr
             then return (
                 env,
@@ -431,7 +455,7 @@ parseFunctionCall env errs (CallArgs (TokIdent (tokpos,tokid)) args ) = do
         Just (DefaultProc t) -> return (env, errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) parsedargs ) t ) ) --TODO: refactoring procedure default nell'environment
         Just (Constant pos t addr) -> return (env, ("Error at " ++ show tokpos ++". Identifier " ++ tokid ++" is used as a function/procedure but it is a constant."):errs,
                     (ExprCall (CallArgs (TokIdent (tokpos,tokid)) parsedargs ) (TypeBaseType BaseType_error) ) )
-        Just (VarType pos t addr) -> return (env, ("Error at " ++ show tokpos ++". Identifier " ++ tokid ++" is used as a function/procedure but it is a variable."):errs,
+        Just (VarType mod pos t addr) -> return (env, ("Error at " ++ show tokpos ++". Identifier " ++ tokid ++" is used as a function/procedure but it is a variable."):errs,
                     (ExprCall (CallArgs (TokIdent (tokpos,tokid)) parsedargs ) (TypeBaseType BaseType_error) ) ) 
         Nothing -> return (env, ("Error at " ++ show tokpos ++". Unknown identifier: " ++ tokid ++" is used but has never been declared."):errs,
                     (ExprCall (CallArgs (TokIdent (tokpos,tokid)) parsedargs ) (TypeBaseType BaseType_error) ) ) 
@@ -565,7 +589,7 @@ parseBinaryRelationExpression env errs op exp1 exp2 = do
 -- output is of type (BEXPR Type). If (EXPR Type) output is required use parseExpression
 parseBaseExpression:: Env -> Errors -> BEXPR infType -> StateCount (Env, Errors, BEXPR Type, Type)
 parseBaseExpression env errs (Identifier (TokIdent (tokpos,tokid)) ) = case Env.lookup tokid env of
-    Just (VarType _ envType addr) -> return (env, errs, (Identifier (TokIdent (tokpos,tokid)) ), envType )
+    Just (VarType mod _ envType addr) -> return (env, errs, (Identifier (TokIdent (tokpos,tokid)) ), envType )
     Just (Constant _ envType addr) -> return (env, errs, (Identifier (TokIdent (tokpos,tokid)) ), envType )
     Nothing -> return (env, ("Error at " ++ show tokpos ++". Unknown identifier: " ++ tokid ++" is used but has never been declared."):errs, (Identifier (TokIdent (tokpos,tokid))), TypeBaseType BaseType_error)
 parseBaseExpression env errs (ArrayElem bexpr iexpr) = do
@@ -579,7 +603,6 @@ parseBaseExpression env errs (ArrayElem bexpr iexpr) = do
         (_, TypeBaseType BaseType_integer) -> return (env3, ("Error. Expression " ++ show parsedbexpr ++ " is treated as an array but it is of type " ++ show tbexpr ++ "."):err3, (ArrayElem parsedbexpr parsediexpr), TypeBaseType BaseType_error)
         (_, TypeBaseType BaseType_real) -> return (env3, ("Error. Expression " ++ show parsedbexpr ++ " is treated as an array but it is of type " ++ show tbexpr ++ "."):err3, (ArrayElem parsedbexpr (RealToInt parsediexpr)), TypeBaseType BaseType_error)
         otherwise -> return (env3, ("Error. Expression " ++ show parsedbexpr ++ " is treated as an array but it is of type" ++ show tbexpr ++ "."):("Error. Array index is not of numeric type but it is of type "++show (getTypeFromExpression parsediexpr)++"."):err3, (ArrayElem parsedbexpr parsediexpr), TypeBaseType BaseType_error)
-    
 -- Returns annotated type for expressions
 getTypeFromExpression :: EXPR Type -> Type
 getTypeFromExpression (UnaryExpression op exp t) = t

@@ -17,7 +17,7 @@ emptyEnv = Map.empty
 -- Needed for modelling how data of the map entries in Env should be
 -- E.g. variable types: the key is the name of the variable, data created using VarType constructor
 -- TODO: create new constructors as needed
-data EnvData =    VarType Position Type Addr
+data EnvData =    VarType Modality Position Type Addr
                 | DefaultProc Type
                 | Function Position Prms Type Addr
                 | Procedure Position Prms Addr
@@ -31,9 +31,9 @@ data EnvData =    VarType Position Type Addr
 -- TODO: aggiunti campo addr ad alcuni tipi di EnvData; stampare anche quelli
 -- make EnvData printable
 instance Show EnvData where
-    show (VarType p (TypeBaseType t) adr) = "{variable, " ++ show p ++ ", " ++ show t ++ "}"
-    show (VarType p (TypeCompType (Pointer t)) adr) = "{variable, " ++ show p ++ ", pointer to " ++ show t ++ "}"
-    show (VarType p (TypeCompType (Array (TokInteger (_,i1)) (TokInteger (_,i2)) t)) adr) = "{variable, " ++ show p ++ ", Array ["++ i1++".."++ i2++ "] of " ++ show t ++ "}"
+    show (VarType mod p (TypeBaseType t) adr) = "{variable, " ++ show p ++ ", " ++ show t ++ "}"
+    show (VarType mod p (TypeCompType (Pointer t)) adr) = "{variable, " ++ show p ++ ", pointer to " ++ show t ++ "}"
+    show (VarType mod p (TypeCompType (Array (TokInteger (_,i1)) (TokInteger (_,i2)) t)) adr) = "{variable, " ++ show p ++ ", Array ["++ i1++".."++ i2++ "] of " ++ show t ++ "}"
     show (Constant p (TypeBaseType t) addr) = "{constant, " ++ show p ++ ", " ++ show t ++ "}"
     show (DefaultProc (TypeBaseType t)) = " default procedure of type " ++ show t -- TODO: why two implementation of DefaultProc?
     show (DefaultProc t) = " default procedure of type " ++ show t
@@ -70,7 +70,7 @@ lookup = Map.lookup
 
 getIdAddr :: String -> Env -> StateTAC Addr
 getIdAddr id env = case lookup id env of
-    Just (VarType _ _ addr) -> return addr
+    Just (VarType _ _ _ addr) -> return addr
     Just (Constant _ _ addr) -> return addr
     _ -> error "TODO : errore id non trovato in env per recuper addr; funzione getIdAddr"
 

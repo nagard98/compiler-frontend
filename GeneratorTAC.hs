@@ -89,7 +89,7 @@ genVrDcl (AbsGrammar.VarBlock vrDefs) env = do
                 genVrDefIds [] _ = return ()
                 genVrDefIds ((AbsGrammar.IdElement (AbsGrammar.TokIdent (_,id))):ids) env = do
                     case Env.lookup id env of
-                        Just (VarType _ tp addr) -> addInstr (TACNulAss addr (getVarDefaultVal tp))
+                        Just (VarType _ _ tp addr) -> addInstr (TACNulAss addr (getVarDefaultVal tp))
                         _ -> error "TODO: genVrDefIds -> id non esiste in env"
                     genVrDefIds ids env
                 
@@ -355,7 +355,7 @@ genArrayExpr :: AbsGrammar.BEXPR AbsGrammar.Type -> Env -> StateTAC (Addr, Addr,
 genArrayExpr (AbsGrammar.ArrayElem (AbsGrammar.Identifier (AbsGrammar.TokIdent (_,id))) indexExpr) env = 
     case Env.lookup id env of
     
-        Just (VarType _ tp baseAddr) -> do
+        Just (VarType _ _ tp baseAddr) -> do
             offset <- newTmpAddr
             indexAddr <- genExpr indexExpr env
             sizeAddr <- genLitExpr (convertIntToExpr (sizeof tp)) env
