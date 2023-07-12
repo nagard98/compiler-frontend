@@ -189,7 +189,7 @@ parseIter (StmtIter (StmtWhileDo expr stmt)) env errs = do
     let wrappedStmt = wrapInBeginEnd parsedStmt newEnv
     if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean
         then return (newEnv, newErrs, StmtIter (StmtWhileDo parsedExpr wrappedStmt))
-        else return (newEnv, newErrs ++ ["ERROR: condition of while-do statement is not boolean"], StmtIter (StmtWhileDo parsedExpr wrappedStmt)) 
+        else return (newEnv, newErrs ++ ["ERROR in range " ++ show (rangeFromExpr expr)  ++ ": condition of while-do statement is not boolean"], StmtIter (StmtWhileDo parsedExpr wrappedStmt)) 
 
 -- parsing of repeat-until statement
 parseIter (StmtIter (StmtRepeat stmt expr)) env errs = do
@@ -198,7 +198,7 @@ parseIter (StmtIter (StmtRepeat stmt expr)) env errs = do
     (newEnv, newErrs, parsedExpr) <- parseExpression env1 errs1 expr
     if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean
         then return (newEnv, newErrs, StmtIter (StmtRepeat wrappedStmt parsedExpr))
-        else return (newEnv, newErrs ++ ["ERROR: condition of repeat-until statement is not boolean"], StmtIter (StmtRepeat wrappedStmt parsedExpr))
+        else return (newEnv, newErrs ++ ["ERROR in range " ++ show (rangeFromExpr expr) ++ ": condition of repeat-until statement is not boolean"], StmtIter (StmtRepeat wrappedStmt parsedExpr))
 
 parseSelection :: Stmt env infType -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
 parseSelection (StmtSelect (StmtIf expr stmt)) env errs = do
@@ -351,6 +351,55 @@ parseExprExprAssignment expr1 expr2 env errs =
             (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) -> return (env, errs, (StmtAssign expr1 (IntToReal expr2)))
             (TypeBaseType BaseType_integer, TypeBaseType BaseType_real) -> return (env, errs, (StmtAssign expr1 (RealToInt expr2)))
             otherwise -> return (env, ("Error. Incompatible types in assignment: you can't assign a value of type " ++ show (getTypeFromExpression expr2) ++ " to value of type " ++ show (getTypeFromExpression expr1) ++ "."):errs, (StmtAssign expr1 expr2) )
+
+
+-- needed in rangeFromExpr to distinguish between leftmost and rightmost position
+data TypeOfPos = PosLeft | PosRight
+
+-- returns a tuple with the starting position and the ending position of the expression in input
+-- TODO: refactor this function to make it less verbose!
+-- TODO: test this function with many different expressions (including function calls, array elements, etc. )
+-- TODO: call this function from all error messages involing expressions
+rangeFromExpr :: EXPR infType -> (Position, Position)
+rangeFromExpr expr = (getLeftmostPos expr, getRightmostPos expr) where
+
+    getLeftmostPos :: EXPR infType -> Position
+    getLeftmostPos (UnaryExpression _ exp _) = getLeftmostPos exp
+    getLeftmostPos (BinaryExpression _ exp1 _ _) = getLeftmostPos exp1
+    getLeftmostPos (ExprLiteral l) = getPosFromLiteral l PosLeft
+    getLeftmostPos (ExprCall call _) = getPosFromCall call
+    getLeftmostPos (BaseExpr (Identifier (TokIdent (pos, _))) _) = pos
+    getLeftmostPos (BaseExpr (ArrayElem _ expr) _) = getLeftmostPos expr
+    getLeftmostPos (IntToReal expr) = getLeftmostPos expr
+    getLeftmostPos (RealToInt expr) = getLeftmostPos expr
+
+    -- get position of the rightmost token with the length of the token added to the second component (the column)
+    getRightmostPos :: EXPR infType -> Position
+    getRightmostPos (UnaryExpression _ exp _) = getRightmostPos exp
+    getRightmostPos (BinaryExpression _ _ exp2 _) = getRightmostPos exp2
+    getRightmostPos (ExprLiteral l) = getPosFromLiteral l PosRight
+    getRightmostPos (ExprCall call _) = getPosFromCall call
+    getRightmostPos (BaseExpr (Identifier (TokIdent (pos, _))) _) = pos
+    getRightmostPos (BaseExpr (ArrayElem _ expr) _) = getRightmostPos expr
+    getRightmostPos (IntToReal expr) = getRightmostPos expr
+    getRightmostPos (RealToInt expr) = getRightmostPos expr
+
+    getPosFromLiteral :: Literal -> TypeOfPos -> Position
+    getPosFromLiteral (LiteralInteger (TokInteger (pos, _))) PosLeft = pos
+    getPosFromLiteral (LiteralInteger (TokInteger ((x, y), str))) PosRight = (x, y + length str)
+    getPosFromLiteral (LiteralDouble (TokDouble (pos, _))) PosLeft = pos
+    getPosFromLiteral (LiteralDouble (TokDouble ((x, y), str))) PosRight = (x, y + length str)
+    getPosFromLiteral (LiteralChar (TokChar (pos, _))) PosLeft = pos
+    getPosFromLiteral (LiteralChar (TokChar ((x, y), str))) PosRight = (x, y + length str)
+    getPosFromLiteral (LiteralString (TokString (pos, _))) PosLeft = pos
+    getPosFromLiteral (LiteralString (TokString ((x, y), str))) PosRight = (x, y + length str)
+    getPosFromLiteral (LiteralBoolean (TokBoolean (pos, _))) PosLeft = pos
+    getPosFromLiteral (LiteralBoolean (TokBoolean ((x, y), str))) PosRight = (x, y + length str)
+    
+    -- TODO: implement. returns position of last argument
+    getPosFromCall :: Call infType -> Position
+    getPosFromCall _ = (-1,-1)
+
 
 
 -- Given current environment, errors and syntax tree, returns annotated tree and updated environment and errors
