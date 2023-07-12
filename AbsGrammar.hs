@@ -166,3 +166,24 @@ instance C.Eq CompType where
 compArrType :: CompType -> CompType -> Bool
 compArrType (Array (TokInteger (_, lB)) (TokInteger (_, lE)) lTp) (Array (TokInteger (_, rB)) (TokInteger (_, rE)) rTp) =
    lB == rB && lE == rE && lTp == rTp
+
+class GetTokPos tok where
+  getTokPos :: tok -> Position
+
+instance GetTokPos TokIdent where
+  getTokPos (TokIdent (pos,_)) = pos
+
+instance GetTokPos TokBoolean where
+  getTokPos (TokBoolean (pos,_)) = pos
+
+instance GetTokPos TokChar where
+  getTokPos (TokChar (pos,_)) = pos
+
+instance GetTokPos TokDouble where
+  getTokPos (TokDouble (pos,_)) = pos
+
+instance GetTokPos TokInteger where
+  getTokPos (TokInteger (pos,_)) = pos
+
+instance GetTokPos TokString where
+  getTokPos (TokString (pos,_)) = pos
