@@ -32,11 +32,6 @@ transBEBlock :: (Show env, Show infType)  => AbsGrammar.BEBlock env infType -> R
 transBEBlock x = case x of
   AbsGrammar.BegEndBlock stmts env -> failure x
 
---transBegEndStmt :: AbsGrammar.BegEndStmt -> Result
---transBegEndStmt x = case x of
-  --AbsGrammar.BegEndStmt1 stmt -> failure x
-  --AbsGrammar.BegEndStmtDclBlock dclblock -> failure x
-
 transStmt :: (Show env, Show infType)  => AbsGrammar.Stmt env infType -> Result
 transStmt x = case x of
   AbsGrammar.StmtDecl dclblock -> failure x
@@ -87,7 +82,8 @@ transPrm x = case x of
 
 transModality :: AbsGrammar.Modality -> Result
 transModality x = case x of
-  AbsGrammar.Modality_var -> failure x
+  AbsGrammar.Modality_val -> failure x
+  AbsGrammar.Modality_ref -> failure x
   AbsGrammar.Modality1 -> failure x
 
 transCall :: Show infType => AbsGrammar.Call infType -> Result
@@ -114,11 +110,6 @@ transIdElem :: AbsGrammar.IdElem -> Result
 transIdElem x = case x of
   AbsGrammar.IdElement ident -> failure x
 
---transBoolean :: AbsGrammar.Boolean -> Result
---transBoolean x = case x of
---  AbsGrammar.Boolean_true -> failure x
---  AbsGrammar.Boolean_false -> failure x
-
 transType :: AbsGrammar.Type -> Result
 transType x = case x of
   AbsGrammar.TypeBaseType basetype -> failure x
@@ -135,7 +126,7 @@ transBaseType x = case x of
 transCompType :: AbsGrammar.CompType -> Result
 transCompType x = case x of
   AbsGrammar.Array integer1 integer2 type_ -> failure x
-  AbsGrammar.Pointer basetype -> failure x
+  AbsGrammar.Pointer type_ -> failure x
 
 transEXPR :: Show infType => AbsGrammar.EXPR infType -> Result
 transEXPR x = case x of
@@ -147,8 +138,8 @@ transEXPR x = case x of
 
 transBEXPR :: Show infType => AbsGrammar.BEXPR infType -> Result
 transBEXPR x = case x of
+  AbsGrammar.ArrayElem expr1 expr2 -> failure x
   AbsGrammar.Identifier ident -> failure x
-  AbsGrammar.ArrayElem bexpr expr -> failure x
 
 transLiteral :: AbsGrammar.Literal -> Result
 transLiteral x = case x of

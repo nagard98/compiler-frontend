@@ -38,9 +38,6 @@ data PBlock = ProgBlock TokIdent
 data BEBlock env infType = BegEndBlock [Stmt env infType] env
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
---data BegEndStmt = BegEndStmt1 Stmt | BegEndStmtDclBlock DclBlock
---  deriving (C.Eq, C.Ord, C.Show, C.Read)
-
 data Stmt env infType
     = StmtDecl (DclBlock env infType)
     | StmtComp (BEBlock env infType)
@@ -79,7 +76,7 @@ data Prms = Params [Prm] | NoParams
 data Prm = Param Modality [IdElem] Type
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data Modality = Modality_var | Modality1
+data Modality = Modality_val | Modality_ref | Modality1
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Call infType = CallArgs TokIdent [EXPR infType]
@@ -113,7 +110,7 @@ data BaseType
     | BaseType_void
   deriving (C.Eq, C.Ord, C.Read)
 
-data CompType = Array TokInteger TokInteger Type | Pointer BaseType
+data CompType = Array TokInteger TokInteger Type | Pointer Type
   deriving (C.Eq, C.Ord, C.Read)
 
 data EXPR infType =
@@ -127,11 +124,12 @@ data EXPR infType =
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data BinaryOperator = Or | And | Eq | NotEq | LessT | EqLessT | GreatT | EqGreatT | Sub | Add |
-                      Div | Mul | Mod deriving (C.Eq, C.Ord, C.Show, C.Read)
+                    Div | Mul | Mod deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data UnaryOperator = Not | Negation | Reference | Dereference deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data BEXPR infType = Identifier TokIdent | ArrayElem (BEXPR infType) (EXPR infType)
+
+data BEXPR infType = ArrayElem (EXPR infType) (EXPR infType) | Identifier TokIdent
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Literal

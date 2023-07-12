@@ -15,6 +15,7 @@ StmtCall.           Stmt ::= Call ;
 StmtSelect.         Stmt ::= SelStmt ;
 StmtIter.           Stmt ::= IterStmt;
 StmtReturn.         Stmt ::= Return;
+
 separator Stmt ";";
 
 StmtIf.             SelStmt ::= "if" EXPR "then" Stmt ;
@@ -26,7 +27,9 @@ StmtRepeat.         IterStmt ::= "repeat" Stmt "until" EXPR;
 Ret.                Return ::= "return" EXPR;
 
 rules               DclBlock ::= PcBlock | VrBlock | FcBlock | CsBlock;
-separator DclBlock "";
+
+--TODO: controlla se deve essere effettivamente terminator
+terminator DclBlock ";";
 
 ProcBlock.          PcBlock ::= "procedure" Ident Prms ";" BEBlock;
 FuncBlock.          FcBlock ::= "function" Ident Prms ":" Type ";" BEBlock ;
@@ -34,7 +37,7 @@ FuncBlock.          FcBlock ::= "function" Ident Prms ":" Type ";" BEBlock ;
 Params.             Prms ::= "(" [Prm] ")";
 NoParams.           Prms ::= ;
 Param.              Prm ::= Modality [IdElem] ":" Type;
-rules               Modality ::= "var" | {-empty-};
+rules               Modality ::= "val" | "ref" | {-empty-};
 separator nonempty Prm "," ;
 
 CallArgs.           Call ::= Ident "(" [EXPR] ")";
@@ -57,9 +60,9 @@ rules               Boolean ::= "true" | "false" ;
 
 rules               Type ::= BaseType | CompType;  
 rules               BaseType ::= "integer" | "boolean" | "real" | "char" | "string" ;
-rules               CompType ::= "array" "[" Integer ".." Integer "]" "of" Type | "^" BaseType ;
+rules               CompType ::= "array" "[" Integer ".." Integer "]" "of" Type | "^" Type ;
 
-coercions EXPR 13;
+coercions EXPR 11;
 
 Or.                 EXPR ::= EXPR "or" EXPR1;
 And.                EXPR1 ::= EXPR1 "and" EXPR2;
@@ -82,13 +85,13 @@ Negation.           EXPR9 ::= "-" EXPR10;
 Reference.          EXPR9 ::= "@" EXPR10;
 Dereference.        EXPR9 ::= EXPR10 "^";
 
-ExprLiteral.        EXPR10 ::= Literal;
+ExprCall.           EXPR10 ::= Call;
 
-ExprCall.           EXPR11 ::= Call;
+ExprLiteral.        EXPR11 ::= Literal;
+BaseExpr.           EXPR11 ::= BEXPR;
 
-BaseExpr.           EXPR12 ::= BEXPR;
-
+ArrayElem.          BEXPR ::= EXPR11 "[" EXPR "]";
 Identifier.         BEXPR ::= Ident;
-ArrayElem.          BEXPR ::= BEXPR "[" EXPR "]";
+
 
 rules Literal ::= Integer | String | Char | Double | Boolean ;

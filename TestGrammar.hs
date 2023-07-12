@@ -23,9 +23,9 @@ import LexGrammar   ( Token, mkPosToken )
 import ParGrammar   ( pP, myLexer )
 import PrintGrammar ( Print, printTree )
 import SkelGrammar  ()
-import TypeChecker ( launchStatSemAnalysis, emptyErrors) -- includere Type Checker
+--import TypeChecker ( launchStatSemAnalysis, emptyErrors) -- includere Type Checker
 import Env
-import GeneratorTAC
+--import GeneratorTAC
 import Control.Monad.State.Lazy
 
 type Err        = Either String
@@ -51,8 +51,8 @@ run v p s =
       exitFailure
     Right tree -> do
       putStrLn "\nParse Successful!"
-      -- showTree v tree
-      putStrLn "\nTYPE CHECKING STARTING..."
+      showTree v tree
+      {-putStrLn "\nTYPE CHECKING STARTING..."
       let (env, errors, annotatedTree) = launchStatSemAnalysis tree
       putStrLn "\nThe environment is:"
       print env
@@ -67,7 +67,7 @@ run v p s =
           putStrLn "\n\nSTARTING GENERATION TAC..."
           print $ genTAC annotatedTree
         else
-          putStrLn "\n\nGENERATION TAC ABORTED DUE TO ERRORS IN STATIC SEMANTIC ANALYSIS..."
+          putStrLn "\n\nGENERATION TAC ABORTED DUE TO ERRORS IN STATIC SEMANTIC ANALYSIS..."-}
   where
   ts = myLexer s
   showPosToken ((l,c),t) = concat [ show l, ":", show c, "\t", show t ]
