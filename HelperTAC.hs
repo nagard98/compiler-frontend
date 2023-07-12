@@ -42,6 +42,12 @@ data Addr =
     | Temporary { tempInt :: String }
     deriving (Show)
 
+data XAddr =
+      Addr Addr
+    | ArrayAddr { base :: Addr, offset :: Addr}
+    | RefAddr Addr
+
+
 type StateTAC = State (Int, DS.Seq TACInst, Stack (DS.Seq TACInst))
 
 --TODO: pensare se è necessario sistemare i label
@@ -81,6 +87,9 @@ data TACInst =
     | TACCndJmp Addr TACOp Addr TACLabel
     | TACIndxStr Addr Addr Addr
     | TACIndxLd Addr Addr Addr
+    | TACAssRef Addr Addr
+    | TACAssDeref Addr Addr
+    | TACDerefAss Addr Addr
     | TACParam Addr
     | TACPCall Addr Int
     | TACFCall Addr Addr Int

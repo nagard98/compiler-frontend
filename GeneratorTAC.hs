@@ -5,6 +5,8 @@ import qualified AbsGrammar
 import Env
 import HelperTAC
 import qualified Data.Sequence as DS
+import System.Process (CreateProcess(env))
+import Data.IntMap (size)
 
 
 genTAC :: AbsGrammar.P Env AbsGrammar.Type -> DS.Seq TACInst
@@ -113,16 +115,63 @@ genStmts (stmt:stmts) env = do
 
 --TODO: gestisci caso assegnamento array
 genStmtAssign :: AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> StateTAC ()
-genStmtAssign (AbsGrammar.StmtAssign lexpr rexpr) env = case lexpr of
+genStmtAssign (AbsGrammar.StmtAssign lexpr rexpr) env = do
+    lXAddr <- genExpr lexpr True env
+    rXAddr <- genExpr lexpr False env
+    tmpAddr <- newTmpAddr
+
+    case (lXAddr, rXAddr) of
+        (Addr lAddr, Addr rAddr) -> 
+            addInstr (TACNulAss lAddr rAddr)
+
+        (ArrayAddr lBase lOffset, ArrayAddr rBase rOffset) -> do
+            addInstr (TACIndxLd tmpAddr rBase rOffset)
+            addInstr (TACIndxStr lBase lOffset tmpAddr)
+
+        --TODO: è giusto così?
+        (RefAddr lRAddr, RefAddr rRAddr) -> do
+            addInstr (TACNulAss lRAddr rRAddr)
+
+        (ArrayAddr base offset, Addr rAddr) -> 
+            addInstr (TACIndxStr base offset rAddr)
+
+        (Addr lAddr, ArrayAddr base offset) -> 
+            addInstr (TACIndxLd lAddr base offset)
+
+        (RefAddr lRefAddr, Addr rAddr) -> 
+            addInstr (TACDerefAss lRefAddr rAddr)
+
+        (Addr lAddr, RefAddr rRefAddr) -> 
+            addInstr (TACAssDeref lAddr rRefAddr)
+
+        --TODO: valutare se sono fatti bene questi casi; Assegna valore di un array a reference?
+        (RefAddr lRefAddr, ArrayAddr base offset) -> do
+            addInstr (TACIndxLd tmpAddr base offset)
+            addInstr (TACDerefAss lRefAddr tmpAddr)
+
+        (ArrayAddr base offset, RefAddr rRefAddr) -> do
+            addInstr (TACAssDeref tmpAddr rRefAddr)
+            addInstr (TACIndxStr base offset tmpAddr)
+
+    
+    {-case lexpr of
     --TODO: potrebbe essere utile passare giù il tipo; credo di no
     {-AbsGrammar.BaseExpr arr@(AbsGrammar.ArrayElem _ _) tp -> do
         (baseAddr, offset, _) <- genArrayExpr arr env
         exprAddr <- genExpr rexpr env;
         addInstr (TACIndxStr baseAddr offset exprAddr)-}
+    AbsGrammar.UnaryExpression AbsGrammar.Dereference assExpr tp -> do
+        --TODO: sostituire genExpr per lexpr con funzione adatta
+        derefExpr <- genExpr lexpr env
+        exprAddr <- genExpr assExpr env 
+        addInstr (TACDerefAss derefExpr exprAddr)
+        return()
+
     _ -> do
         varAddr <- genBaseExpr lexpr env;
         exprAddr <- genExpr rexpr env;
-        addInstr (TACNulAss varAddr exprAddr)
+        addInstr (TACNulAss varAddr exprAddr)-}
+
 genStmtAssign _ _ = error "TODO: gestire errore genStmtAssign"
 
 genStmtDecl :: AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> StateTAC ()
@@ -218,8 +267,17 @@ genGuard guard trueLab falseLab env = case guard of
 
         _ -> if isRelOp opr
                 then do
-                    e1Addr <- genExpr expr1 env
-                    e2Addr <- genExpr expr2 env
+                    --TODO: verificare se funziona correttamente passando False
+                    e1XAddr <- genExpr expr1 False env
+                    e2XAddr <- genExpr expr2 False env
+
+                    e1Addr <- case e1XAddr of
+                        (Addr a) -> return a
+                        _ -> error "TODO: genGuard -> getisci errore creazione address expr"
+                    e2Addr <- case e2XAddr of
+                        (Addr a) -> return a
+                        _ -> error "TODO: genGuard -> getisci errore creazione address expr"
+
                     case (trueLab, falseLab) of
                         (Fall, Fall) -> return ()
                         (_, Fall) -> addInstr (TACCndJmp e1Addr (binToTACOp opr) e2Addr trueLab)
@@ -254,45 +312,97 @@ genGuard guard trueLab falseLab env = case guard of
 
 genStmtReturn :: AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> StateTAC ()
 genStmtReturn (AbsGrammar.StmtReturn (AbsGrammar.Ret expr)) env = do
-    exprAddr <- genExpr expr env
+    --TODO: stiamo facendo l'assunzione che possiamo restituire solo r-value
+    exprXAddr <- genExpr expr False env
+    exprAddr <- case exprXAddr of
+        (Addr a) -> return a
+        _ -> error "TODO: genStmtReturn -> getisci errore creazione address expr"
     addInstr (TACReturn exprAddr)
 
-genExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Env -> StateTAC Addr
-genExpr expr env = case expr of
-    (AbsGrammar.UnaryExpression _ _ _) -> genUnrExpr expr env
-    (AbsGrammar.BinaryExpression _ _ _ _) -> genBinExpr expr env
-    (AbsGrammar.ExprLiteral _) -> genLitExpr expr env
-    (AbsGrammar.ExprCall _ _) -> genExprCall expr env
-    (AbsGrammar.BaseExpr _ _) -> genBaseExpr expr env
+genExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Bool -> Env -> StateTAC XAddr
+genExpr expr genL env = case expr of
+    --TODO: considerare se passare genL alle funzioni
+    (AbsGrammar.UnaryExpression _ _ _) -> genUnrExpr expr genL env
+    (AbsGrammar.BinaryExpression _ _ _ _) -> genBinExpr expr genL env
+    (AbsGrammar.ExprLiteral _) -> genLitExpr expr genL env
+    (AbsGrammar.ExprCall _ _) -> genExprCall expr genL env
+    (AbsGrammar.BaseExpr _ _) -> genBaseExpr expr genL env
 
 -- TODO: valutare come usare tp(fare cast) ed env
-genUnrExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Env -> StateTAC Addr
-genUnrExpr (AbsGrammar.UnaryExpression op exp1 tp) env = do
-    tmpAddr <- newTmpAddr;
-    exprAddr <- genExpr exp1 env;
-    exprType <- getExprType exp1;
+genUnrExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Bool -> Env -> StateTAC XAddr
+genUnrExpr (AbsGrammar.UnaryExpression op@AbsGrammar.Dereference exp1 tp) genL env = 
+    if genL
+        then 
+            error "TODO: genUnrExpr -> E non è l'expr"
+        else do
+            expXAddr <- genExpr exp1 True env
+            case (tp, expXAddr) of
+                (AbsGrammar.TypeCompType (AbsGrammar.Pointer ptType), Addr addr) ->
+                    if genL
+                        then return $ RefAddr addr
+                        else do
+                            tmpAddr <- newTmpAddr
+                            addInstr (TACAssDeref tmpAddr addr)
+                            return $ Addr tmpAddr
+                _ -> error "TODO:genUnrExpr -> gestire altri casi case come da slide"
 
-    exprAddr <- castIfNecessary exprAddr exprType tp;
+genUnrExpr (AbsGrammar.UnaryExpression op@AbsGrammar.Reference exp1 tp) genL env = 
+    error "TODO: genUnrExpr -> implementa Reference"
 
-    addInstr (TACUnAss tmpAddr (unrToTACOp op) exprAddr);
-    return tmpAddr;
-genUnrExpr _ _ = error "TODO: gestire errore genUnrExpr"
+genUnrExpr (AbsGrammar.UnaryExpression op exp1 tp) genL env = do
+    if genL
+    then 
+        error "TODO: genUnrExpr -> E non è l'expr"
+    else do
+        tmpAddr <- newTmpAddr;
+        rVal <- genExpr exp1 False env;
+        exprType <- getExprType exp1;
+
+        case rVal of
+            (Addr addr) -> do
+                addr <- castIfNecessary addr exprType tp;
+
+                addInstr (TACUnAss tmpAddr (unrToTACOp op) addr);
+                return $ Addr tmpAddr;
+
+            _ -> error "TODO: genUnrExpr (Neg, Not) -> implementare altri casi case "
+
+genUnrExpr _ _ _ = error "TODO: gestire errore genUnrExpr"
 
 -- TODO: valutare come usare tp(fare cast) ed env
-genBinExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Env -> StateTAC Addr
-genBinExpr (AbsGrammar.BinaryExpression op exp1 exp2 infType) env = do
-    tmpAddr <- newTmpAddr;
-    exprAddr1 <- genExpr exp1 env;
-    expr1Type <- getExprType exp1;
-    exprAddr2 <- genExpr exp2 env;
-    expr2Type <- getExprType exp2;
+genBinExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Bool -> Env -> StateTAC XAddr
+genBinExpr (AbsGrammar.BinaryExpression op exp1 exp2 infType) genL env = do
+    if genL
+        then error "TODO: E non è l-expr"
+        else do
+            tmpAddr <- newTmpAddr;
+            rVal1 <- genExpr exp1 False env;
+            expr1Type <- getExprType exp1;
+            rVal2 <- genExpr exp2 False env;
+            expr2Type <- getExprType exp2;
 
-    exprAddr1 <- castIfNecessary exprAddr1 expr1Type infType;
-    exprAddr2 <- castIfNecessary exprAddr2 expr2Type infType;
+            case (rVal1, rVal2) of
+                (Addr tmpAddr1, Addr tmpAddr2) -> do
+                    tmpAddr1 <- castIfNecessary tmpAddr1 expr1Type infType;
+                    tmpAddr2 <- castIfNecessary tmpAddr2 expr2Type infType;
 
-    addInstr (TACBinAss tmpAddr exprAddr1 (binToTACOp op) exprAddr2);
-    return tmpAddr;
-genBinExpr _ _ = error "TODO: gestire errore genBinExpr"
+                    addInstr (TACBinAss tmpAddr tmpAddr1 (binToTACOp op) tmpAddr2);
+                    return $ Addr tmpAddr
+
+                (Addr tmpAddr1, ArrayAddr base2 offset2) -> do
+                    tmpAddr1 <- castIfNecessary tmpAddr1 expr1Type infType;
+
+                    tmpAddr <- newTmpAddr
+                    addInstr (TACIndxLd tmpAddr base2 offset2)
+                    tmpAddr <- castIfNecessary tmpAddr expr2Type infType;
+
+                    tmpRes <- newTmpAddr
+                    addInstr (TACBinAss tmpRes tmpAddr1 (binToTACOp op) tmpAddr);
+                    return $ Addr tmpRes
+
+                _ -> error "TODO: genBinExpr -> gestisci altri casi case come da slide "
+
+genBinExpr _ _ _ = error "TODO: gestire errore genBinExpr"
 
 
 castIfNecessary :: Addr -> AbsGrammar.Type -> AbsGrammar.Type -> StateTAC Addr
@@ -314,11 +424,11 @@ getExprType expr = case expr of
     AbsGrammar.ExprLiteral lit -> return (AbsGrammar.TypeBaseType (Env.getTypeFromLiteral lit));
 
 
-genLitExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Env -> StateTAC Addr
-genLitExpr (AbsGrammar.ExprLiteral lit) env = return (TacLit lit)
+genLitExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Bool -> Env -> StateTAC XAddr
+genLitExpr (AbsGrammar.ExprLiteral lit) genL env = return $ Addr (TacLit lit)
 
-genExprCall :: AbsGrammar.EXPR AbsGrammar.Type -> Env -> StateTAC Addr
-genExprCall (AbsGrammar.ExprCall (AbsGrammar.CallArgs (AbsGrammar.TokIdent (_,callId)) args) tp) env = 
+genExprCall :: AbsGrammar.EXPR AbsGrammar.Type -> Bool -> Env -> StateTAC XAddr
+genExprCall (AbsGrammar.ExprCall (AbsGrammar.CallArgs (AbsGrammar.TokIdent (_,callId)) args) tp) genL env = 
     case Env.lookup callId env of
         Just (Env.Function _ _ retType fAddr) -> do
             --TODO : valutare se necessario fare cast qui; forse non serve considerando
@@ -326,61 +436,109 @@ genExprCall (AbsGrammar.ExprCall (AbsGrammar.CallArgs (AbsGrammar.TokIdent (_,ca
             genArgs args env
             tmpAddr <- newTmpAddr
             addInstr (TACFCall tmpAddr fAddr (length args))
-            return tmpAddr
+            --TODO: implementa correttamente return
+            return $ Addr tmpAddr
         _ -> error "TODO : errore in genExprCall; funzione con questo nome non esiste"
 
 genArgs :: [AbsGrammar.EXPR AbsGrammar.Type] -> Env -> StateTAC ()
 genArgs (arg:args) env = do
-    tmpArgAddr <- genExpr arg env
-    addInstr (TACParam tmpArgAddr)
+    --TODO: stiamo facendo assunzione che usiamo sempre r-value con parametri
+    tmpArgAddr <- genExpr arg False env
+    case tmpArgAddr of
+        (Addr argAddr) -> do
+            addInstr (TACParam argAddr)
+        _-> error "TODO: genArgs -> implementa correttamente"
     genArgs args env
 
-genArgs [] env = return ()
+genArgs [] _ = return ()
 
-genBaseExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Env -> StateTAC Addr
-genBaseExpr (AbsGrammar.BaseExpr bexpr tp) env = case bexpr of
+genBaseExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Bool -> Env -> StateTAC XAddr
+genBaseExpr expr@(AbsGrammar.BaseExpr bexpr tp) genL env = case bexpr of
     
-    (AbsGrammar.Identifier (AbsGrammar.TokIdent (_, id))) -> do 
-        getIdAddr id env
+    (AbsGrammar.Identifier (AbsGrammar.TokIdent (_, id))) -> 
+        case Env.lookup id env of
+            Just (Env.VarType AbsGrammar.Modality_val _ idType addr) -> return $ Addr addr
+            _ -> error "TODO : genBaseExpr -> gestisci altri casi con diverse modalità"
     
-    {-arr@(AbsGrammar.ArrayElem _ _) -> do
-        (baseAddr, offset, _) <- genArrayExpr arr env
-        elemAddr <- newTmpAddr
-        addInstr (TACIndxLd elemAddr baseAddr offset)
-        return elemAddr-}
-    _ -> error "TODO: genBaseExpr -> implementare gen array "
+    arr@(AbsGrammar.ArrayElem _ _) -> do
+        --TODO: che genL passo a genArrayExpr?
+        genArrayExpr expr genL env
+        --elemAddr <- newTmpAddr
+        --addInstr (TACIndxLd elemAddr baseAddr offset)
+        --TODO: è giusto restituire Addr?
+        --return $ Addr elemAddr
 
-genBaseExpr _ _ = error "TODO: genBaseExpr -> gestire altri casi mancanti"
+genBaseExpr _ _ _ = error "TODO: genBaseExpr -> gestire altri casi mancanti"
 
-{-genArrayExpr :: AbsGrammar.BEXPR AbsGrammar.Type -> Env -> StateTAC (Addr, Addr, AbsGrammar.Type)
-genArrayExpr (AbsGrammar.ArrayElem (AbsGrammar.Identifier (AbsGrammar.TokIdent (_,id))) indexExpr) env = 
+genArrayExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Bool -> Env -> StateTAC XAddr
+genArrayExpr (AbsGrammar.BaseExpr (AbsGrammar.ArrayElem arrExpr indexExpr) tp) genL env = do 
+    aXVal <- genExpr arrExpr True env
+    iXVal <- genExpr indexExpr False env
+    --TODO: giusto considerare questo tipo? tp
+    case (tp, aXVal, iXVal) of
+        (AbsGrammar.TypeCompType (AbsGrammar.Array start end arrTp), Addr fldAddr, Addr indAddr)-> do
+            offsetAddr <- newTmpAddr
+            sizeXAddr <- genLitExpr (convertIntToExpr (sizeof arrTp)) False env
+            sizeAddr <- case sizeXAddr of
+                (Addr a) -> return a
+                _ -> error "TODO: genArrayExpr -> getisci errore creazione address literal"
+            addInstr (TACBinAss offsetAddr indAddr TACMul sizeAddr)
+            if genL
+                then return $ ArrayAddr fldAddr offsetAddr 
+                else do
+                    tmpAddr <- newTmpAddr
+                    addInstr (TACIndxLd tmpAddr fldAddr offsetAddr)
+                    return $ Addr tmpAddr
+        
+        (AbsGrammar.TypeCompType (AbsGrammar.Array start end arrTp), ArrayAddr bsAddr offAddr, Addr indAddr )-> do
+            sizeXAddr <- genLitExpr (convertIntToExpr (sizeof arrTp)) False env
+            sizeAddr <- case sizeXAddr of
+                (Addr a) -> return a
+                _ -> error "TODO: genArrayExpr -> getisci errore creazione address literal"
+            tmpOffset <- newTmpAddr
+            addInstr (TACBinAss tmpOffset indAddr TACMul sizeAddr)
+            offset <- newTmpAddr
+            addInstr (TACBinAss offset tmpOffset TACAdd offAddr)
+            if genL
+                then return $ ArrayAddr bsAddr offset
+                else do
+                    tmpAddr <- newTmpAddr
+                    addInstr (TACIndxLd tmpAddr bsAddr offset)
+                    return $ Addr tmpAddr
+
+        _ -> error "TODO: genArrayExpr -> considera altri casi case slide" 
+
+
+genArrayExpr _ _ _ = error "TODO: genArrayExpr -> non è un array"
+{-genArrayExpr (AbsGrammar.ArrayElem (AbsGrammar.Identifier (AbsGrammar.TokIdent (_,id))) indexExpr) genL env =
     case Env.lookup id env of
     
         Just (VarType mod _ tp baseAddr) -> do
             offset <- newTmpAddr
-            indexAddr <- genExpr indexExpr env
-            sizeAddr <- genLitExpr (convertIntToExpr (sizeof tp)) env
+            Addr indexAddr <- genExpr indexExpr genL env
+            Addr sizeAddr <- genLitExpr (convertIntToExpr (sizeof tp)) genL env
             addInstr (TACBinAss offset indexAddr TACMul sizeAddr)
-            return (baseAddr, offset, tp)
+            return (ArrayAddr baseAddr offset, tp)
     
         _ -> error "TODO: genArrayExpr -> id non esiste nel env"
 
-genArrayExpr (AbsGrammar.ArrayElem arr@(AbsGrammar.ArrayElem _ _) indexExpr) env = do
-    (baseAddr, lastOffset, lastArrType) <- genArrayExpr arr env
+genArrayExpr (AbsGrammar.ArrayElem arr@(AbsGrammar.ArrayElem _ _) indexExpr) genL env = do
+    (ArrayAddr baseAddr lastOffset, lastArrType) <- genArrayExpr arr genL env
     tp <- case lastArrType of
         AbsGrammar.TypeCompType (AbsGrammar.Array _ _ nextArrType) -> return nextArrType
         _ -> error "TODO: genArrayExpr -> verifica cosa serve con altri tipi"
     tmp <- newTmpAddr
     offset <- newTmpAddr
-    indexAddr <- genExpr indexExpr env
+    Addr indexAddr <- genExpr indexExpr genL env
     --TODO: valutare se possibile scriverlo meglio
-    sizeAddr <- genLitExpr (convertIntToExpr (sizeof tp)) env
+    Addr sizeAddr <- genLitExpr (convertIntToExpr (sizeof tp)) genL env
     addInstr (TACBinAss tmp indexAddr TACMul sizeAddr)
     addInstr (TACBinAss offset tmp TACAdd lastOffset)
-    return (baseAddr, offset, tp)
-
-genArrayExpr _ _ = error "TODO: genArrayExpr -> non è un array"
+    return ( ArrayAddr baseAddr offset, tp)
 -}
+
+
+
     
 
 addInstr :: TACInst -> StateTAC ()
