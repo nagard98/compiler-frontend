@@ -1,13 +1,15 @@
 {In this file we want to test a basic mathematical expressions}
 
 program HelloMath;
-var a: array[1..10]of integer; 
+var a: array[1..5]of integer; 
 var b: ^real;
 function sum(x,y: integer): integer;
 begin return x+y end;
 begin
   {b := a[3];}
-  @b := sum(@b,a[3]) {test chiamata funzione}
+  {a[1] := sum(@b,a[3]); {test chiamata funzione}
+  var aa : array[1..5] of array[1..5] of integer;
+  aa[3] := a; {Come mai risulta errore?}
 {*
   var a2: integer;
   var c: ^integer;
