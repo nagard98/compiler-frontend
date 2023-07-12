@@ -65,7 +65,7 @@ parseDclVrBlock env errors (DclBlockVrBlock (VarBlock vrDefs)) = do
             parseVrDefs :: [VrDef] -> Env -> StateCount Env
             parseVrDefs ((VarDefinition idElements t):vrDefs) env = do
                 -- TODO : probabilmente necessaria gestione errori (ovvero restituire anche errori)
-                (tmpEnv, tmpErrs, _) <- parseIds idElements Modality_var t env []
+                (tmpEnv, tmpErrs, _) <- parseIds idElements Modality_val t env []
                 return tmpEnv
             parseVrDefs _ env = return env
                         
@@ -265,7 +265,12 @@ parseAssignment expr1 expr2 env errs = case (expr1, expr2) of
                 (env2, err2, parsedexpr1) <- parseExpression env errs (UnaryExpression Reference expr1 t)
                 (env3, err3, parsedexpr2) <- parseExpression env2 err2 expr2                
                 parseExprExprAssignment parsedexpr1 parsedexpr2 env3 err3
-            --TODO: manca il caso in cui l-value sia un array 
+            -- Array elements are valid l-values
+            ( (BaseExpr (ArrayElem bexpr iexpr) t), expr ) -> do
+                (env2, err2, parsedexpr) <- parseExpression env errs expr
+                (env3, err3, parsediexpr) <- parseExpression env2 err2 iexpr
+                (env4, err4, parsedbexpr, bexprtype) <- parseBaseExpression env3 err3 (ArrayElem bexpr iexpr)
+                parseArrayAssignment parsedbexpr bexprtype parsediexpr parsedexpr env4 err4
             -- Il resto dei possibili l-value non è valido
             ( expr1, expr2 ) -> do
                 (env2, err2, parsedexpr1) <- parseExpression env errs expr1
@@ -273,6 +278,20 @@ parseAssignment expr1 expr2 env errs = case (expr1, expr2) of
                 -- TODO: includere posizione e stringa della espressione sinistra nel messaggio di errore
                 return (env3, ("Error: invalid l-value in assignment"):err3, (StmtAssign parsedexpr1 parsedexpr2) )
 
+-- Checks if r-expression matches typing with an l-expression that is an element of an array
+parseArrayAssignment:: BEXPR Type -> Type -> EXPR Type -> EXPR Type -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
+-- base case: tokid[iexpr] = expr
+parseArrayAssignment (Identifier (TokIdent (tokpos, tokid))) t iexpr expr env errs = if t == getTypeFromExpression expr --TODO: risolvere errore assegnamento array ad array di array (vedere testfile4)
+    then 
+        return (env, errs, (StmtAssign (BaseExpr (ArrayElem (Identifier (TokIdent (tokpos, tokid))) iexpr) t) expr ) )
+    else
+        -- 3 cases: a) int to real, b) real to int, c) incompatible types -> error
+        case (t, getTypeFromExpression expr) of
+            (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) -> return (env, errs, (StmtAssign (BaseExpr (ArrayElem (Identifier (TokIdent (tokpos, tokid))) iexpr) t) (IntToReal expr) ) )
+            (TypeBaseType BaseType_integer, TypeBaseType BaseType_real) -> return (env, errs, (StmtAssign (BaseExpr (ArrayElem (Identifier (TokIdent (tokpos, tokid))) iexpr) t) (RealToInt expr) ) )
+            otherwise -> return (env, ("Error at " ++ show tokpos ++ ". l-Expression is of type " ++ show t ++ " but it is assigned value of type "++show (getTypeFromExpression expr) ++"."):errs, (StmtAssign (BaseExpr (ArrayElem (Identifier (TokIdent (tokpos, tokid))) iexpr) (TypeBaseType BaseType_error)) expr ) )
+-- recursive case until id is found
+parseArrayAssignment (ArrayElem bbexpr iiexpr) t iexpr expr env errs = parseArrayAssignment bbexpr t iiexpr expr env errs
 
 -- check if literal type matches with the one saved in the environment. 
 -- If it doesn't return current environment and a new error message
@@ -402,7 +421,10 @@ parseExpression env errs (ExprLiteral literal) = return (env, errs, (ExprLiteral
 parseExpression env errs (ExprCall call t) = parseFunctionCall env errs call
 
 -- Base Expressions: identifies or array elements
-parseExpression env errs (BaseExpr bexpr t) = parseBaseExpression env errs bexpr
+parseExpression env errs (BaseExpr bexpr t) = do
+    (env2, err2, parsedbexpr, t) <- parseBaseExpression env errs bexpr
+    return (env2, err2, (BaseExpr parsedbexpr t))
+        
 
 -- Type casted expressions: verify that types match
 -- Real to Integer
@@ -564,38 +586,30 @@ parseBinaryRelationExpression env errs op exp1 exp2 = do
         getStringFromOperator _ = ""
 
 
-parseBaseExpression :: Env -> Errors -> BEXPR infType -> StateCount (Env, Errors, EXPR Type)
--- parse identifiers
+-- output is of type (BEXPR Type). If (EXPR Type) output is required use parseExpression
+parseBaseExpression:: Env -> Errors -> BEXPR infType -> StateCount (Env, Errors, BEXPR Type, Type)
 parseBaseExpression env errs (Identifier (TokIdent (tokpos,tokid)) ) = case Env.lookup tokid env of
-    Just (VarType mod _ envType addr) -> return (env, errs, (BaseExpr (Identifier (TokIdent (tokpos,tokid)) ) envType ) )
-    Just (Constant _ envType addr) -> return (env, errs, (BaseExpr (Identifier (TokIdent (tokpos,tokid)) ) envType ) )
-    Nothing -> return (env, ("Error at " ++ show tokpos ++". Unknown identifier: " ++ tokid ++" is used but has never been declared."):errs,
-                (BaseExpr (Identifier (TokIdent (tokpos,tokid)) ) (TypeBaseType BaseType_error) ) )
-
--- parse elements of an array
-parseBaseExpression env errs (ArrayElem bexpr expr) = do
-    (env2, err2, parsedexpr) <- parseExpression env errs expr
-    --TODO: controllare se modifiche fatto con introduzione do abbiano creato problema
-    -- (BaseExpr parsedbexpr (TypeCompType (Array _ _ t)) ) 
-    (env3, err3, pbexpr) <- parseBaseExpression env2 err2 bexpr
-    if getTypeFromExpression parsedexpr /= TypeBaseType BaseType_integer 
-        then return (env3, ("Error. Array index is of type "++show (getTypeFromExpression parsedexpr)++" instead of integer."):err3, (BaseExpr (ArrayElem (getBaseExpr pbexpr) parsedexpr) (TypeBaseType BaseType_error)) )
-        else return (env3, err3, (BaseExpr (ArrayElem (getBaseExpr pbexpr) parsedexpr) (getBaseExprType pbexpr) ) )     
-        where
-            getBaseExpr :: EXPR Type ->  BEXPR Type
-            getBaseExpr (BaseExpr bexpr _) = bexpr
-            getBaseExpr _ = error "TODO: errore in getBaseExpr in parseBaseExpression"
-            getBaseExprType :: EXPR Type ->  Type
-            getBaseExprType (BaseExpr _ (TypeCompType (Array _ _ t))) = t
-            getBaseExprType _ = error "TODO: errore in getBaseExprType in parseBaseExpression"
-
+    Just (VarType mod _ envType addr) -> return (env, errs, (Identifier (TokIdent (tokpos,tokid)) ), envType )
+    Just (Constant _ envType addr) -> return (env, errs, (Identifier (TokIdent (tokpos,tokid)) ), envType )
+    Nothing -> return (env, ("Error at " ++ show tokpos ++". Unknown identifier: " ++ tokid ++" is used but has never been declared."):errs, (Identifier (TokIdent (tokpos,tokid))), TypeBaseType BaseType_error)
+parseBaseExpression env errs (ArrayElem bexpr iexpr) = do
+    (env2, err2, parsediexpr) <- parseExpression env errs iexpr -- parsing of index for type checking (and casting if needed)
+    (env3, err3, parsedbexpr, tbexpr) <- parseBaseExpression env2 err2 bexpr -- parsing of base expression to get its type: if it is an array type, return type of element of that array; otherwise it is an error
+    case (tbexpr, getTypeFromExpression parsediexpr) of -- TODO: refactoring possibile di questa parte di codice? --TODO: posizione nei messaggi di errore
+        -- cases: 1) array and integer; 2) array and real; 3) array and error; 4) error and integer; 5) error and real; 6) error and error (distinction necessary to generate appropriate error messages)
+        (TypeCompType (Array i1 i2 basetype), TypeBaseType BaseType_integer) -> return (env3, err3, (ArrayElem parsedbexpr parsediexpr), basetype)
+        (TypeCompType (Array i1 i2 basetype), TypeBaseType BaseType_real) -> return (env3, err3, (ArrayElem parsedbexpr (RealToInt parsediexpr)), basetype)
+        (TypeCompType (Array i1 i2 basetype), _) -> return (env3, ("Error. Array index is not of numeric type but it is of type "++show (getTypeFromExpression parsediexpr)++"."):err3, (ArrayElem parsedbexpr parsediexpr), TypeBaseType BaseType_error)
+        (_, TypeBaseType BaseType_integer) -> return (env3, ("Error. Expression " ++ show parsedbexpr ++ " is treated as an array but it is of type " ++ show tbexpr ++ "."):err3, (ArrayElem parsedbexpr parsediexpr), TypeBaseType BaseType_error)
+        (_, TypeBaseType BaseType_real) -> return (env3, ("Error. Expression " ++ show parsedbexpr ++ " is treated as an array but it is of type " ++ show tbexpr ++ "."):err3, (ArrayElem parsedbexpr (RealToInt parsediexpr)), TypeBaseType BaseType_error)
+        otherwise -> return (env3, ("Error. Expression " ++ show parsedbexpr ++ " is treated as an array but it is of type" ++ show tbexpr ++ "."):("Error. Array index is not of numeric type but it is of type "++show (getTypeFromExpression parsediexpr)++"."):err3, (ArrayElem parsedbexpr parsediexpr), TypeBaseType BaseType_error)
 -- Returns annotated type for expressions
 getTypeFromExpression :: EXPR Type -> Type
 getTypeFromExpression (UnaryExpression op exp t) = t
 getTypeFromExpression (BinaryExpression op exp1 exp2 t) = t
 getTypeFromExpression (ExprLiteral literal) = (TypeBaseType (getTypeFromLiteral literal) )
 getTypeFromExpression (ExprCall call t) = t
-getTypeFromExpression (BaseExpr exp t) = t
+getTypeFromExpression (BaseExpr bexp t) = t
 getTypeFromExpression (IntToReal _) = TypeBaseType BaseType_real
 getTypeFromExpression (RealToInt _) = TypeBaseType BaseType_integer
 
