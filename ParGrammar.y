@@ -65,14 +65,16 @@ import LexGrammar
   'procedure' { PT _ (TS _ 40) }
   'program'   { PT _ (TS _ 41) }
   'real'      { PT _ (TS _ 42) }
-  'repeat'    { PT _ (TS _ 43) }
-  'return'    { PT _ (TS _ 44) }
-  'string'    { PT _ (TS _ 45) }
-  'then'      { PT _ (TS _ 46) }
-  'true'      { PT _ (TS _ 47) }
-  'until'     { PT _ (TS _ 48) }
-  'var'       { PT _ (TS _ 49) }
-  'while'     { PT _ (TS _ 50) }
+  'ref'       { PT _ (TS _ 43) }
+  'repeat'    { PT _ (TS _ 44) }
+  'return'    { PT _ (TS _ 45) }
+  'string'    { PT _ (TS _ 46) }
+  'then'      { PT _ (TS _ 47) }
+  'true'      { PT _ (TS _ 48) }
+  'until'     { PT _ (TS _ 49) }
+  'val'       { PT _ (TS _ 50) }
+  'var'       { PT _ (TS _ 51) }
+  'while'     { PT _ (TS _ 52) }
   L_Ident     { PT _ (TV $$)   }
   L_charac    { PT _ (TC $$)   }
   L_doubl     { PT _ (TD $$)   }
@@ -108,17 +110,8 @@ PBlock :: { AbsGrammar.PBlock }
 PBlock : 'program' Ident ';' { AbsGrammar.ProgBlock $2 }
 
 BEBlock :: { AbsGrammar.BEBlock }
-BEBlock
+BEBlock 
   : 'begin' ListStmt 'end' { AbsGrammar.BegEndBlock $2 }
-
---BegEndStmt :: { AbsGrammar.BegEndStmt }
---BegEndStmt
- -- : Stmt ';' { AbsGrammar.BegEndStmt1 $1 }
-  --| DclBlock { AbsGrammar.BegEndStmtDclBlock $1 }
-
---ListBegEndStmt :: { [AbsGrammar.BegEndStmt] }
---ListBegEndStmt
- -- : {- empty -} { [] } | BegEndStmt ListBegEndStmt { (:) $1 $2 }
 
 Stmt :: { AbsGrammar.Stmt }
 Stmt
@@ -138,8 +131,8 @@ ListStmt
 
 SelStmt :: { AbsGrammar.SelStmt }
 SelStmt
-  : 'if' EXPR 'then' Stmt { AbsGrammar.StmtIf $2 $4 }
-  | 'if' EXPR 'then' Stmt 'else' Stmt { AbsGrammar.StmtIfElse $2 $4 $6 }
+  : 'if' EXPR 'then' Stmt %shift { AbsGrammar.StmtIf $2 $4 }
+  | 'if' EXPR 'then' Stmt 'else' Stmt %shift { AbsGrammar.StmtIfElse $2 $4 $6 }
 
 IterStmt :: { AbsGrammar.IterStmt }
 IterStmt
@@ -178,8 +171,9 @@ Prm : Modality ListIdElem ':' Type { AbsGrammar.Param $1 $2 $4 }
 
 Modality :: { AbsGrammar.Modality }
 Modality
-  : 'var' { AbsGrammar.Modality_var }
-  | {- empty -} { AbsGrammar.Modality1 }
+  : 'val' { AbsGrammar.Modality_val }
+  | 'ref' { AbsGrammar.Modality_ref }
+  | {- empty -} { AbsGrammar.Modality_val }
 
 ListPrm :: { [AbsGrammar.Prm] }
 ListPrm : Prm { (:[]) $1 } | Prm ',' ListPrm { (:) $1 $3 }
@@ -239,7 +233,7 @@ BaseType
 CompType :: { AbsGrammar.CompType }
 CompType
   : 'array' '[' Integer '..' Integer ']' 'of' Type { AbsGrammar.CompType1 $3 $5 $8 }
-  | '^' BaseType { AbsGrammar.CompType2 $2 }
+  | '^' Type { AbsGrammar.CompType2 $2 }
 
 EXPR :: { AbsGrammar.EXPR }
 EXPR : EXPR1 { $1 } | EXPR 'or' EXPR1 { AbsGrammar.BinaryExpression AbsGrammar.Or $1 $3 }
@@ -283,21 +277,18 @@ EXPR9
   | EXPR10 '^' { AbsGrammar.UnaryExpression AbsGrammar.Dereference $1 }
 
 EXPR10 :: { AbsGrammar.EXPR }
-EXPR10 : EXPR11 { $1 } | Literal { AbsGrammar.ExprLiteral $1 }
+EXPR10 : EXPR11 { $1 } | Call { AbsGrammar.ExprCall $1 }
 
 EXPR11 :: { AbsGrammar.EXPR }
-EXPR11 : EXPR12 { $1 } | Call { AbsGrammar.ExprCall $1 }
-
-EXPR12 :: { AbsGrammar.EXPR }
-EXPR12 : EXPR13 { $1 } | BEXPR { AbsGrammar.BaseExpr $1 }
-
-EXPR13 :: { AbsGrammar.EXPR }
-EXPR13 : '(' EXPR ')' { $2 }
+EXPR11
+  : '(' EXPR ')' { $2 }
+  | Literal { AbsGrammar.ExprLiteral $1 }
+  | BEXPR { AbsGrammar.BaseExpr $1 }
 
 BEXPR :: { AbsGrammar.BEXPR }
 BEXPR
-  : Ident { AbsGrammar.Identifier $1 }
-  | BEXPR '[' EXPR ']' { AbsGrammar.ArrayElem $1 $3 }
+  : EXPR11 '[' EXPR ']' { AbsGrammar.ArrayElem $1 $3 }
+  | Ident { AbsGrammar.Identifier $1 }
 
 Literal :: { AbsGrammar.Literal }
 Literal

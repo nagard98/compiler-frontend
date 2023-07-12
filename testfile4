@@ -7,9 +7,9 @@ function sum(x,y: integer): integer;
 begin return x+y end;
 begin
   {b := a[3];}
-  {a[1] := sum(@b,a[3]); {test chiamata funzione}
-  var aa : array[1..5] of array[1..5] of integer;
-  aa[3] := a; {Come mai risulta errore?}
+  {@b := sum(@b,a[3]) {test chiamata funzione}
+  var aa: array [1..5] of array [1..5] of integer;
+  aa[3] := a; {Come mai genera errore?}
 {*
   var a2: integer;
   var c: ^integer;

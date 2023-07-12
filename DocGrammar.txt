@@ -45,8 +45,9 @@ The reserved words used in grammar are the following:
   | ``end`` | ``false`` | ``function`` | ``if``
   | ``integer`` | ``mod`` | ``not`` | ``of``
   | ``or`` | ``procedure`` | ``program`` | ``real``
-  | ``repeat`` | ``return`` | ``string`` | ``then``
-  | ``true`` | ``until`` | ``var`` | ``while``
+  | ``ref`` | ``repeat`` | ``return`` | ``string``
+  | ``then`` | ``true`` | ``until`` | ``val``
+  | ``var`` | ``while`` |  |
 
 The symbols used in grammar are the following:
   | . | ; | := | :
@@ -67,17 +68,17 @@ All other symbols are terminals.
 
   | //P// | -> | //PBlock// //[DclBlock]// //BEBlock// ``.``
   | //PBlock// | -> | ``program`` //Ident// ``;``
-  | //BEBlock// | -> | ``begin`` //[BegEndStmt]// ``end``
-  | //BegEndStmt// | -> | //Stmt// ``;``
-  |  |  **|**  | //DclBlock//
-  | //[BegEndStmt]// | -> | **eps**
-  |  |  **|**  | //BegEndStmt// //[BegEndStmt]//
-  | //Stmt// | -> | //BEBlock//
+  | //BEBlock// | -> | ``begin`` //[Stmt]// ``end``
+  | //Stmt// | -> | //DclBlock//
+  |  |  **|**  | //BEBlock//
   |  |  **|**  | //EXPR// ``:=`` //EXPR//
   |  |  **|**  | //Call//
   |  |  **|**  | //SelStmt//
   |  |  **|**  | //IterStmt//
   |  |  **|**  | //Return//
+  | //[Stmt]// | -> | **eps**
+  |  |  **|**  | //Stmt//
+  |  |  **|**  | //Stmt// ``;`` //[Stmt]//
   | //SelStmt// | -> | ``if`` //EXPR// ``then`` //Stmt//
   |  |  **|**  | ``if`` //EXPR// ``then`` //Stmt// ``else`` //Stmt//
   | //IterStmt// | -> | ``while`` //EXPR// ``do`` //Stmt//
@@ -88,13 +89,14 @@ All other symbols are terminals.
   |  |  **|**  | //FcBlock//
   |  |  **|**  | //CsBlock//
   | //[DclBlock]// | -> | **eps**
-  |  |  **|**  | //DclBlock// //[DclBlock]//
-  | //PcBlock// | -> | ``procedure`` //Ident// //Prms// ``;`` //BEBlock// ``;``
-  | //FcBlock// | -> | ``function`` //Ident// //Prms// ``:`` //Type// ``;`` //BEBlock// ``;``
+  |  |  **|**  | //DclBlock// ``;`` //[DclBlock]//
+  | //PcBlock// | -> | ``procedure`` //Ident// //Prms// ``;`` //BEBlock//
+  | //FcBlock// | -> | ``function`` //Ident// //Prms// ``:`` //Type// ``;`` //BEBlock//
   | //Prms// | -> | ``(`` //[Prm]// ``)``
   |  |  **|**  | **eps**
   | //Prm// | -> | //Modality// //[IdElem]// ``:`` //Type//
-  | //Modality// | -> | ``var``
+  | //Modality// | -> | ``val``
+  |  |  **|**  | ``ref``
   |  |  **|**  | **eps**
   | //[Prm]// | -> | //Prm//
   |  |  **|**  | //Prm// ``,`` //[Prm]//
@@ -102,11 +104,11 @@ All other symbols are terminals.
   | //[EXPR]// | -> | **eps**
   |  |  **|**  | //EXPR//
   |  |  **|**  | //EXPR// ``,`` //[EXPR]//
-  | //VrBlock// | -> | ``var`` //[VrDef]// ``;``
+  | //VrBlock// | -> | ``var`` //[VrDef]//
   | //VrDef// | -> | //[IdElem]// ``:`` //Type//
   | //[VrDef]// | -> | //VrDef//
   |  |  **|**  | //VrDef// ``,`` //[VrDef]//
-  | //CsBlock// | -> | ``const`` //[CsDef]// ``;``
+  | //CsBlock// | -> | ``const`` //[CsDef]//
   | //CsDef// | -> | //IdElem// ``=`` //Literal//
   | //[CsDef]// | -> | //CsDef//
   |  |  **|**  | //CsDef// ``,`` //[CsDef]//
@@ -123,7 +125,7 @@ All other symbols are terminals.
   |  |  **|**  | ``char``
   |  |  **|**  | ``string``
   | //CompType// | -> | ``array`` ``[`` //Integer// ``..`` //Integer// ``]`` ``of`` //Type//
-  |  |  **|**  | ``^`` //BaseType//
+  |  |  **|**  | ``^`` //Type//
   | //EXPR// | -> | //EXPR1//
   |  |  **|**  | //EXPR// ``or`` //EXPR1//
   | //EXPR1// | -> | //EXPR2//
@@ -152,14 +154,12 @@ All other symbols are terminals.
   |  |  **|**  | ``@`` //EXPR10//
   |  |  **|**  | //EXPR10// ``^``
   | //EXPR10// | -> | //EXPR11//
-  |  |  **|**  | //Literal//
-  | //EXPR11// | -> | //EXPR12//
   |  |  **|**  | //Call//
-  | //EXPR12// | -> | //EXPR13//
+  | //EXPR11// | -> | ``(`` //EXPR// ``)``
+  |  |  **|**  | //Literal//
   |  |  **|**  | //BEXPR//
-  | //EXPR13// | -> | ``(`` //EXPR// ``)``
-  | //BEXPR// | -> | //Ident//
-  |  |  **|**  | //BEXPR// ``[`` //EXPR// ``]``
+  | //BEXPR// | -> | //EXPR11// ``[`` //EXPR// ``]``
+  |  |  **|**  | //Ident//
   | //Literal// | -> | //Integer//
   |  |  **|**  | //String//
   |  |  **|**  | //Char//

@@ -166,15 +166,6 @@ instance Print (AbsGrammar.BEBlock env infType) where
   prt i = \case
     AbsGrammar.BegEndBlock stmts env -> prPrec i 0 (concatD [doc (showString "begin"), prt 0 stmts, doc (showString "end")])
 
---instance Print AbsGrammar.BegEndStmt where
-  --prt i = \case
-    --AbsGrammar.BegEndStmt1 stmt -> prPrec i 0 (concatD [prt 0 stmt, doc (showString ";")])
-    --AbsGrammar.BegEndStmtDclBlock dclblock -> prPrec i 0 (concatD [prt 0 dclblock])
-
---instance Print [AbsGrammar.BegEndStmt] where
-  --prt _ [] = concatD []
-  --prt _ (x:xs) = concatD [prt 0 x, prt 0 xs]
-
 instance Print (AbsGrammar.Stmt env infType) where
   prt i = \case
     AbsGrammar.StmtDecl dclblock -> prPrec i 0 (concatD [prt 0 dclblock])
@@ -234,7 +225,8 @@ instance Print AbsGrammar.Prm where
 
 instance Print AbsGrammar.Modality where
   prt i = \case
-    AbsGrammar.Modality_var -> prPrec i 0 (concatD [doc (showString "var")])
+    AbsGrammar.Modality_val -> prPrec i 0 (concatD [doc (showString "val")])
+    AbsGrammar.Modality_ref -> prPrec i 0 (concatD [doc (showString "ref")])
     AbsGrammar.Modality1 -> prPrec i 0 (concatD [])
 
 instance Print [AbsGrammar.Prm] where
@@ -307,7 +299,7 @@ instance Print AbsGrammar.BaseType where
 instance Print AbsGrammar.CompType where
   prt i = \case
     AbsGrammar.Array n1 n2 type_ -> prPrec i 0 (concatD [doc (showString "array"), doc (showString "["), prt 0 n1, doc (showString ".."), prt 0 n2, doc (showString "]"), doc (showString "of"), prt 0 type_])
-    AbsGrammar.Pointer basetype -> prPrec i 0 (concatD [doc (showString "^"), prt 0 basetype])
+    AbsGrammar.Pointer type_ -> prPrec i 0 (concatD [doc (showString "^"), prt 0 type_])
 
 instance Print (AbsGrammar.EXPR infType) where
   prt i = \case
@@ -334,8 +326,8 @@ instance Print (AbsGrammar.EXPR infType) where
 
 instance Print (AbsGrammar.BEXPR infType) where
   prt i = \case
+    AbsGrammar.ArrayElem expr1 expr2 -> prPrec i 0 (concatD [prt 11 expr1, doc (showString "["), prt 0 expr2, doc (showString "]")])
     AbsGrammar.Identifier id_ -> prPrec i 0 (concatD [prt 0 id_])
-    AbsGrammar.ArrayElem bexpr expr -> prPrec i 0 (concatD [prt 0 bexpr, doc (showString "["), prt 0 expr, doc (showString "]")])
 
 instance Print AbsGrammar.Literal where
   prt i = \case

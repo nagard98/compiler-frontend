@@ -10,8 +10,9 @@ module AbsGrammar where
 
 import Prelude (Char, Double, Integer, Int, String)
 import qualified Prelude as C (Eq, Ord, Show, Read)
-import Prelude (Show (show),(++))
+import Prelude (Show (show),(++), (==), (&&), Bool)
 import qualified Data.String
+import Data.Array (Array)
 
 type Position = (Int, Int)
 
@@ -37,9 +38,6 @@ data PBlock = ProgBlock TokIdent
 
 data BEBlock env infType = BegEndBlock [Stmt env infType] env
   deriving (C.Eq, C.Ord, C.Show, C.Read)
-
---data BegEndStmt = BegEndStmt1 Stmt | BegEndStmtDclBlock DclBlock
---  deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Stmt env infType
     = StmtDecl (DclBlock env infType)
@@ -79,7 +77,7 @@ data Prms = Params [Prm] | NoParams
 data Prm = Param Modality [IdElem] Type
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data Modality = Modality_var | Modality1
+data Modality = Modality_val | Modality_ref | Modality1
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Call infType = CallArgs TokIdent [EXPR infType]
@@ -101,7 +99,7 @@ data IdElem = IdElement TokIdent
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Type = TypeBaseType BaseType | TypeCompType CompType
-  deriving (C.Eq, C.Ord, C.Read)
+  deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data BaseType
     = BaseType_integer
@@ -111,10 +109,10 @@ data BaseType
     | BaseType_string
     | BaseType_error
     | BaseType_void
-  deriving (C.Eq, C.Ord, C.Read)
+  deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data CompType = Array TokInteger TokInteger Type | Pointer BaseType
-  deriving (C.Eq, C.Ord, C.Read)
+data CompType = Array TokInteger TokInteger Type | Pointer Type
+  deriving (C.Ord, C.Show, C.Read)
 
 data EXPR infType =
       UnaryExpression {operator1 :: UnaryOperator, exp :: EXPR infType, tp :: infType}
@@ -127,11 +125,12 @@ data EXPR infType =
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data BinaryOperator = Or | And | Eq | NotEq | LessT | EqLessT | GreatT | EqGreatT | Sub | Add |
-                      Div | Mul | Mod deriving (C.Eq, C.Ord, C.Show, C.Read)
+                    Div | Mul | Mod deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data UnaryOperator = Not | Negation | Reference | Dereference deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data BEXPR infType = Identifier TokIdent | ArrayElem (BEXPR infType) (EXPR infType)
+
+data BEXPR infType = ArrayElem (EXPR infType) (EXPR infType) | Identifier TokIdent
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Literal
@@ -141,14 +140,14 @@ data Literal
     | LiteralDouble TokDouble
     | LiteralBoolean TokBoolean
   deriving (C.Eq, C.Ord, C.Show, C.Read)
-
+{-
 instance C.Show Type where
     show (TypeCompType comptype) = show comptype
     show (TypeBaseType basetype) = show basetype
     
 instance C.Show CompType where
-    show (Array (TokInteger (_,i1)) (TokInteger (_,i2)) t) = "Array ["++i1++".."++i2++ "] of type " ++ show t 
-    show (Pointer basetype) = "Pointer of " ++ show basetype
+    show cpTp@(Array (TokInteger (_,i1)) (TokInteger (_,i2)) t) = "Array ["++i1++".."++i2++ "] of type " ++ show t 
+    show cpTp@(Pointer basetype) =  "Pointer of " ++ show basetype
 
 instance C.Show BaseType where
     show (BaseType_integer) = "Integer"
@@ -158,3 +157,12 @@ instance C.Show BaseType where
     show (BaseType_string) = "String"
     show (BaseType_error) = "Error"
     show (BaseType_void) = "Void"
+-}
+
+instance C.Eq CompType where
+  (==) lArr@(Array _ _ _) rArr@(Array _ _ _) = compArrType lArr rArr 
+  (==) (Pointer lTp) (Pointer rTp) = lTp == rTp
+
+compArrType :: CompType -> CompType -> Bool
+compArrType (Array (TokInteger (_, lB)) (TokInteger (_, lE)) lTp) (Array (TokInteger (_, rB)) (TokInteger (_, rE)) rTp) =
+   lB == rB && lE == rE && lTp == rTp
