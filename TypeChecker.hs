@@ -394,29 +394,34 @@ parseExprExprAssignment expr1 expr2 env errs =
 data TypeOfPos = PosLeft | PosRight
 
 -- returns a tuple with the starting position and the ending position of the expression in input
--- TODO: refactor this function to make it less verbose!
 -- TODO: call this function from all error messages involing expressions
 rangeFromExpr :: EXPR infType -> (Position, Position)
 rangeFromExpr expr = (getLeftmostPos expr, getRightmostPos expr) where
 
+    -- get position of the leftmost token
     getLeftmostPos :: EXPR infType -> Position
+    -- base cases, position of id or literal
+    getLeftmostPos (BaseExpr (Identifier (TokIdent (pos, _))) _) = pos
+    getLeftmostPos (ExprLiteral l) = getPosFromLiteral l PosLeft
+    -- continue recursion on subexpressions
     getLeftmostPos (UnaryExpression _ exp _) = getLeftmostPos exp
     getLeftmostPos (BinaryExpression _ exp1 _ _) = getLeftmostPos exp1
-    getLeftmostPos (ExprLiteral l) = getPosFromLiteral l PosLeft
-    getLeftmostPos (ExprCall call _) = getPosFromCall call PosLeft
-    getLeftmostPos (BaseExpr (Identifier (TokIdent (pos, _))) _) = pos
-    getLeftmostPos (BaseExpr  (ArrayElem e1 e2) _) = getPosFromArr (ArrayElem e1 e2) PosLeft
     getLeftmostPos (IntToReal expr) = getLeftmostPos expr
+    getLeftmostPos (ExprCall call _) = getPosFromCall call PosLeft
+    getLeftmostPos (BaseExpr  (ArrayElem e1 e2) _) = getPosFromArr (ArrayElem e1 e2) PosLeft
 
-    -- get position of the rightmost token with the length of the token added to the second component (the column)
+    -- get position of the rightmost token
+    -- unlike the retrived positions in getLeftmostPos, here we need to add the length of the token to the column
     getRightmostPos :: EXPR infType -> Position
+    -- base cases, position of id or literal
+    getRightmostPos (BaseExpr (Identifier (TokIdent ((x, y), str))) _) = (x, y + length str)
+    getRightmostPos (ExprLiteral l) = getPosFromLiteral l PosRight
+    -- continue recursion on subexpressions
     getRightmostPos (UnaryExpression _ exp _) = getRightmostPos exp
     getRightmostPos (BinaryExpression _ _ exp2 _) = getRightmostPos exp2
-    getRightmostPos (ExprLiteral l) = getPosFromLiteral l PosRight
     getRightmostPos (ExprCall call _) = getPosFromCall call PosRight
-    getRightmostPos (BaseExpr (Identifier (TokIdent (pos, _))) _) = pos
-    getRightmostPos (BaseExpr (ArrayElem e1 e2) _) = getPosFromArr (ArrayElem e1 e2) PosRight
     getRightmostPos (IntToReal expr) = getRightmostPos expr
+    getRightmostPos (BaseExpr (ArrayElem e1 e2) _) = getPosFromArr (ArrayElem e1 e2) PosRight
 
     getPosFromLiteral :: Literal -> TypeOfPos -> Position
     getPosFromLiteral (LiteralInteger (TokInteger (pos, _))) PosLeft = pos

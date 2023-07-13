@@ -11,7 +11,7 @@ var arr: array[1..5] of integer;
 
 begin
     a := 10;
-    
+
     {notice how the returned error message contains the range of cloumns matching exactly the expression in the loop condition}
     {"ERROR in range ((18,11),(18,35)): condition of while-do statement is not boolean"}
     while arr[1] * a / 10 * inc(9) do
