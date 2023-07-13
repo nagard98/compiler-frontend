@@ -75,11 +75,14 @@ getIdAddr id env = case lookup id env of
     _ -> error "TODO : errore id non trovato in env per recuper addr; funzione getIdAddr"
 
 -- TODO : implementare correttamente; soluzione solo temporanea
-newIdAddr :: String -> StateCount Addr
-newIdAddr id = do
-    count <- get;
-    put (count + 1);
-    return (int2IdName id count)
+newIdAddr :: String -> Env -> StateCount Addr
+newIdAddr id env = 
+    if  Map.member id env 
+        then do
+            count <- get;
+            put (count + 1);
+            return (int2IdName id count)
+        else return $ ProgVar id
 
 int2IdName :: String -> Int -> Addr
 int2IdName id k = ProgVar (id ++ show k)

@@ -87,7 +87,7 @@ parseDclFcBlock env errors (DclBlockFcBlock fB@(FuncBlock idTok@(TokIdent (pos, 
     -- add to env return type (needed for type checking of the return statement) and function info
     -- IMPORTANT NOTE: env must be the secondo argument of mergeEnvs, otherwise the new "return" key will not be updated
     -- this is because the underlying function union (t1, t2) of Data.Map prefers t1 when duplicated keys are encountered
-    fcAddr <- Env.newIdAddr id 
+    fcAddr <- Env.newIdAddr id env
     tmpEnv <- Env.mergeEnvs (Env.fromList [(id, Function pos params retType fcAddr), ("return", Return retType id pos)]) env
     (tmpEnv2, tmpErrors2, annotatedParams) <- parseParams params [] tmpEnv errors
     (finalEnv, finalErrors, annotatedBEB) <- parseBEBlock tmpEnv2 tmpErrors2 beb
@@ -97,7 +97,7 @@ parseDclFcBlock env errors (DclBlockFcBlock fB@(FuncBlock idTok@(TokIdent (pos, 
 
 parseDclPcBlock :: Env -> Errors -> DclBlock env infType -> StateCount (Env, Errors, DclBlock Env Type)
 parseDclPcBlock env errors (DclBlockPcBlock pB@(ProcBlock idTok@(TokIdent (pos, id)) params beb)) = do
-    pcAddr <- Env.newIdAddr id
+    pcAddr <- Env.newIdAddr id env
     tmpEnv <- Env.insert id (Procedure pos params pcAddr) env
     (pEnv, pErrs, pPrms) <- parseParams params [] tmpEnv errors
     (fEnv, fErrs, annBEB) <- parseBEBlock pEnv errors beb
@@ -121,7 +121,7 @@ parseParams prms accPrms env errs = do
 parseIds :: [IdElem] -> Modality -> Type -> Env -> Errors -> StateCount (Env, Errors, [IdElem])
 parseIds [] mod typ env errs = return (env, errs, [])
 parseIds ( idElem@(IdElement (TokIdent (pos, id))):ids) mod typ env errs = do
-    idAddr <- newIdAddr id
+    idAddr <- newIdAddr id env
     tmpEnv <- Env.insert id (VarType mod pos typ idAddr) env
     (newEnv, newErrs, newIds) <- parseIds ids mod typ tmpEnv errs
     return (newEnv, errs, idElem:newIds)

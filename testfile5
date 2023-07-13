@@ -13,6 +13,7 @@ begin
     procedure g(b,m:real);
     begin
         var x:integer;
+        var b: char;
     end;
     var y:real;
     return y;
