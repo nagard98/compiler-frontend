@@ -1,0 +1,13 @@
+{Example used to test if the error message containes the correct positional info}
+
+program HelloError;
+ var a, b: integer;
+
+begin
+    a := 0;
+    while a / 10 + 5 * 3 * 13534 do
+    begin
+        a := a + 1;
+        writeln("value of a: ", a);
+    end;
+end.
