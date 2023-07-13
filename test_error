@@ -1,16 +1,19 @@
-{Example used to test if the error message containes the correct positional info}
+{Example used to test if the error messages regarding expressions contain correct info about position}
+{The message should contain a pair of positions, indicating exactly the beginning and end of the wrong expression}
 
 program HelloError;
- var a, b: integer;
+ var a: integer;
 
-function twoparams (x:integer, y:real): real;
-    begin return x+y end;
+function inc (x:integer): integer;
+    begin return x+1 end;
+
+var arr: array[1..5] of integer; 
 
 begin
-    a := 0;
-    while twoparams(1,1.0) * a / 10 do
-    begin
+    a := 10;
+    
+    {notice how the returned error message contains the range of cloumns matching exactly the expression in the loop condition}
+    {"ERROR in range ((18,11),(18,35)): condition of while-do statement is not boolean"}
+    while arr[1] * a / 10 * inc(9) do
         a := a + 1;
-        writeln("value of a: ", a);
-    end;
 end.

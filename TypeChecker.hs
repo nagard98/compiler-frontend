@@ -395,7 +395,6 @@ data TypeOfPos = PosLeft | PosRight
 
 -- returns a tuple with the starting position and the ending position of the expression in input
 -- TODO: refactor this function to make it less verbose!
--- TODO: test this function with many different expressions (including function calls, array elements, etc. )
 -- TODO: call this function from all error messages involing expressions
 rangeFromExpr :: EXPR infType -> (Position, Position)
 rangeFromExpr expr = (getLeftmostPos expr, getRightmostPos expr) where
@@ -406,7 +405,7 @@ rangeFromExpr expr = (getLeftmostPos expr, getRightmostPos expr) where
     getLeftmostPos (ExprLiteral l) = getPosFromLiteral l PosLeft
     getLeftmostPos (ExprCall call _) = getPosFromCall call PosLeft
     getLeftmostPos (BaseExpr (Identifier (TokIdent (pos, _))) _) = pos
-    getLeftmostPos (BaseExpr (ArrayElem _ expr) _) = getLeftmostPos expr
+    getLeftmostPos (BaseExpr  (ArrayElem e1 e2) _) = getPosFromArr (ArrayElem e1 e2) PosLeft
     getLeftmostPos (IntToReal expr) = getLeftmostPos expr
 
     -- get position of the rightmost token with the length of the token added to the second component (the column)
@@ -416,7 +415,7 @@ rangeFromExpr expr = (getLeftmostPos expr, getRightmostPos expr) where
     getRightmostPos (ExprLiteral l) = getPosFromLiteral l PosRight
     getRightmostPos (ExprCall call _) = getPosFromCall call PosRight
     getRightmostPos (BaseExpr (Identifier (TokIdent (pos, _))) _) = pos
-    getRightmostPos (BaseExpr (ArrayElem _ expr) _) = getRightmostPos expr
+    getRightmostPos (BaseExpr (ArrayElem e1 e2) _) = getPosFromArr (ArrayElem e1 e2) PosRight
     getRightmostPos (IntToReal expr) = getRightmostPos expr
 
     getPosFromLiteral :: Literal -> TypeOfPos -> Position
@@ -437,6 +436,11 @@ rangeFromExpr expr = (getLeftmostPos expr, getRightmostPos expr) where
     -- when function call is the rightmost token, returns the position of the last argument
     getPosFromCall (CallArgs _ args) PosRight = (x, y+1) where -- +1 accounts for the closing parenthesis
         (x, y) = getRightmostPos (last args)
+
+    getPosFromArr :: BEXPR infType -> TypeOfPos -> Position
+    getPosFromArr (ArrayElem expr1 _) PosLeft = getLeftmostPos expr1
+    getPosFromArr (ArrayElem _ expr2) PosRight = (x, y+1) where -- +1 accounts for the closing bracket
+        (x, y) = getRightmostPos expr2
 
 
 -- Given current environment, errors and syntax tree, returns annotated tree and updated environment and errors
