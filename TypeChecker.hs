@@ -174,10 +174,7 @@ parseStatement stmt env errs = case stmt of
             -- Chiamata funzione
             (StmtCall call) -> parseStatementCall env errs call
 
-            -------------------------------------------------------------
 
-
--- TODO: add positional info to errors
 parseIter :: Stmt env infType -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
 -- parsing of while-do statement
 parseIter (StmtIter (StmtWhileDo expr stmt)) env errs = do
@@ -204,7 +201,7 @@ parseSelection (StmtSelect (StmtIf expr stmt)) env errs = do
     let wrappedStmt = wrapInBeginEnd parsedStmt newEnv
     if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean
         then return (newEnv, newErrs, StmtSelect (StmtIf parsedExpr wrappedStmt))
-        else return (newEnv, newErrs ++ ["ERROR: condition of if statement is not boolean"], StmtSelect (StmtIf parsedExpr wrappedStmt))
+        else return (newEnv, newErrs ++ ["ERROR in range " ++ show (rangeFromExpr expr)  ++ ": condition of if statement is not boolean"], StmtSelect (StmtIf parsedExpr wrappedStmt))
 parseSelection (StmtSelect (StmtIfElse expr stmt1 stmt2)) env errs = do
     (env1, errs1, parsedExpr) <- parseExpression env errs expr
     (newEnv1, newErrs1, parsedStmt1) <- parseStatement stmt1 env1 errs1
@@ -213,7 +210,7 @@ parseSelection (StmtSelect (StmtIfElse expr stmt1 stmt2)) env errs = do
     let wrappedStmt2 = wrapInBeginEnd parsedStmt2 newEnv2
     if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean
         then return (newEnv2, newErrs2, StmtSelect (StmtIfElse parsedExpr wrappedStmt1 wrappedStmt2))
-        else return (newEnv2, newErrs2 ++ ["ERROR: condition of if-else statement is not boolean"], StmtSelect (StmtIfElse parsedExpr wrappedStmt1 wrappedStmt2))
+        else return (newEnv2, newErrs2 ++ ["ERROR in range " ++ show (rangeFromExpr expr)  ++ ": condition of if-else statement is not boolean"], StmtSelect (StmtIfElse parsedExpr wrappedStmt1 wrappedStmt2))
 
 -- If the provided statement is not insiede a begin-end block, wraps it in one
 -- This is needed to simplify TAC generation by having to deal only with begin-end blocks containing statements
@@ -229,7 +226,7 @@ parseReturn (StmtReturn (Ret expr)) env errs = do
         Just (Return expectedType funName funPos) ->
             if sup expectedType (getTypeFromExpression parsedExpr) /= expectedType
                 then return ( newEnv,
-                        ("Function " ++ funName ++ " at " ++ show funPos ++ 
+                        ("ERROR in range " ++ show (rangeFromExpr expr)  ++ ": function " ++ funName ++ " at " ++ show funPos ++ 
                         " expects a " ++ show expectedType ++ " to be returned " ++
                         "but the expression following the return statement has type " ++ show (getTypeFromExpression parsedExpr) ) : newErrs, 
                         StmtReturn (Ret parsedExpr))
@@ -240,7 +237,8 @@ parseReturn (StmtReturn (Ret expr)) env errs = do
             -- Theoretically this should never happen, 
             -- since the return type of the function is saved in the environment when the function prototype is parsed
             return (newEnv,
-            "Internal type checking error: can't find expected return type of current function in the environment": newErrs,
+            ("Internal type checking error: can't find expected return type of current function in the environment while parsing the expression following the return at " ++ 
+            show (rangeFromExpr expr)): newErrs,
             StmtReturn (Ret parsedExpr)) 
         
 
