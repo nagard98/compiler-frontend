@@ -82,7 +82,7 @@ newIdAddr id = do
     return (int2IdName id count)
 
 int2IdName :: String -> Int -> Addr
-int2IdName id k = ProgVar (show id ++ show k)
+int2IdName id k = ProgVar (id ++ show k)
 
 fromList :: [(String, EnvData)] -> Env 
 fromList = Map.fromList

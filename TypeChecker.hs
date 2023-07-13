@@ -77,9 +77,8 @@ parseDclCsBlock env errors (DclBlockCsBlock (ConstBlock csDefs)) = do
             -- savese info about constants type in env 
             parseConsDefs :: [CsDef] -> Env -> StateCount Env
             parseConsDefs ((ConstDefinition (IdElement (TokIdent (pos, id))) literal):cs) env = do 
-                tmpEnv <- Env.insert id (Constant pos (TypeBaseType (getTypeFromLiteral literal)) (TacLit literal)) env
-                newEnv <- parseConsDefs cs tmpEnv;
-                return newEnv;
+                tmpEnv <- Env.insert id (Constant pos (TypeBaseType (getTypeFromLiteral literal)) (TacLit (makeTACLit literal))) env
+                parseConsDefs cs tmpEnv;
             parseConsDefs _ env = return env
             
 

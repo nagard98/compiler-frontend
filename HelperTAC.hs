@@ -2,9 +2,32 @@ module HelperTAC where
 import qualified AbsGrammar
 import Control.Monad.Trans.State.Strict
 import qualified Data.Sequence as DS
-import AbsGrammar (TokInteger(TokInteger))
+import AbsGrammar (TokInteger(TokInteger), TokChar (TokChar), TokDouble (TokDouble), TokString (TokString), TokBoolean (TokBoolean))
+import qualified Data.Map as DM
+import Debug.Trace (traceM)
+import Data.Map (Map)
 
 type Stack a =  [a]
+
+newtype TACQuadSeq = TACQuadSeq (DS.Seq TACQuad)
+
+data TACLiteral = TACString String | TACInt Int | TACReal Float | TACChar Char | TACBool Bool
+    deriving (Eq, Ord)
+
+makeTACLit :: AbsGrammar.Literal -> TACLiteral
+makeTACLit (AbsGrammar.LiteralInteger (TokInteger (_, val))) = TACInt (read val :: Int)
+makeTACLit (AbsGrammar.LiteralChar (TokChar (_, val))) = TACChar (read val :: Char)
+makeTACLit (AbsGrammar.LiteralBoolean (TokBoolean (_, val))) = TACBool (read val :: Bool)
+makeTACLit (AbsGrammar.LiteralDouble (TokDouble (_, val))) = TACReal (read val :: Float)
+makeTACLit (AbsGrammar.LiteralString (TokString (_, val))) = TACString (read val :: String)
+
+
+appendQuad :: TACQuadSeq -> TACQuad -> TACQuadSeq
+appendQuad (TACQuadSeq seq) quad = TACQuadSeq (seq DS.|> quad)
+
+concatQSeq :: TACQuadSeq -> TACQuadSeq -> TACQuadSeq
+concatQSeq (TACQuadSeq seq1) (TACQuadSeq seq2) = TACQuadSeq (seq1 DS.>< seq2) 
+
 
 push :: a -> Stack a -> StateTAC (Stack a)
 push val stack = return $ val:stack
@@ -20,43 +43,90 @@ peek [] = error "TODO: trying to pop empty stack"
 newStack :: Stack a
 newStack = []
 
-createNewStream :: StateTAC (DS.Seq TACInst)
-createNewStream = return DS.empty
+createNewStream :: StateTAC TACQuadSeq
+createNewStream = return $ TACQuadSeq DS.empty
 
 closeCurrentStream :: StateTAC ()
 closeCurrentStream = do
-    (cnt, instrLs, stackStrms) <- get
-    (topStream, newStack) <- pop stackStrms
-    put (cnt, instrLs DS.>< topStream, newStack)
+    state <- get
+    (topStream, newStack) <- pop $ stackStrms state
+    put $ state { quads = concatQSeq (quads state) topStream, stackStrms = newStack }
 
-pushStream :: DS.Seq TACInst -> StateTAC ()
+pushStream :: TACQuadSeq -> StateTAC ()
 pushStream stream = do
-    (cnt, instrLs, stackStrms) <- get
-    newStack <- push stream stackStrms
-    put (cnt, instrLs, newStack)
+    state <- get
+    newStack <- push stream (stackStrms state)
+    put $ state {stackStrms = newStack}
 
 
 data Addr =
       ProgVar { var :: String }
-    | TacLit { tacLit :: AbsGrammar.Literal }
+    | TacLit { tacLit :: TACLiteral }
     | Temporary { tempInt :: String }
-    deriving (Show)
+    deriving (Eq, Ord)
+
+newtype AddrList = AddrList [Addr]
+
+appendAddrList :: Addr -> AddrList -> AddrList
+appendAddrList addr (AddrList list) = AddrList (addr:list) 
 
 data XAddr =
       Addr Addr
     | ArrayAddr { base :: Addr, offset :: Addr}
     | RefAddr Addr
-    deriving Show
 
 
-type StateTAC = State (Int, DS.Seq TACInst, Stack (DS.Seq TACInst))
+type StateTAC = State TACStateStruct
+
+data TACStateStruct = TACStateStruct {
+    quads :: TACQuadSeq,
+    stackStrms :: Stack TACQuadSeq,
+    tmpCount :: Int,
+    labCount :: Int,
+    labelsNextInstr :: AddrList
+}
 
 --TODO: pensare se è necessario sistemare i label
 data TACLabel =
       FuncLab Addr
-    | StmtLab String
+    | StmtLab Addr
     | Fall
-    deriving (Show)
+    deriving (Eq, Ord)
+
+getLabelAddr :: TACLabel -> Addr
+getLabelAddr (FuncLab addr) = addr
+getLabelAddr (StmtLab addr) = addr
+getLabelAddr Fall = error "TODO: Internal Error: getLabelAddr -> should not be trying to get Fall address"
+
+data TACQuad = TACQuad {
+    labels :: AddrList,
+    operator :: Maybe TACOp,
+    operand1 :: Maybe Addr,
+    operand2 :: Maybe Addr,
+    result   :: Maybe Addr
+}
+
+
+instrToQuad :: TACInst -> AddrList -> StateTAC TACQuad
+instrToQuad (TACBinAss res op1 opr op2) labels = return (TACQuad labels (Just opr) (Just op1) (Just op2) (Just res))
+instrToQuad (TACUnAss res opr op1) labels = return (TACQuad labels (Just opr) (Just op1) Nothing (Just res))
+instrToQuad (TACNulAss res op1) labels = return (TACQuad labels Nothing (Just op1) Nothing (Just res))
+instrToQuad (TACUncdJmp lab) labels = return (TACQuad labels Nothing Nothing Nothing (Just $ getLabelAddr lab ))
+instrToQuad (TACCndJmp op1 opr op2 lab) labels = return (TACQuad labels (Just (toJmpOp opr)) (Just op1) (Just op2) (Just $ getLabelAddr lab))
+instrToQuad (TACIndxLd dst src indx) labels = return (TACQuad labels (Just TACIdxL) (Just src) (Just indx) (Just dst))
+instrToQuad (TACIndxStr dst indx src) labels = return (TACQuad labels (Just TACIdxS) (Just src) (Just indx) (Just dst))
+instrToQuad (TACAssDeref res op) labels = return (TACQuad labels (Just TACDeref) (Just op) Nothing (Just res))
+instrToQuad (TACAssRef res op) labels = return (TACQuad labels (Just TACRef) (Just op) Nothing (Just res))
+instrToQuad (TACDerefAss res op) labels = return (TACQuad labels (Just TACDeref) Nothing (Just op) (Just res))
+instrToQuad (TACParam prm) labels = return (TACQuad labels (Just TACPrm) Nothing Nothing (Just prm))
+instrToQuad (TACPCall pName nPrm) labels = return (TACQuad labels (Just TACPCl) (Just pName) (Just $ TacLit(TACInt nPrm)) Nothing)
+instrToQuad (TACFCall res fName nPrm) labels = return (TACQuad labels (Just TACFCl) (Just fName) (Just $ TacLit(TACInt nPrm)) (Just res))
+instrToQuad (TACReturn res) labels = return (TACQuad labels (Just TACRt) Nothing Nothing (Just res))
+instrToQuad TACReturnVoid labels = return (TACQuad labels (Just TACRt) Nothing Nothing Nothing)
+
+type LabelRef = DM.Map TACLabel Integer
+newLabelRef :: LabelRef
+newLabelRef = DM.empty
 
 data TACOp =
           TACAdd
@@ -72,19 +142,54 @@ data TACOp =
         | TACGreatT
         | TACEqLessT
         | TACEqGreatT
+
+        | TACIdxL
+        | TACIdxS
+
+        | TACPrm
+        | TACPCl
+        | TACFCl
+        | TACRt
+        -- | TACRtVd
+
+        | TACJmpEq
+        | TACJmpNotEq
+        | TACJmpLessT
+        | TACJmpGreatT
+        | TACJmpEqLessT
+        | TACJmpEqGreatT
+        | TACJmp
+
         | TACNot
         | TACNeg
         | TACRef
         | TACDeref
         -- TODO: usare un tipo specifico per TAC
         | TACCast AbsGrammar.Type
-    deriving (Show)
+
+toJmpOp :: TACOp -> TACOp
+toJmpOp TACEq = TACJmpEq
+toJmpOp TACNotEq = TACJmpNotEq
+toJmpOp TACLessT = TACJmpLessT
+toJmpOp TACGreatT = TACJmpGreatT
+toJmpOp TACEqLessT = TACJmpEqLessT
+toJmpOp TACEqGreatT = TACJmpEqGreatT
+
+isCndJmpOp :: TACOp -> Bool
+isCndJmpOp TACJmpEq = True
+isCndJmpOp TACJmpNotEq = True
+isCndJmpOp TACJmpLessT = True
+isCndJmpOp TACJmpGreatT = True
+isCndJmpOp TACJmpEqLessT = True
+isCndJmpOp TACJmpEqGreatT = True
+isCndJmpOp _ = False
 
 data TACInst =
       TACBinAss Addr Addr TACOp Addr
     | TACUnAss Addr TACOp Addr
     | TACNulAss Addr Addr
     | TACUncdJmp TACLabel
+    --TODO: implementa boolean valued conditional jump
     | TACCndJmp Addr TACOp Addr TACLabel
     | TACIndxStr Addr Addr Addr
     | TACIndxLd Addr Addr Addr
@@ -96,26 +201,25 @@ data TACInst =
     | TACFCall Addr Addr Int
     | TACReturnVoid
     | TACReturn Addr
-    | TACLabelledInstr TACLabel TACInst
-    | LabelNext TACLabel
-    deriving (Show)
-
+   -- | TACLabelledInstr TACLabel TACInst
+   -- | LabelNext TACLabel
 
 newTmpAddr :: StateTAC Addr
 newTmpAddr = do
-    (k, ls, stackStrm)<-get;
-    put (k+1, ls, stackStrm);
-    return (int2TmpName k)
+    state <- get;  
+    tmpName <- int2TmpName (tmpCount state)
+    put $ state {tmpCount = tmpCount state + 1}
+    return tmpName
 
-int2TmpName :: Int -> Addr
-int2TmpName k = Temporary ("t" ++ show k)
+int2TmpName :: Int -> StateTAC Addr
+int2TmpName k = return $ Temporary ("t" ++ show k)
 
 --TODO: implementa per bene generazione label
 newLabel :: StateTAC TACLabel
 newLabel = do
-    (k, ls, stackStrm)<-get;
-    put (k+1, ls, stackStrm);
-    return (StmtLab ("L" ++ show k) )
+    state <- get;
+    put $ state {labCount = labCount state + 1};
+    return (StmtLab (ProgVar ("L" ++ show (labCount state))) )
 
 binToTACOp :: AbsGrammar.BinaryOperator -> TACOp
 binToTACOp opr = case opr of
@@ -153,11 +257,9 @@ notRel opr = case opr of
 
 getVarDefaultVal :: AbsGrammar.Type -> Addr
 getVarDefaultVal tp = case tp of
-    AbsGrammar.TypeBaseType (AbsGrammar.BaseType_integer) ->
-        TacLit (AbsGrammar.LiteralInteger (AbsGrammar.TokInteger ((0,0),"0")))
-    AbsGrammar.TypeBaseType (AbsGrammar.BaseType_real) -> 
-        TacLit (AbsGrammar.LiteralDouble (AbsGrammar.TokDouble ((0,0),"0.0")))
-    _ -> TacLit (AbsGrammar.LiteralInteger (AbsGrammar.TokInteger ((0,0),"0")))
+    AbsGrammar.TypeBaseType AbsGrammar.BaseType_integer -> TacLit (TACInt 0)
+    AbsGrammar.TypeBaseType AbsGrammar.BaseType_real -> TacLit (TACReal 0.0)
+    _ -> TacLit (TACInt 0)
 
 
 convertIntToExpr :: Int -> AbsGrammar.EXPR AbsGrammar.Type

@@ -11,11 +11,19 @@ import TypeChecker (getTypeFromExpression)
 import Debug.Trace (traceM)
 
 
-genTAC :: AbsGrammar.P Env AbsGrammar.Type -> DS.Seq TACInst
-genTAC prog = getInstrList (execState (genProg prog) (0, DS.empty, newStack ))
+genTAC :: AbsGrammar.P Env AbsGrammar.Type -> TACQuadSeq
+genTAC prog = getInstrList (execState (genProg prog) newTACState)
     where
-        getInstrList :: (Int, DS.Seq TACInst, Stack (DS.Seq TACInst)) -> DS.Seq TACInst
-        getInstrList (_, instrList, _) = instrList
+        getInstrList :: TACStateStruct -> TACQuadSeq
+        getInstrList state = quads state
+
+        newTACState = TACStateStruct {
+            quads = TACQuadSeq DS.empty,
+            stackStrms = newStack,
+            tmpCount = 0,
+            labCount = 0,
+            labelsNextInstr = AddrList []
+        }
 
 genProg :: AbsGrammar.P Env AbsGrammar.Type -> StateTAC ()
 genProg (AbsGrammar.Prog pBlock dclBlocks (AbsGrammar.BegEndBlock stmts scopeEnv) globEnv) = do
@@ -123,7 +131,7 @@ genStmtAssign (AbsGrammar.StmtAssign lexpr rexpr) env = do
     rXAddr <- genExpr rexpr False env
     tmpAddr <- newTmpAddr
 
-    traceM $ "\nStmtAssign called once\n"
+    --traceM $ "\nStmtAssign called once\n"
 
     case (lXAddr, rXAddr) of
         (Addr lAddr, Addr rAddr) -> 
@@ -333,6 +341,9 @@ genExpr expr genL env =
         (AbsGrammar.ExprLiteral _) -> genLitExpr expr genL env
         (AbsGrammar.ExprCall _ _) -> genExprCall expr genL env
         (AbsGrammar.BaseExpr _ _) -> genBaseExpr expr genL env
+        (AbsGrammar.IntToReal exp) -> do
+            --traceM "TODO: genExpr -> implementa IntToReal"
+            genExpr exp genL env
 
 -- TODO: valutare come usare tp(fare cast) ed env
 genUnrExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Bool -> Env -> StateTAC XAddr
@@ -431,7 +442,7 @@ getExprType expr = case expr of
 
 
 genLitExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Bool -> Env -> StateTAC XAddr
-genLitExpr (AbsGrammar.ExprLiteral lit) genL env = return $ Addr (TacLit lit)
+genLitExpr (AbsGrammar.ExprLiteral lit) genL env = return $ Addr (TacLit $ makeTACLit lit)
 
 genExprCall :: AbsGrammar.EXPR AbsGrammar.Type -> Bool -> Env -> StateTAC XAddr
 genExprCall (AbsGrammar.ExprCall (AbsGrammar.CallArgs (AbsGrammar.TokIdent (_,callId)) args) tp) genL env = 
@@ -474,13 +485,13 @@ genBaseExpr expr@(AbsGrammar.BaseExpr bexpr tp) genL env = case bexpr of
         --TODO: è giusto restituire Addr?
         --return $ Addr elemAddr
 
-genBaseExpr _ _ _ = error "TODO: genBaseExpr -> gestire altri casi mancanti"
+genBaseExpr be _ _ = error "TODO: genBaseExpr -> gestire altri casi mancanti"
 
 genArrayExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Bool -> Env -> StateTAC XAddr
 genArrayExpr (AbsGrammar.BaseExpr (AbsGrammar.ArrayElem arrExpr indexExpr) tp) genL env = do 
     aXVal <- genExpr arrExpr True env
     iXVal <- genExpr indexExpr False env
-    traceM $ "\nType is: "++show tp++" and size is: "++ show (sizeof tp) ++"\n"
+    --traceM $ "\nType is: "++show tp++" and size is: "++ show (sizeof tp) ++"\n"
     --TODO: giusto considerare questo tipo? tp
     case (aXVal, iXVal) of
         (Addr fldAddr, Addr indAddr)-> do
@@ -548,18 +559,22 @@ genArrayExpr (AbsGrammar.ArrayElem arr@(AbsGrammar.ArrayElem _ _) indexExpr) gen
 
 
 
-    
-
 addInstr :: TACInst -> StateTAC ()
-addInstr tacInst = do
-    (tmpCount, tacInstrs, stackStrms) <- get;
-    if null stackStrms
-        then put (tmpCount, tacInstrs DS.|> tacInst, stackStrms)
+addInstr instr = do
+    state <- get;
+    newQuad <- instrToQuad instr (labelsNextInstr state)
+    if null (stackStrms state)
+        then put $ state { quads = appendQuad (quads state) newQuad, labelsNextInstr = AddrList [] }
         else do
-            (strm, stack) <- pop stackStrms
-            newStack <- push (strm DS.|> tacInst) stack 
-            put (tmpCount, tacInstrs, newStack)
+            (strm, stack) <- pop $ stackStrms state
+            newStack <- push (appendQuad strm newQuad) stack 
+            put $ state {stackStrms = newStack, labelsNextInstr = AddrList []}
 
 
 attachLabelToNext :: TACLabel -> StateTAC ()
-attachLabelToNext label = addInstr (LabelNext label)
+attachLabelToNext label = do
+    state <- get
+    put $ state {labelsNextInstr = appendAddrList (getLabelAddr label) (labelsNextInstr state) }
+
+
+        

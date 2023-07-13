@@ -22,6 +22,7 @@ import AbsGrammar   (P)
 import LexGrammar   ( Token, mkPosToken )
 import ParGrammar   ( pP, myLexer )
 import PrintGrammar ( Print, printTree )
+import PrintTAC
 import SkelGrammar  ()
 import TypeChecker ( launchStatSemAnalysis, emptyErrors) -- includere Type Checker
 import Env
@@ -64,7 +65,7 @@ run v p s =
       print annotatedTree
       if null errors 
         then do
-          putStrLn "\n\nSTARTING GENERATION TAC..."
+          putStrLn "\n\nSTARTING GENERATION TAC...\n"
           print $ genTAC annotatedTree
         else
           putStrLn "\n\nGENERATION TAC ABORTED DUE TO ERRORS IN STATIC SEMANTIC ANALYSIS..."
