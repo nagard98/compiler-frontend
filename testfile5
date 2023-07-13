@@ -16,6 +16,7 @@ begin
         var b: char;
     end;
     var y:real;
+    {m(3.2,4.8);
     return y;
     {TODO: durante static semantic analysis bisogna garantire che ci sia return per le funzioni
 end;
@@ -30,7 +31,7 @@ end;
 
 
 begin
-{    arr[10][3] := 99;
+    arr[10][3] := 99;
 {   if b>4+5 and u<7.2 then z:= 55;
 {    while b>4 do z:= 55;
 {    b:=33;

@@ -6,7 +6,12 @@ import AbsGrammar
 import HelperTAC
 import Control.Monad.State.Strict
 
-type StateCount = State Int
+type SSAState = State SSAStateStruct
+
+data SSAStateStruct = SSAStateStruct {
+    idCount :: Int,
+    errors :: [String]
+}
 
 -- This is the global environment.
 -- first argument is the key type, second one the value type 
@@ -18,6 +23,7 @@ emptyEnv = Map.empty
 -- E.g. variable types: the key is the name of the variable, data created using VarType constructor
 -- TODO: create new constructors as needed
 data EnvData =    VarType Modality Position Type Addr
+                --TODO: rimuovere DefaultProc; funz/proc vanno in function o procedure in base a se restituiscono valore o meno
                 | DefaultProc Type
                 | Function Position Prms Type Addr
                 | Procedure Position Prms Addr
@@ -57,12 +63,12 @@ defaultEnv = foldl1 Map.union [ Map.singleton "writeInt" (DefaultProc (TypeBaseT
 
 -- TODO : aggiungere generazione warning quando un identificatore nel env viene sovrascritto? Forse bisogna passare
 -- anche errs come parametro?
-mergeEnvs :: Env -> Env -> StateCount Env
+mergeEnvs :: Env -> Env -> SSAState Env
 mergeEnvs e1 e2 = return $ Map.union e1 e2
 
 -- TODO : aggiungere generazione warning quando un identificatore nel env viene sovrascritto? Forse bisogna passare
 -- anche errs come parametro?
-insert :: String -> EnvData -> Env -> StateCount Env
+insert :: String -> EnvData -> Env -> SSAState Env
 insert id entry env = return $ Map.insert id entry env
 
 lookup :: String -> Env -> Maybe EnvData
@@ -75,13 +81,13 @@ getIdAddr id env = case lookup id env of
     _ -> error "TODO : errore id non trovato in env per recuper addr; funzione getIdAddr"
 
 -- TODO : implementare correttamente; soluzione solo temporanea
-newIdAddr :: String -> Env -> StateCount Addr
+newIdAddr :: String -> Env -> SSAState Addr
 newIdAddr id env = 
     if  Map.member id env 
         then do
-            count <- get;
-            put (count + 1);
-            return (int2IdName id count)
+            state <- get;
+            put $ state {idCount = idCount state + 1};
+            return (int2IdName id (idCount state))
         else return $ ProgVar id
 
 int2IdName :: String -> Int -> Addr
