@@ -146,9 +146,6 @@ parseStatements env errors allStmts =  q env errors allStmts []
                 q env1 errors1 xs (annStmts++[annStmt])
 
 
--- Esempi provvisori di statement per cui non è ancora stato definito il parsing
-exStmtCall = StmtCall (CallArgs (TokIdent ((0,0),"funzioneDiEsempio")) [])
-
 parseStatement :: Stmt stmtenv infType -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
 parseStatement stmt env errs = case stmt of
             -- tipologie di statement: dichiarazione, blocco, assegnamento, chiamata funzione, if-else, iterazione, return
@@ -174,11 +171,11 @@ parseStatement stmt env errs = case stmt of
             -- Select
             (StmtSelect sel) -> parseSelection (StmtSelect sel) env errs
 
-            -- TODO: fare vero parsing senza utilizzare nodi generici per il resto dei casi
             -- Chiamata funzione
-            (StmtCall call) -> return (env, errs, exStmtCall )
+            (StmtCall call) -> parseStatementCall env errs call
 
             -------------------------------------------------------------
+
 
 -- TODO: add positional info to errors
 parseIter :: Stmt env infType -> Env -> Errors -> StateCount (Env, Errors, Stmt Env Type)
@@ -463,7 +460,7 @@ parseExpression env errs (UnaryExpression Reference exp t) = do
 parseExpression env errs (ExprLiteral literal) = return (env, errs, (ExprLiteral literal) )
 
 -- Function calls
-parseExpression env errs (ExprCall call t) = parseFunctionCall env errs call
+parseExpression env errs (ExprCall call t) = parseExpressionCall env errs call
 
 -- Base Expressions: identifies or array elements
 parseExpression env errs (BaseExpr bexpr t) = do
@@ -491,19 +488,29 @@ parseExpression env errs (IntToReal expr) = do
 
 -- parseExpression env errs expr = return (env, errs, (ExprLiteral (LiteralInteger (TokInteger ((0,0), "10")))) ) -- temporaneamente ogni espressione non specificata diventa il numero 10 (ora ridondante)
 
-parseFunctionCall :: Env -> Errors -> Call infType -> StateCount (Env, Errors, EXPR Type)
-parseFunctionCall env errs (CallArgs (TokIdent (tokpos,tokid)) args ) = do 
+parseStatementCall :: Env -> Errors -> Call infType -> StateCount (Env, Errors, Stmt Env Type)
+parseStatementCall env errs (CallArgs (TokIdent (tokpos,tokid)) args ) = do
+    (env2, err2, parsedcall, t) <- parseCall env errs (CallArgs (TokIdent (tokpos,tokid)) args )
+    return (env2, err2, (StmtCall parsedcall) )
+
+parseExpressionCall :: Env -> Errors -> Call infType -> StateCount (Env, Errors, EXPR Type)
+parseExpressionCall env errs (CallArgs (TokIdent (tokpos,tokid)) args ) = do
+    (env2, err2, parsedcall, t) <- parseCall env errs (CallArgs (TokIdent (tokpos,tokid)) args )
+    return (env2, err2, (ExprCall parsedcall t) )
+
+parseCall :: Env -> Errors -> Call infType -> StateCount (Env, Errors, Call Type, Type)
+parseCall env errs (CallArgs (TokIdent (tokpos,tokid)) args ) = do 
     (env2, err2, parsedargs) <- parseArguments env errs args []
     case Env.lookup tokid env of
         Just (Function pos parameters t _) -> parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) parsedargs ) parameters t []
         Just (Procedure pos parameters _) -> parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) parsedargs ) parameters []
-        Just (DefaultProc t) -> return (env, errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) parsedargs ) t ) ) --TODO: refactoring procedure default nell'environment
+        Just (DefaultProc t) -> return (env, errs, (CallArgs (TokIdent (tokpos,tokid)) parsedargs ), t  ) --TODO: refactoring procedure default nell'environment
         Just (Constant pos t addr) -> return (env, ("Error at " ++ show tokpos ++". Identifier " ++ tokid ++" is used as a function/procedure but it is a constant."):errs,
-                    (ExprCall (CallArgs (TokIdent (tokpos,tokid)) parsedargs ) (TypeBaseType BaseType_error) ) )
+                    (CallArgs (TokIdent (tokpos,tokid)) parsedargs ), (TypeBaseType BaseType_error) )
         Just (VarType mod pos t addr) -> return (env, ("Error at " ++ show tokpos ++". Identifier " ++ tokid ++" is used as a function/procedure but it is a variable."):errs,
-                    (ExprCall (CallArgs (TokIdent (tokpos,tokid)) parsedargs ) (TypeBaseType BaseType_error) ) ) 
+                    (CallArgs (TokIdent (tokpos,tokid)) parsedargs ), (TypeBaseType BaseType_error) ) 
         Nothing -> return (env, ("Error at " ++ show tokpos ++". Unknown identifier: " ++ tokid ++" is used but has never been declared."):errs,
-                    (ExprCall (CallArgs (TokIdent (tokpos,tokid)) parsedargs ) (TypeBaseType BaseType_error) ) ) 
+                    (CallArgs (TokIdent (tokpos,tokid)) parsedargs ), (TypeBaseType BaseType_error) ) 
         
 
 parseArguments :: Env -> Errors -> [EXPR infType] -> [EXPR Type] -> StateCount (Env, Errors, [EXPR Type])
@@ -514,11 +521,11 @@ parseArguments env errs (arg:args) res = do
         
 
 -- Last parameter is list of parsed expressions (call arguments) that have been type casted if needed
--- Parameters: env, errors, call, params, parsedargs
-parseFunction :: Env -> Errors -> Call Type -> Prms -> Type -> [EXPR Type] -> StateCount (Env, Errors, EXPR Type)
-parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) NoParams t pargs = return (env, errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) pargs ) t ) )
-parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) (Params prms) t pargs = return (env, ("Error at " ++ show tokpos ++ ": mismatch in number of arguments"):errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) pargs ) (TypeBaseType BaseType_error) ) )
-parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) args ) NoParams t pargs = return (env, ("Error at " ++ show tokpos ++ ": mismatch in number of arguments"):errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) (pargs++args) ) (TypeBaseType BaseType_error) ) )
+-- Parameters: env, errors, call, params, parsedargs --TODO: dire nel messaggio di errore di mismatch quanti parametri sono previsti?
+parseFunction :: Env -> Errors -> Call Type -> Prms -> Type -> [EXPR Type] -> StateCount (Env, Errors, Call Type, Type)
+parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) NoParams t pargs = return (env, errs, (CallArgs (TokIdent (tokpos,tokid)) pargs ), t )
+parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) (Params prms) t pargs = return (env, ("Error at " ++ show tokpos ++ " in function "++tokid++": mismatch in number of arguments"):errs, (CallArgs (TokIdent (tokpos,tokid)) pargs ), (TypeBaseType BaseType_error) )
+parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) args ) NoParams t pargs = return (env, ("Error at " ++ show tokpos ++ " in function "++tokid++": mismatch in number of arguments"):errs, (CallArgs (TokIdent (tokpos,tokid)) (pargs++args) ), (TypeBaseType BaseType_error) )
 parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) args ) (Params (prm:prms) ) t pargs = do
     (env2, err2, args2, compatible, pargs2) <- compareArguments env errs tokpos args prm True pargs
     newparams <- case prms of
@@ -530,10 +537,10 @@ parseFunction env errs (CallArgs (TokIdent (tokpos,tokid)) args ) (Params (prm:p
         else
             parseFunction env2 err2 (CallArgs (TokIdent (tokpos,tokid)) args2 ) newparams (TypeBaseType BaseType_error) pargs2
         
-parseProcedure :: Env -> Errors -> Call Type -> Prms -> [EXPR Type] -> StateCount (Env, Errors, EXPR Type)
-parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) NoParams pargs = return (env, errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) pargs ) (TypeBaseType BaseType_void) ) )
-parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) (Params prms) pargs = return (env, ("Error at " ++ show tokpos ++ ": mismatch in number of arguments"):errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) pargs ) (TypeBaseType BaseType_error) ) )
-parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) args ) NoParams pargs = return (env, ("Error at " ++ show tokpos ++ ": mismatch in number of arguments"):errs, (ExprCall (CallArgs (TokIdent (tokpos,tokid)) (pargs++args) ) (TypeBaseType BaseType_error) ) )
+parseProcedure :: Env -> Errors -> Call Type -> Prms -> [EXPR Type] -> StateCount (Env, Errors, Call Type, Type)
+parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) NoParams pargs = return (env, errs, (CallArgs (TokIdent (tokpos,tokid)) pargs ), (TypeBaseType BaseType_void) )
+parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) [] ) (Params prms) pargs = return (env, ("Error at " ++ show tokpos ++ " in procedure "++tokid++": mismatch in number of arguments"):errs, (CallArgs (TokIdent (tokpos,tokid)) pargs ), (TypeBaseType BaseType_error) )
+parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) args ) NoParams pargs = return (env, ("Error at " ++ show tokpos ++ " in procedure "++tokid++": mismatch in number of arguments"):errs, (CallArgs (TokIdent (tokpos,tokid)) (pargs++args) ), (TypeBaseType BaseType_error) )
 parseProcedure env errs (CallArgs (TokIdent (tokpos,tokid)) args ) (Params (prm:prms) ) pargs = do
     (env2, err2, args2, compatible, pargs2) <- compareArguments env errs tokpos args prm True pargs
     newparams <- case prms of
