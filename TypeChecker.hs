@@ -390,7 +390,7 @@ parseExprExprAssignment expr1 expr2 env errs =
             otherwise -> return (env, ("Error. Incompatible types in assignment: you can't assign a value of type " ++ show (getTypeFromExpression expr2) ++ " to value of type " ++ show (getTypeFromExpression expr1) ++ "."):errs, (StmtAssign expr1 expr2) )
 
 
--- needed in rangeFromExpr to distinguish between leftmost and rightmost position
+-- needed in rangeFromExpr to distinguish between leftmost and rightmost positions
 data TypeOfPos = PosLeft | PosRight
 
 -- returns a tuple with the starting position and the ending position of the expression in input
@@ -404,7 +404,7 @@ rangeFromExpr expr = (getLeftmostPos expr, getRightmostPos expr) where
     getLeftmostPos (UnaryExpression _ exp _) = getLeftmostPos exp
     getLeftmostPos (BinaryExpression _ exp1 _ _) = getLeftmostPos exp1
     getLeftmostPos (ExprLiteral l) = getPosFromLiteral l PosLeft
-    getLeftmostPos (ExprCall call _) = getPosFromCall call
+    getLeftmostPos (ExprCall call _) = getPosFromCall call PosLeft
     getLeftmostPos (BaseExpr (Identifier (TokIdent (pos, _))) _) = pos
     getLeftmostPos (BaseExpr (ArrayElem _ expr) _) = getLeftmostPos expr
     getLeftmostPos (IntToReal expr) = getLeftmostPos expr
@@ -414,7 +414,7 @@ rangeFromExpr expr = (getLeftmostPos expr, getRightmostPos expr) where
     getRightmostPos (UnaryExpression _ exp _) = getRightmostPos exp
     getRightmostPos (BinaryExpression _ _ exp2 _) = getRightmostPos exp2
     getRightmostPos (ExprLiteral l) = getPosFromLiteral l PosRight
-    getRightmostPos (ExprCall call _) = getPosFromCall call
+    getRightmostPos (ExprCall call _) = getPosFromCall call PosRight
     getRightmostPos (BaseExpr (Identifier (TokIdent (pos, _))) _) = pos
     getRightmostPos (BaseExpr (ArrayElem _ expr) _) = getRightmostPos expr
     getRightmostPos (IntToReal expr) = getRightmostPos expr
@@ -430,11 +430,13 @@ rangeFromExpr expr = (getLeftmostPos expr, getRightmostPos expr) where
     getPosFromLiteral (LiteralString (TokString ((x, y), str))) PosRight = (x, y + length str)
     getPosFromLiteral (LiteralBoolean (TokBoolean (pos, _))) PosLeft = pos
     getPosFromLiteral (LiteralBoolean (TokBoolean ((x, y), str))) PosRight = (x, y + length str)
-    
-    -- TODO: implement. returns position of last argument
-    getPosFromCall :: Call infType -> Position
-    getPosFromCall _ = (-1,-1)
 
+    getPosFromCall :: Call infType -> TypeOfPos -> Position
+    -- when function is the leftmost token, starting position is already contained in the identifier
+    getPosFromCall (CallArgs (TokIdent (pos, _)) _) PosLeft = pos
+    -- when function call is the rightmost token, returns the position of the last argument
+    getPosFromCall (CallArgs _ args) PosRight = (x, y+1) where -- +1 accounts for the closing parenthesis
+        (x, y) = getRightmostPos (last args)
 
 
 -- Given current environment, errors and syntax tree, returns annotated tree and updated environment and errors

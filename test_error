@@ -3,9 +3,12 @@
 program HelloError;
  var a, b: integer;
 
+function twoparams (x:integer, y:real): real;
+    begin return x+y end;
+
 begin
     a := 0;
-    while a / 10 + 5 * 3 * 13534 do
+    while twoparams(1,1.0) * a / 10 do
     begin
         a := a + 1;
         writeln("value of a: ", a);
