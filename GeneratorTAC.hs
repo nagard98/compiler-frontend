@@ -1,12 +1,14 @@
 module GeneratorTAC where
 
-import Control.Monad.Trans.State
+import Control.Monad.Trans.State.Strict
 import qualified AbsGrammar
 import Env
 import HelperTAC
 import qualified Data.Sequence as DS
 import System.Process (CreateProcess(env))
 import Data.IntMap (size)
+import TypeChecker (getTypeFromExpression)
+import Debug.Trace (traceM)
 
 
 genTAC :: AbsGrammar.P Env AbsGrammar.Type -> DS.Seq TACInst
@@ -116,9 +118,12 @@ genStmts (stmt:stmts) env = do
 --TODO: gestisci caso assegnamento array
 genStmtAssign :: AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> StateTAC ()
 genStmtAssign (AbsGrammar.StmtAssign lexpr rexpr) env = do
+    
     lXAddr <- genExpr lexpr True env
-    rXAddr <- genExpr lexpr False env
+    rXAddr <- genExpr rexpr False env
     tmpAddr <- newTmpAddr
+
+    traceM $ "\nStmtAssign called once\n"
 
     case (lXAddr, rXAddr) of
         (Addr lAddr, Addr rAddr) -> 
@@ -320,13 +325,14 @@ genStmtReturn (AbsGrammar.StmtReturn (AbsGrammar.Ret expr)) env = do
     addInstr (TACReturn exprAddr)
 
 genExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Bool -> Env -> StateTAC XAddr
-genExpr expr genL env = case expr of
-    --TODO: considerare se passare genL alle funzioni
-    (AbsGrammar.UnaryExpression _ _ _) -> genUnrExpr expr genL env
-    (AbsGrammar.BinaryExpression _ _ _ _) -> genBinExpr expr genL env
-    (AbsGrammar.ExprLiteral _) -> genLitExpr expr genL env
-    (AbsGrammar.ExprCall _ _) -> genExprCall expr genL env
-    (AbsGrammar.BaseExpr _ _) -> genBaseExpr expr genL env
+genExpr expr genL env = 
+    case expr of
+        --TODO: considerare se passare genL alle funzioni
+        (AbsGrammar.UnaryExpression _ _ _) -> genUnrExpr expr genL env
+        (AbsGrammar.BinaryExpression _ _ _ _) -> genBinExpr expr genL env
+        (AbsGrammar.ExprLiteral _) -> genLitExpr expr genL env
+        (AbsGrammar.ExprCall _ _) -> genExprCall expr genL env
+        (AbsGrammar.BaseExpr _ _) -> genBaseExpr expr genL env
 
 -- TODO: valutare come usare tp(fare cast) ed env
 genUnrExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Bool -> Env -> StateTAC XAddr
@@ -454,8 +460,8 @@ genArgs [] _ = return ()
 
 genBaseExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Bool -> Env -> StateTAC XAddr
 genBaseExpr expr@(AbsGrammar.BaseExpr bexpr tp) genL env = case bexpr of
-    
-    (AbsGrammar.Identifier (AbsGrammar.TokIdent (_, id))) -> 
+
+    (AbsGrammar.Identifier (AbsGrammar.TokIdent (_, id))) -> do
         case Env.lookup id env of
             Just (Env.VarType AbsGrammar.Modality_val _ idType addr) -> return $ Addr addr
             _ -> error "TODO : genBaseExpr -> gestisci altri casi con diverse modalità"
@@ -474,11 +480,12 @@ genArrayExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Bool -> Env -> StateTAC XAddr
 genArrayExpr (AbsGrammar.BaseExpr (AbsGrammar.ArrayElem arrExpr indexExpr) tp) genL env = do 
     aXVal <- genExpr arrExpr True env
     iXVal <- genExpr indexExpr False env
+    traceM $ "\nType is: "++show tp++" and size is: "++ show (sizeof tp) ++"\n"
     --TODO: giusto considerare questo tipo? tp
-    case (tp, aXVal, iXVal) of
-        (AbsGrammar.TypeCompType (AbsGrammar.Array start end arrTp), Addr fldAddr, Addr indAddr)-> do
+    case (aXVal, iXVal) of
+        (Addr fldAddr, Addr indAddr)-> do
             offsetAddr <- newTmpAddr
-            sizeXAddr <- genLitExpr (convertIntToExpr (sizeof arrTp)) False env
+            sizeXAddr <- genLitExpr (convertIntToExpr (sizeof tp)) False env
             sizeAddr <- case sizeXAddr of
                 (Addr a) -> return a
                 _ -> error "TODO: genArrayExpr -> getisci errore creazione address literal"
@@ -490,8 +497,8 @@ genArrayExpr (AbsGrammar.BaseExpr (AbsGrammar.ArrayElem arrExpr indexExpr) tp) g
                     addInstr (TACIndxLd tmpAddr fldAddr offsetAddr)
                     return $ Addr tmpAddr
         
-        (AbsGrammar.TypeCompType (AbsGrammar.Array start end arrTp), ArrayAddr bsAddr offAddr, Addr indAddr )-> do
-            sizeXAddr <- genLitExpr (convertIntToExpr (sizeof arrTp)) False env
+        (ArrayAddr bsAddr offAddr, Addr indAddr )-> do
+            sizeXAddr <- genLitExpr (convertIntToExpr (sizeof tp)) False env
             sizeAddr <- case sizeXAddr of
                 (Addr a) -> return a
                 _ -> error "TODO: genArrayExpr -> getisci errore creazione address literal"
@@ -506,6 +513,8 @@ genArrayExpr (AbsGrammar.BaseExpr (AbsGrammar.ArrayElem arrExpr indexExpr) tp) g
                     addInstr (TACIndxLd tmpAddr bsAddr offset)
                     return $ Addr tmpAddr
 
+        --(t, Addr fldAddr, Addr indAddr) -> error $ show t ++ show fldAddr ++ show indAddr
+        --(_, ArrayAddr bsAddr offAddr, Addr indAddr ) -> error "TODO:caso particolare 2"
         _ -> error "TODO: genArrayExpr -> considera altri casi case slide" 
 
 

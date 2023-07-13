@@ -1,6 +1,6 @@
 module HelperTAC where
 import qualified AbsGrammar
-import Control.Monad.Trans.State
+import Control.Monad.Trans.State.Strict
 import qualified Data.Sequence as DS
 import AbsGrammar (TokInteger(TokInteger))
 
@@ -46,6 +46,7 @@ data XAddr =
       Addr Addr
     | ArrayAddr { base :: Addr, offset :: Addr}
     | RefAddr Addr
+    deriving Show
 
 
 type StateTAC = State (Int, DS.Seq TACInst, Stack (DS.Seq TACInst))
@@ -175,6 +176,6 @@ sizeof (AbsGrammar.TypeBaseType bType) = case bType of
 --TODO: spiega nella relazione come vengono fatti accessi con indici, considerando che possono essere sfasati
 -- (e.g. non partono da zero)
 sizeof (AbsGrammar.TypeCompType cType) = case cType of
-    AbsGrammar.Array (TokInteger (_, start)) (TokInteger (_, end)) tp@(AbsGrammar.TypeBaseType _) -> sizeof tp 
+    --AbsGrammar.Array (TokInteger (_, start)) (TokInteger (_, end)) tp@(AbsGrammar.TypeBaseType _) -> sizeof tp 
     AbsGrammar.Array (TokInteger (_, start)) (TokInteger (_, end)) tp -> ((read end :: Int) - (read start :: Int)) * sizeof tp 
     AbsGrammar.Pointer _-> error "TODO: sizeof -> implementare pointer; valuta se in grammatica può puntare a Type invece che BaseType "
