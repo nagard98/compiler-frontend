@@ -3,29 +3,32 @@ module PrintTAC where
 import HelperTAC
 import AbsGrammar (Literal(LiteralInteger), TokInteger(TokInteger))
 import qualified Data.Sequence as DS
+import Text.Printf
+
 
 
 instance Show TACQuad where
-    show (TACQuad labels (Just TACPCl) (Just pName) (Just nPrm) Nothing) = show labels ++ show TACPCl ++ show pName ++ "," ++ show nPrm ++"\n"
-    show (TACQuad labels (Just TACFCl) (Just fName) (Just nPrm) (Just res)) = show labels ++ show res ++ " = " ++ show TACPCl ++ show fName ++ "," ++ show nPrm ++"\n"
-    show (TACQuad labels (Just TACPrm) Nothing Nothing (Just prm)) = show labels ++ show TACPrm ++ show prm ++ "\n"
-    show (TACQuad labels (Just TACRt) Nothing Nothing (Just rtVal)) = show labels ++ show TACRt ++ show rtVal ++ "\n"
-    show (TACQuad labels (Just TACDeref) (Just op) Nothing (Just res)) = show labels ++ show res ++ " = " ++ show TACDeref ++ show op ++ "\n"
-    show (TACQuad labels (Just TACRef) (Just op) Nothing (Just res)) = show labels ++ show res ++ " = " ++ show TACRef ++ show op ++ "\n"
-    show (TACQuad labels (Just TACDeref) Nothing (Just op) (Just res)) = show labels ++ show TACDeref ++ show res ++ " = " ++  show op ++ "\n"
-    show (TACQuad labels (Just opr) (Just op1) Nothing (Just res)) = show labels ++ show res ++ " = " ++show opr ++ show op1 ++ "\n"
-    show (TACQuad labels Nothing (Just op1) Nothing (Just res)) = show labels ++ show res ++ " = " ++ show op1 ++ "\n"
-    show (TACQuad labels Nothing Nothing Nothing (Just labAddr)) = show labels ++ "goto " ++ show labAddr ++ "\n"
-    show (TACQuad labels (Just TACIdxL) (Just src) (Just indx) (Just dst)) = show labels ++ show dst ++ " = " ++ show src ++ "[" ++ show indx ++ "]" ++ "\n"
-    show (TACQuad labels (Just TACIdxS) (Just src) (Just indx) (Just dst)) = show labels ++ show dst ++  "[" ++ show indx ++ "] = " ++ show src ++ "\n"
+    show (TACQuad labels (Just TACPCl) (Just pName) (Just nPrm) Nothing) = printf "%-10s %-30s\n" (show labels) (show TACPCl ++ show pName ++ "," ++ show nPrm)
+    show (TACQuad labels (Just TACFCl) (Just fName) (Just nPrm) (Just res)) = printf "%-10s %-30s\n" (show labels) (show res ++ " = " ++ show TACPCl ++ show fName ++ "," ++ show nPrm)
+    show (TACQuad labels (Just TACPrm) Nothing Nothing (Just prm)) = printf "%-10s %-30s\n" (show labels) (show TACPrm ++ show prm)
+    show (TACQuad labels (Just TACRt) Nothing Nothing (Just rtVal)) = printf "%-10s %-30s\n\n" (show labels) (show TACRt ++ show rtVal)
+    show (TACQuad labels (Just TACRt) Nothing Nothing Nothing) = printf "%-10s %-30s\n\n" (show labels) (show TACRt)
+    show (TACQuad labels (Just TACDeref) (Just op) Nothing (Just res)) = printf "%-10s %-30s\n" (show labels) (show res ++ " = " ++ show TACDeref ++ show op)
+    show (TACQuad labels (Just TACRef) (Just op) Nothing (Just res)) = printf "%-10s %-30s\n" (show labels) (show res ++ " = " ++ show TACRef ++ show op)
+    show (TACQuad labels (Just TACDeref) Nothing (Just op) (Just res)) = printf "%-10s %-30s\n" (show labels) (show TACDeref ++ show res ++ " = " ++  show op)
+    show (TACQuad labels (Just opr) (Just op1) Nothing (Just res)) = printf "%-10s %-30s\n" (show labels) (show res ++ " = " ++show opr ++ show op1)
+    show (TACQuad labels Nothing (Just op1) Nothing (Just res)) = printf "%-10s %-30s\n" (show labels) (show res ++ " = " ++ show op1)
+    show (TACQuad labels Nothing Nothing Nothing (Just labAddr)) = printf "%-10s %-30s\n" (show labels) ("goto " ++ show labAddr)
+    show (TACQuad labels (Just TACIdxL) (Just src) (Just indx) (Just dst)) = printf "%-10s %-30s\n" (show labels) (show dst ++ " = " ++ show src ++ "[" ++ show indx ++ "]")
+    show (TACQuad labels (Just TACIdxS) (Just src) (Just indx) (Just dst)) = printf "%-10s %-30s\n" (show labels) (show dst ++  "[" ++ show indx ++ "] = " ++ show src)
     show (TACQuad labels (Just opr) (Just op1) (Just op2) (Just res)) = if isCndJmpOp opr
-        then show labels ++ "if " ++ show op1 ++ show opr ++ show op2 ++ " " ++ show TACJmp ++ show res ++ "\n"
-        else show labels ++ show res ++ " = " ++ show op1 ++ show opr ++ show op2 ++ "\n"
-    show _ = " ![TODO QUAD]! "
+        then printf "%-10s %-30s\n" (show labels) ("if " ++ show op1 ++ show opr ++ show op2 ++ " " ++ show TACJmp ++ show res)
+        else printf "%-10s %-30s\n" (show labels) (show res ++ " = " ++ show op1 ++ show opr ++ show op2)
+    show _ = " ![TODO QUAD]! \n"
 
 instance Show AddrList where
-    show (AddrList (addr:[])) = show addr ++ " :\t"
-    show (AddrList (addr:rest)) = show addr ++ ", "++ show rest
+    show (AddrList (addr:[])) = show addr ++ ":"
+    show (AddrList (addr:rest)) = show addr ++ ","++ show rest
     show (AddrList []) = ""
 
 instance Show Addr where

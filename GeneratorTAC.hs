@@ -575,6 +575,4 @@ attachLabelToNext :: TACLabel -> StateTAC ()
 attachLabelToNext label = do
     state <- get
     put $ state {labelsNextInstr = appendAddrList (getLabelAddr label) (labelsNextInstr state) }
-
-
-        
+    
