@@ -15,6 +15,8 @@ test:
 	./TestGrammar < testfile3
 	@echo "\n\n******** TESTING GRAMMAR ON FILE testfile4"
 	./TestGrammar < testfile4
+	@echo "\n\n******** TESTING GRAMMAR ON FILE testfile5"
+	./TestGrammar < testfile5
 
 # make test on a single file with command:
 # make testSinge file=filename
