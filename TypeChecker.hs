@@ -327,10 +327,9 @@ parseArrayAssignment idexpr ltype iexpr expr env errs = if ltype == getTypeFromE
     then
         return (env, errs, (StmtAssign idexpr expr) )
     else
-        -- 3 cases: a) int to real, b) real to int, c) incompatible types -> error
+        -- 2 cases: a) int to real, b) incompatible types -> error
         case (ltype, getTypeFromExpression expr) of
             (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) -> return (env, errs, (StmtAssign idexpr (IntToReal expr) ) )
-            (TypeBaseType BaseType_integer, TypeBaseType BaseType_real) -> return (env, errs, (StmtAssign idexpr (RealToInt expr) ) )
             otherwise -> return (env, ("Error. l-Expression is of type " ++ show ltype  ++ " but it is assigned value of type "++show (getTypeFromExpression expr) ++"."):errs, (StmtAssign idexpr expr) )
 
 
@@ -347,9 +346,8 @@ parseLitAssignment (TokIdent (idPos, idVal)) literal env errors = case Env.looku
                 StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) (ExprLiteral literal)
                 )
             else case (envType, getTypeFromLiteral literal ) of
-                -- 3 cases: casting int->real, real->int or incompatible types
+                -- 2 cases: casting int->real or incompatible types
                 (TypeBaseType BaseType_real, BaseType_integer) -> return (env, errors, StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) (IntToReal (ExprLiteral literal)) )
-                (TypeBaseType BaseType_integer, BaseType_real) -> return (env, errors, StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) (RealToInt (ExprLiteral literal)) )
                 -- In case of errors the tree is not annotated. 
                 -- TODO: maybe we should annotate it with the type of the literal? or don't annotate it at all?
                 -- Per il momento ho aggiunto un come tipo envType
@@ -371,9 +369,8 @@ parseIdExprAssignment (TokIdent (idPos, idVal)) expr env errors = case Env.looku
                 StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) expr -- annoto literal con il tipo corretto
                 )
             else case (envType, getTypeFromExpression expr ) of
-                -- 3 cases: 1) casting int->real, 2) casting real->int, 3) incompatible types
+                -- 2 cases: 1) casting int->real, 2) incompatible types
                 (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) -> return (env, errors, StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) (IntToReal expr) )
-                (TypeBaseType BaseType_integer, TypeBaseType BaseType_real) -> return (env, errors, StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) (RealToInt expr) )
                 (_, _)  -> return (env, ("Error at " ++ show idPos ++ ". Incompatible types: you can't assign a value of type " ++ show (getTypeFromExpression expr) ++ " to " ++ idVal ++ " because it has type " ++ show envType) :errors, StmtAssign (BaseExpr (Identifier (TokIdent (idPos, idVal))) envType) expr )
 
     Nothing -> return (env,
@@ -390,7 +387,6 @@ parseExprExprAssignment expr1 expr2 env errs =
         then return (env, errs, (StmtAssign expr1 expr2) )
         else case (getTypeFromExpression expr1, getTypeFromExpression expr2) of
             (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) -> return (env, errs, (StmtAssign expr1 (IntToReal expr2)))
-            (TypeBaseType BaseType_integer, TypeBaseType BaseType_real) -> return (env, errs, (StmtAssign expr1 (RealToInt expr2)))
             otherwise -> return (env, ("Error. Incompatible types in assignment: you can't assign a value of type " ++ show (getTypeFromExpression expr2) ++ " to value of type " ++ show (getTypeFromExpression expr1) ++ "."):errs, (StmtAssign expr1 expr2) )
 
 
@@ -469,14 +465,6 @@ parseExpression env errs (BaseExpr bexpr t) = do
         
 
 -- Type casted expressions: verify that types match
--- Real to Integer
-parseExpression env errs (RealToInt expr) = do
-    (env2, errs2, parsedexpr) <- parseExpression env errs expr
-    case getTypeFromExpression parsedexpr of
-        TypeBaseType BaseType_real -> return (env2, errs2, (RealToInt parsedexpr) )
-        TypeBaseType BaseType_integer -> return (env2, ("Warning: removed unneeded implicit type casting"):errs2, parsedexpr) -- expression is integer already: remove type casting wrapper
-        otherwise -> return (env2, ("Error: type casting from Real to Integer applied to type " ++ show (getTypeFromExpression parsedexpr) ++ "."):errs2, (RealToInt parsedexpr))
-
 -- Integer to Real
 parseExpression env errs (IntToReal expr) = do
     (env2, errs2, parsedexpr) <- parseExpression env errs expr
@@ -567,7 +555,6 @@ compareArguments env errs p (expr:args) (Param m ((IdElement (TokIdent (_,parid)
         else
             case ((getTypeFromExpression parsedexpr),t) of
                 (TypeBaseType BaseType_integer, TypeBaseType BaseType_real) -> compareArguments env2 err2 p args (Param m toks t) comp (pargs++[(IntToReal parsedexpr)])
-                (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) -> compareArguments env2 err2 p args (Param m toks t) comp (pargs++[(RealToInt parsedexpr)])
                 otherwise -> compareArguments env2 (("Error at "++ show p ++": parameter "++ parid ++" is assigned type " ++ show (getTypeFromExpression parsedexpr) ++ " but it should be of type " ++ show t):err2) p args (Param m toks t) False (pargs++[parsedexpr])
             
         
@@ -654,12 +641,10 @@ parseBaseExpression env errs (ArrayElem bexpr iexpr) = do
     (env3, err3, parsedbexpr) <- parseExpression env2 err2 bexpr -- parsing of base expression to get its type: if it is an array type, return type of element of that array; otherwise it is an error
     
     case (getTypeFromExpression parsedbexpr, getTypeFromExpression parsediexpr) of -- TODO: refactoring possibile di questa parte di codice? --TODO: posizione nei messaggi di errore
-        -- cases: 1) array and integer; 2) array and real; 3) array and error; 4) error and integer; 5) error and real; 6) error and error (distinction necessary to generate appropriate error messages)
+        -- 4 cases: 1) array and integer; 2) array and error; 3) error and integer; 4) error and error (distinction necessary to generate appropriate error messages)
         (TypeCompType (Array i1 i2 basetype), TypeBaseType BaseType_integer) -> return (env3, err3, (ArrayElem parsedbexpr parsediexpr), basetype)
-        (TypeCompType (Array i1 i2 basetype), TypeBaseType BaseType_real) -> return (env3, err3, (ArrayElem parsedbexpr (RealToInt parsediexpr)), basetype)
         (TypeCompType (Array i1 i2 basetype), _) -> return (env3, ("Error. Array index is not of numeric type but it is of type "++show (getTypeFromExpression parsediexpr)++"."):err3, (ArrayElem parsedbexpr parsediexpr), TypeBaseType BaseType_error)
         (_, TypeBaseType BaseType_integer) -> return (env3, ("Error. Expression " ++ show parsedbexpr ++ " is treated as an array but it is of type " ++ show (getTypeFromExpression parsedbexpr) ++ "."):err3, (ArrayElem parsedbexpr parsediexpr), TypeBaseType BaseType_error)
-        (_, TypeBaseType BaseType_real) -> return (env3, ("Error. Expression " ++ show parsedbexpr ++ " is treated as an array but it is of type " ++ show (getTypeFromExpression parsedbexpr) ++ "."):err3, (ArrayElem parsedbexpr (RealToInt parsediexpr)), TypeBaseType BaseType_error)
         otherwise -> return (env3, ("Error. Expression " ++ show parsedbexpr ++ " is treated as an array but it is of type" ++ show (getTypeFromExpression parsedbexpr) ++ "."):("Error. Array index is not of numeric type but it is of type "++show (getTypeFromExpression parsediexpr)++"."):err3, (ArrayElem parsedbexpr parsediexpr), TypeBaseType BaseType_error)
 
 
@@ -671,7 +656,6 @@ getTypeFromExpression (ExprLiteral literal) = (TypeBaseType (getTypeFromLiteral 
 getTypeFromExpression (ExprCall call t) = t
 getTypeFromExpression (BaseExpr bexp t) = t
 getTypeFromExpression (IntToReal _) = TypeBaseType BaseType_real
-getTypeFromExpression (RealToInt _) = TypeBaseType BaseType_integer
 
 getTypeFromBaseExpression:: BEXPR Type -> Env -> Type
 getTypeFromBaseExpression (Identifier (TokIdent (tokpos, tokid)) ) env = case Env.lookup tokid env of

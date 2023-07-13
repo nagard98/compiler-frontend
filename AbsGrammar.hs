@@ -121,7 +121,6 @@ data EXPR infType =
     | ExprCall (Call infType) infType
     | BaseExpr (BEXPR infType) infType
     | IntToReal (EXPR infType)
-    | RealToInt (EXPR infType)
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data BinaryOperator = Or | And | Eq | NotEq | LessT | EqLessT | GreatT | EqGreatT | Sub | Add |
