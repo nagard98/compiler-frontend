@@ -408,7 +408,6 @@ rangeFromExpr expr = (getLeftmostPos expr, getRightmostPos expr) where
     getLeftmostPos (BaseExpr (Identifier (TokIdent (pos, _))) _) = pos
     getLeftmostPos (BaseExpr (ArrayElem _ expr) _) = getLeftmostPos expr
     getLeftmostPos (IntToReal expr) = getLeftmostPos expr
-    getLeftmostPos (RealToInt expr) = getLeftmostPos expr
 
     -- get position of the rightmost token with the length of the token added to the second component (the column)
     getRightmostPos :: EXPR infType -> Position
@@ -419,7 +418,6 @@ rangeFromExpr expr = (getLeftmostPos expr, getRightmostPos expr) where
     getRightmostPos (BaseExpr (Identifier (TokIdent (pos, _))) _) = pos
     getRightmostPos (BaseExpr (ArrayElem _ expr) _) = getRightmostPos expr
     getRightmostPos (IntToReal expr) = getRightmostPos expr
-    getRightmostPos (RealToInt expr) = getRightmostPos expr
 
     getPosFromLiteral :: Literal -> TypeOfPos -> Position
     getPosFromLiteral (LiteralInteger (TokInteger (pos, _))) PosLeft = pos
