@@ -6,10 +6,11 @@ var b: ^real;
 function sum(x,y: integer): integer;
 begin return x+y end;
 begin
-  {b := a[3];}
-  {@b := sum(@b,a[3]) {test chiamata funzione}
-  var aa: array [1..5] of array [1..5] of integer;
-  aa[3] := a; {Come mai genera errore?}
+  @b := a[3];
+  @b := sum(@b,a[3]); {test chiamata funzione}
+  {var aa: array [1..5] of array [1..5] of integer;
+  {aa[3] := a;
+  sum(1,2,3);
 {*
   var a2: integer;
   var c: ^integer;

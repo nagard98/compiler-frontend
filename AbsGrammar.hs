@@ -99,7 +99,7 @@ data IdElem = IdElement TokIdent
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Type = TypeBaseType BaseType | TypeCompType CompType
-  deriving (C.Eq, C.Ord, C.Show, C.Read)
+  deriving (C.Eq, C.Ord, C.Read)
 
 data BaseType
     = BaseType_integer
@@ -109,10 +109,10 @@ data BaseType
     | BaseType_string
     | BaseType_error
     | BaseType_void
-  deriving (C.Eq, C.Ord, C.Show, C.Read)
+  deriving (C.Eq, C.Ord, C.Read)
 
 data CompType = Array TokInteger TokInteger Type | Pointer Type
-  deriving (C.Ord, C.Show, C.Read)
+  deriving (C.Ord, C.Read)
 
 data EXPR infType =
       UnaryExpression {operator1 :: UnaryOperator, exp :: EXPR infType, tp :: infType}
@@ -121,7 +121,6 @@ data EXPR infType =
     | ExprCall (Call infType) infType
     | BaseExpr (BEXPR infType) infType
     | IntToReal (EXPR infType)
-    | RealToInt (EXPR infType)
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data BinaryOperator = Or | And | Eq | NotEq | LessT | EqLessT | GreatT | EqGreatT | Sub | Add |
@@ -140,7 +139,7 @@ data Literal
     | LiteralDouble TokDouble
     | LiteralBoolean TokBoolean
   deriving (C.Eq, C.Ord, C.Show, C.Read)
-{-
+
 instance C.Show Type where
     show (TypeCompType comptype) = show comptype
     show (TypeBaseType basetype) = show basetype
@@ -157,7 +156,6 @@ instance C.Show BaseType where
     show (BaseType_string) = "String"
     show (BaseType_error) = "Error"
     show (BaseType_void) = "Void"
--}
 
 instance C.Eq CompType where
   (==) lArr@(Array _ _ _) rArr@(Array _ _ _) = compArrType lArr rArr 
