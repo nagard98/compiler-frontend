@@ -307,11 +307,13 @@ parseArrayAssignment bExpr@(BaseExpr (ArrayElem bbexpr iiexpr) t) expr env errs 
     if t == rtype
         then return (env, errs, (StmtAssign bExpr expr))
         else 
-            -- 3 cases: a) int to real, b) real to int, c) incompatible types -> error
+            -- 3 cases: a) int to real, b) char to string, c) incompatible types -> error
             case (t, rtype) of
                 
                 (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) -> 
-                    return (env, errs, (StmtAssign bExpr (IntToReal expr) ) )             
+                    return (env, errs, (StmtAssign bExpr (IntToReal expr) ) )                   
+                (TypeBaseType BaseType_string, TypeBaseType BaseType_char) -> 
+                    return (env, errs, (StmtAssign bExpr (CharToString expr) ) )            
                 --TODO: implementare posizione con il modo che avevamo discusso
                 -- Durante il parsing le funzioni restituiscono anche 2 posizioni (quella più a sx e quella più a dx)
                 
@@ -351,8 +353,9 @@ parseLitAssignment tkId@(TokIdent (idPos, idVal)) literal env errors = case Env.
                 StmtAssign (BaseExpr (Identifier tkId) envType) (ExprLiteral literal)
                 )
             else case (envType, litType ) of
-                -- 2 cases: casting int->real or incompatible types
+                -- 3 cases: casting int->real, char->string or incompatible types
                 (TypeBaseType BaseType_real, BaseType_integer) -> return (env, errors, StmtAssign (BaseExpr (Identifier tkId) envType) (IntToReal (ExprLiteral literal)) )
+                (TypeBaseType BaseType_string, BaseType_char) -> return (env, errors, StmtAssign (BaseExpr (Identifier tkId) envType) (CharToString (ExprLiteral literal)) )
                 -- In case of errors the tree is not annotated. 
                 -- TODO: maybe we should annotate it with the type of the literal? or don't annotate it at all?
                 -- Per il momento ho aggiunto un come tipo envType
@@ -385,10 +388,11 @@ parseIdExprAssignment tkId@(TokIdent (idPos, idVal)) expr env errors = case Env.
                 )
             
             else case (envType, exprType ) of
-                -- 2 cases: 1) casting int->real, 2) incompatible types
+                -- 3 cases: 1) casting int->real, 2) casting char->string, 3) incompatible types
                 (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) -> 
                     return (env, errors, StmtAssign (BaseExpr (Identifier tkId) envType) (IntToReal expr) )
-                
+                (TypeBaseType BaseType_string, TypeBaseType BaseType_char) -> 
+                    return (env, errors, StmtAssign (BaseExpr (Identifier tkId) envType) (CharToString expr) )
                 (_, _)  -> return (
                     env,
                     ("Error at " ++ show idPos ++ ". Incompatible types: you can't assign a value of type " ++ show exprType ++ " to " ++ idVal ++ " because it has type " ++ show envType) :errors, 
@@ -415,6 +419,8 @@ parseExprExprAssignment expr1 expr2 env errs =
             
             (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) -> 
                 return (env, errs, (StmtAssign expr1 (IntToReal expr2)))
+            (TypeBaseType BaseType_string, TypeBaseType BaseType_char) -> 
+                return (env, errs, (StmtAssign expr1 (CharToString expr2)))
             
             _ -> return (
                 env, 
@@ -541,12 +547,28 @@ parseExpression env errs (IntToReal expr) = do
         
         TypeBaseType BaseType_integer -> return (env2, errs2, (IntToReal parsedexpr), posEnds)
         
-        TypeBaseType BaseType_real -> return (env2, ("Warning: removed unneeded implicit type casting"):errs2, parsedexpr, posEnds) -- expression is real already: remove type casting wrapper
+        TypeBaseType BaseType_real -> return (env2, ("Warning: removed unneeded implicit type casting from Integer to Real"):errs2, parsedexpr, posEnds) -- expression is real already: remove type casting wrapper
         
         _ -> return (
             env2, 
             ("Error: type casting from Integer to Real applied to type " ++ show (getTypeFromExpression parsedexpr) ++ "."):errs2, 
             (IntToReal parsedexpr),
+            posEnds
+            )
+
+-- Char to String
+parseExpression env errs (CharToString expr) = do
+    (env2, errs2, parsedexpr, posEnds) <- parseExpression env errs expr
+    case getTypeFromExpression parsedexpr of
+        
+        TypeBaseType BaseType_char -> return (env2, errs2, (CharToString parsedexpr), posEnds)
+        
+        TypeBaseType BaseType_string -> return (env2, ("Warning: removed unneeded implicit type casting from Char to String"):errs2, parsedexpr, posEnds) -- expression is string already: remove type casting wrapper
+        
+        _ -> return (
+            env2, 
+            ("Error: type casting from Char to String applied to type " ++ show (getTypeFromExpression parsedexpr) ++ "."):errs2, 
+            (CharToString parsedexpr),
             posEnds
             )
 
@@ -649,6 +671,7 @@ compareArguments env errs p (expr:args) (Param m ((IdElement (TokIdent (_,parid)
         else
             case ((getTypeFromExpression parsedexpr),t) of
                 (TypeBaseType BaseType_integer, TypeBaseType BaseType_real) -> compareArguments env2 err2 p args (Param m toks t) comp (pargs++[(IntToReal parsedexpr)])
+                (TypeBaseType BaseType_char, TypeBaseType BaseType_string) -> compareArguments env2 err2 p args (Param m toks t) comp (pargs++[(CharToString parsedexpr)])
                 _ -> compareArguments env2 (("Error at "++ show p ++": parameter "++ parid ++" is assigned type " ++ show (getTypeFromExpression parsedexpr) ++ " but it should be of type " ++ show t):err2) p args (Param m toks t) False (pargs++[parsedexpr])
             
         
@@ -844,6 +867,7 @@ getTypeFromExpression (ExprLiteral literal) = (TypeBaseType (getTypeFromLiteral 
 getTypeFromExpression (ExprCall call t) = t
 getTypeFromExpression (BaseExpr bexp t) = t
 getTypeFromExpression (IntToReal _) = TypeBaseType BaseType_real
+getTypeFromExpression (CharToString _) = TypeBaseType BaseType_string
 
 getTypeFromBaseExpression:: BEXPR Type -> Env -> Type
 getTypeFromBaseExpression (Identifier (TokIdent (tokpos, tokid)) ) env = case Env.lookup tokid env of
