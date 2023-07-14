@@ -1,0 +1,11 @@
+{Example used to test if error is shown when a variable is declared but never initialized}
+
+program HelloError;
+ var a,b : integer;
+
+function inc (x:integer): integer;
+    begin return x+1 end;
+
+begin
+    var arr: array[1..5] of integer; 
+end.
