@@ -726,7 +726,7 @@ compareArguments env errs p [] (Param _ [] t) comp pargs = return (env, errs, []
 compareArguments env errs p args (Param _ [] t) comp pargs = return (env, errs, args, comp, pargs)
 compareArguments env errs p [] (Param _ toks t) comp pargs = return (env, errs, [], False, pargs)
 
-compareArguments env errs p (expr:args) (Param m ((IdElement (TokIdent (_,parid))):toks) t) comp pargs = do
+compareArguments env errs p (expr:args) (Param m ((IdElement (TokIdent (parpos@(x,y),parid))):toks) t) comp pargs = do
     --(env2, err2, parsedexpr, posEnds) <- parseExpression env errs expr
     
     -- confronto tra parametri, diversi casi: 1) int to real, 2) real to int, 3) incompatibile --TODO: type casting CharToString?
@@ -742,9 +742,11 @@ compareArguments env errs p (expr:args) (Param m ((IdElement (TokIdent (_,parid)
                 (TypeBaseType BaseType_char, TypeBaseType BaseType_string) -> 
                     compareArguments env errs p args (Param m toks t) comp (pargs++[(CharToString expr)])
                 
-                _ -> compareArguments env (("Error at "++ show p ++": parameter "++ parid ++" is assigned type " ++ show argExprType ++ " but it should be of type " ++ show t):errs) p args (Param m toks t) False (pargs++[expr])
+                --TODO: mettere qui al posto di show expr la funzione che stavi realizzando per stampare espressioni
+                _ -> compareArguments env (("Error at "++ show p ++": the argument "++ {-show expr-}" is of type " ++ show argExprType ++ " but it should be of type " ++ show t ++" as specified by parameter "++ parid ++ " at "++ show parPosEnds):errs) p args (Param m toks t) False (pargs++[expr])
     where
         argExprType = getTypeFromExpression expr
+        parPosEnds = PosEnds{ leftmost = parpos, rightmost = (x, y + length parid)}
         
 
 parseBinaryBooleanExpression :: Env -> Errors -> BinaryOperator -> EXPR infType -> EXPR infType -> SSAState (Env, Errors, EXPR Type, PosEnds)
