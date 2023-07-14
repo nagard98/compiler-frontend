@@ -186,3 +186,53 @@ instance GetTokPos TokInteger where
 
 instance GetTokPos TokString where
   getTokPos (TokString (pos,_)) = pos
+
+showExpr :: EXPR t -> String
+showExpr (UnaryExpression op exp t) = showUnaryExpr op exp
+showExpr (BinaryExpression op exp1 exp2 t) = showBinaryExpr op exp1 exp2
+showExpr (ExprLiteral (literal)) = showLiteral literal
+showExpr (ExprCall call t) = showCall call
+showExpr (BaseExpr bexpr t) = showBaseExpr bexpr
+showExpr (IntToReal exp) = "Real(" ++ showExpr exp ++ ")"
+showExpr (CharToString exp) = "String(" ++ showExpr exp ++ ")"
+
+showUnaryExpr :: UnaryOperator -> EXPR infType -> String
+showUnaryExpr Not exp = "not " ++ showExpr exp
+showUnaryExpr Negation exp = "-" ++ showExpr exp
+showUnaryExpr Reference exp = "@" ++ showExpr exp
+showUnaryExpr Dereference exp = showExpr exp ++ "^"
+
+showBinaryExpr :: BinaryOperator -> EXPR infTYpe -> EXPR infType -> String
+showBinaryExpr Or exp1 exp2 = showExpr exp1 ++ "or" ++ showExpr exp2
+showBinaryExpr And exp1 exp2 = showExpr exp1 ++ "and" ++ showExpr exp2
+showBinaryExpr Eq exp1 exp2 = showExpr exp1 ++ "=" ++ showExpr exp2
+showBinaryExpr NotEq exp1 exp2 = showExpr exp1 ++ "<>" ++ showExpr exp2
+showBinaryExpr LessT exp1 exp2 = showExpr exp1 ++ "<" ++ showExpr exp2
+showBinaryExpr EqLessT exp1 exp2 = showExpr exp1 ++ "<=" ++ showExpr exp2
+showBinaryExpr GreatT exp1 exp2 = showExpr exp1 ++ ">" ++ showExpr exp2
+showBinaryExpr EqGreatT exp1 exp2 = showExpr exp1 ++ ">=" ++ showExpr exp2
+showBinaryExpr Sub exp1 exp2 = showExpr exp1 ++ "-" ++ showExpr exp2
+showBinaryExpr Add exp1 exp2 = showExpr exp1 ++ "+" ++ showExpr exp2
+showBinaryExpr Div exp1 exp2 = showExpr exp1 ++ "/" ++ showExpr exp2
+showBinaryExpr Mul exp1 exp2 = showExpr exp1 ++ "*" ++ showExpr exp2
+showBinaryExpr Mod exp1 exp2 = showExpr exp1 ++ "mod" ++ showExpr exp2
+
+showLiteral :: Literal -> String
+showLiteral (LiteralInteger (TokInteger (tokpos,tokid))) = tokid
+showLiteral (LiteralString (TokString (tokpos,tokid))) = tokid
+showLiteral (LiteralChar (TokChar (tokpos,tokid))) = tokid
+showLiteral (LiteralDouble (TokDouble (tokpos,tokid))) = tokid
+showLiteral (LiteralBoolean (TokBoolean (tokpos,tokid))) = tokid
+
+showCall :: Call t -> String
+showCall (CallArgs (TokIdent (tokpos, tokid)) exprs) = tokid++"("++ showExprs exprs ++")"
+    where
+        showExprs :: [EXPR t] -> String
+        showExprs [] = ""
+        showExprs [expr] = showExpr expr
+        showExprs (expr:exprs) = showExpr expr ++ "," ++ showExprs exprs
+
+showBaseExpr :: BEXPR t -> String
+showBaseExpr (ArrayElem idexp iexp) = showExpr idexp ++ "["++ showExpr iexp ++"]"
+showBaseExpr (Identifier (TokIdent (tokpos, tokid))) = tokid
+

@@ -3,6 +3,7 @@
 program HelloMath;
 var a: array[1..5]of integer; 
 var b: ^real;
+var c: real;
 function sum(x,y: real): real;
 begin return x+y end;
 begin
@@ -10,15 +11,20 @@ begin
   {@b := sum(@b,a[3]); {test chiamata funzione}
   {var aa: array [1..5] of array [1..5] of integer;
   {aa[3] := a;
-  {sum(1,2,3);
+  {sum(1,true);
 
+  @b := not true;
+  
+{*
   {Test type casting char->string
   var s: string;
   s := 'a';
   function concat(x,y: string): string;
   begin return x end;
   s := concat(s,'b');
+*}
 {*
+  {Test reference e dereference
   var a2: integer;
   var c: ^integer;
   c := a2^;

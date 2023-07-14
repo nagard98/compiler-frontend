@@ -196,7 +196,7 @@ parseIter (StmtIter (StmtWhileDo expr stmt)) env errs = do
 
     if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean
         then return (newEnv, newErrs, StmtIter (StmtWhileDo parsedExpr wrappedStmt))
-        else return (newEnv, newErrs ++ ["ERROR in range " ++ show posEnds  ++ ": condition of while-do statement is not boolean"], StmtIter (StmtWhileDo parsedExpr wrappedStmt)) 
+        else return (newEnv, newErrs ++ ["ERROR in range " ++ show posEnds  ++ ": condition " ++ showExpr parsedExpr ++ " of while-do statement is not of type Bool but it is of type " ++ show (getTypeFromExpression parsedExpr)], StmtIter (StmtWhileDo parsedExpr wrappedStmt)) 
 
 -- parsing of repeat-until statement
 parseIter (StmtIter (StmtRepeat stmt expr)) env errs = do
@@ -206,7 +206,7 @@ parseIter (StmtIter (StmtRepeat stmt expr)) env errs = do
 
     if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean
         then return (newEnv, newErrs, StmtIter (StmtRepeat wrappedStmt parsedExpr))
-        else return (newEnv, newErrs ++ ["ERROR in range " ++ show posEnds ++ ": condition of repeat-until statement is not boolean"], StmtIter (StmtRepeat wrappedStmt parsedExpr))
+        else return (newEnv, newErrs ++ ["ERROR in range " ++ show posEnds ++ ": condition " ++ showExpr parsedExpr ++ " of repeat-until statement is not of type Bool but it is of type " ++ show (getTypeFromExpression parsedExpr)], StmtIter (StmtRepeat wrappedStmt parsedExpr))
 
 parseSelection :: Stmt env infType -> Env -> Errors -> SSAState (Env, Errors, Stmt Env Type)
 parseSelection (StmtSelect (StmtIf expr stmt)) env errs = do
@@ -216,7 +216,7 @@ parseSelection (StmtSelect (StmtIf expr stmt)) env errs = do
 
     if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean
         then return (newEnv, newErrs, StmtSelect (StmtIf parsedExpr wrappedStmt))
-        else return (newEnv, newErrs ++ ["ERROR in range " ++ show posEnds  ++ ": condition of if statement is not boolean"], StmtSelect (StmtIf parsedExpr wrappedStmt))
+        else return (newEnv, newErrs ++ ["ERROR in range " ++ show posEnds  ++ ": condition " ++ showExpr parsedExpr ++ " of if statement is not of type Bool but it is of type " ++ show (getTypeFromExpression parsedExpr)], StmtSelect (StmtIf parsedExpr wrappedStmt))
 
 parseSelection (StmtSelect (StmtIfElse expr stmt1 stmt2)) env errs = do
     (env1, errs1, parsedExpr, posEnds) <- parseExpression env errs expr
@@ -227,7 +227,7 @@ parseSelection (StmtSelect (StmtIfElse expr stmt1 stmt2)) env errs = do
 
     if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean
         then return (newEnv2, newErrs2, StmtSelect (StmtIfElse parsedExpr wrappedStmt1 wrappedStmt2))
-        else return (newEnv2, newErrs2 ++ ["ERROR in range " ++ show posEnds  ++ ": condition of if-else statement is not boolean"], StmtSelect (StmtIfElse parsedExpr wrappedStmt1 wrappedStmt2))
+        else return (newEnv2, newErrs2 ++ ["ERROR in range " ++ show posEnds  ++ ": condition " ++ showExpr parsedExpr ++ " of if-else statement is not of type Bool but it is of type " ++ show (getTypeFromExpression parsedExpr)], StmtSelect (StmtIfElse parsedExpr wrappedStmt1 wrappedStmt2))
 
 
 -- If the provided statement is not insiede a begin-end block, wraps it in one
@@ -266,43 +266,46 @@ parseReturn (StmtReturn (Ret expr)) env errs = do
 parseAssignment :: EXPR infType -> EXPR infType -> Env -> Errors -> SSAState (Env, Errors, Stmt Env Type)
 parseAssignment expr1 expr2 env errs = case (expr1, expr2) of
             -- Assegno a variabile un letterale
-            ( (BaseExpr (Identifier tId) tp), (ExprLiteral literal) ) -> parseLitAssignment tId literal env errs
+            ( (BaseExpr (Identifier tId) tp), (ExprLiteral literal) ) -> do
+                (env2, errs2, parsedid, posEnds) <- parseExpression env errs (BaseExpr (Identifier tId) tp)
+                parseLitAssignment tId literal env2 errs2 posEnds
             
             -- Assegno a variabile valore espressione generica: 1) parsing dell'espressione e trovo il tipo; 2) controllo compatibilità con letterale in assegnamento
             ( (BaseExpr (Identifier tId) tp), expr ) -> do
-                (env2, errs2, parsedexpr, posEnds) <- parseExpression env errs expr
-                parseIdExprAssignment tId parsedexpr env2 errs2
+                (env2, errs2, parsedid, posEnds) <- parseExpression env errs (BaseExpr (Identifier tId) tp)
+                (env3, errs3, parsedexpr, posEnds2) <- parseExpression env2 errs2 expr
+                parseIdExprAssignment tId parsedexpr env3 errs3 posEnds --TODO: ricavare il range corretto, anche nei casi successivi
             
             -- Puntatore è un l-value valido
             ( (UnaryExpression Dereference expr1 t), expr2 ) -> do
-                (env2, err2, parsedexpr1, posEnds) <- parseExpression env errs (UnaryExpression Dereference expr1 t)
-                (env3, err3, parsedexpr2, posEnds) <- parseExpression env2 err2 expr2
-                parseExprExprAssignment parsedexpr1 parsedexpr2 env3 err3
+                (env2, err2, parsedexpr1, posEnds1) <- parseExpression env errs (UnaryExpression Dereference expr1 t)
+                (env3, err3, parsedexpr2, posEnds2) <- parseExpression env2 err2 expr2
+                parseExprExprAssignment parsedexpr1 parsedexpr2 env3 err3 posEnds1
             
             -- Riferimento ad un puntatore è un l-value valido            
             ( (UnaryExpression Reference expr1 t), expr2 ) -> do
-                (env2, err2, parsedexpr1, posEnds) <- parseExpression env errs (UnaryExpression Reference expr1 t)
-                (env3, err3, parsedexpr2, posEnds) <- parseExpression env2 err2 expr2                
-                parseExprExprAssignment parsedexpr1 parsedexpr2 env3 err3
+                (env2, err2, parsedexpr1, posEnds1) <- parseExpression env errs (UnaryExpression Reference expr1 t)
+                (env3, err3, parsedexpr2, posEnds2) <- parseExpression env2 err2 expr2                
+                parseExprExprAssignment parsedexpr1 parsedexpr2 env3 err3 posEnds1
             
             -- Array elements are valid l-values
             ( arr@(BaseExpr (ArrayElem idexpr iexpr) t), expr ) -> do
-                (env2, err2, parsedexpr, posEnds) <- parseExpression env errs expr
+                (env2, err2, parsedexpr, posEnds1) <- parseExpression env errs expr
                 --(env3, err3, parsediexpr) <- parseExpression env2 err2 iexpr
-                (env3, err3, parsedarrexpr, posEnds) <- parseExpression env2 err2 arr
+                (env3, err3, parsedarrexpr, posEnds2) <- parseExpression env2 err2 arr
                 
-                parseArrayAssignment parsedarrexpr parsedexpr env3 err3
+                parseArrayAssignment parsedarrexpr parsedexpr env3 err3 posEnds1
             
             -- Il resto dei possibili l-value non è valido
             ( expr1, expr2 ) -> do
-                (env2, err2, parsedexpr1, posEnds) <- parseExpression env errs expr1
-                (env3, err3, parsedexpr2, posEnds) <- parseExpression env2 err2 expr2
-                -- TODO: includere posizione e stringa della espressione sinistra nel messaggio di errore
-                return (env3, ("Error: invalid l-value in assignment"):err3, (StmtAssign parsedexpr1 parsedexpr2) )
+                (env2, err2, parsedexpr1, posEnds1) <- parseExpression env errs expr1
+                (env3, err3, parsedexpr2, posEnds2) <- parseExpression env2 err2 expr2
+                return (env3, ("Error in range " ++ show posEnds1 ++ ": expression "++ showExpr expr1 ++" is not a valid l-value for the assignment"):err3, (StmtAssign parsedexpr1 parsedexpr2) )
+
 
 -- Checks if r-expression matches typing with an l-expression that is an element of an array
-parseArrayAssignment:: EXPR Type -> EXPR Type -> Env -> Errors -> SSAState (Env, Errors, Stmt Env Type)
-parseArrayAssignment bExpr@(BaseExpr (ArrayElem bbexpr iiexpr) t) expr env errs = do
+parseArrayAssignment:: EXPR Type -> EXPR Type -> Env -> Errors -> PosEnds -> SSAState (Env, Errors, Stmt Env Type)
+parseArrayAssignment bExpr@(BaseExpr (ArrayElem bbexpr iiexpr) t) expr env errs posEnds = do
     if t == rtype
         then return (env, errs, (StmtAssign bExpr expr))
         else 
@@ -318,7 +321,7 @@ parseArrayAssignment bExpr@(BaseExpr (ArrayElem bbexpr iiexpr) t) expr env errs 
                 
                 _ -> return (
                     env, 
-                    ("Error at " ++ "TODO"{-show tokpos-} ++ ". l-Expression is of type " ++ show t ++ " but it is assigned value of type "++show rtype ++"."):errs, 
+                    ("Error in range " ++ show posEnds ++ ". l-Expression "++showExpr bExpr++" is of type " ++ show t ++ " but it is assigned value of type "++show rtype ++"."):errs, 
                     StmtAssign bExpr (IntToReal expr) 
                     )
 
@@ -340,8 +343,8 @@ parseArrayAssignment bExpr@(BaseExpr (ArrayElem bbexpr iiexpr) t) expr env errs 
 
 -- check if literal type matches with the one saved in the environment. 
 -- If it doesn't return current environment and a new error message
-parseLitAssignment:: TokIdent -> Literal -> Env -> Errors -> SSAState (Env, Errors, Stmt Env Type)
-parseLitAssignment tkId@(TokIdent (idPos, idVal)) literal env errors = case Env.lookup idVal env of
+parseLitAssignment:: TokIdent -> Literal -> Env -> Errors -> PosEnds -> SSAState (Env, Errors, Stmt Env Type)
+parseLitAssignment tkId@(TokIdent (idPos, idVal)) literal env errors posEnds = case Env.lookup idVal env of
     
     Just (VarType mod envPos envType addr) ->
         if envType == TypeBaseType litType
@@ -360,13 +363,13 @@ parseLitAssignment tkId@(TokIdent (idPos, idVal)) literal env errors = case Env.
                 -- Per il momento ho aggiunto un come tipo envType
                 (_, _)  -> return (
                     env, 
-                    ("Error at " ++ show idPos ++ ". Incompatible types: you can't assign a value of type " ++ show (getTypeFromLiteral literal) ++ " to " ++ idVal ++ " because it has type " ++ show envType) :errors, 
+                    ("Error in range " ++ show posEnds ++ ". id "++ idVal ++ " is of type " ++ show envType ++ " but is assigned value of type " ++ show litType) :errors, 
                     StmtAssign (BaseExpr (Identifier tkId) envType) (ExprLiteral literal) 
                     )
 
     
     Nothing -> return (env,
-                ("Error at " ++ show idPos ++
+                ("Error in ragne " ++ show posEnds ++
                 ". Unknown identifier: " ++ idVal ++
                 " is used but has never been declared."):errors,
                 StmtAssign (BaseExpr (Identifier tkId) (TypeBaseType BaseType_error)) (ExprLiteral literal))
@@ -375,8 +378,8 @@ parseLitAssignment tkId@(TokIdent (idPos, idVal)) literal env errors = case Env.
         litType = getTypeFromLiteral literal
 
 -- Given identifier and expression (already parsed with inferred type!) assigns type to token of identifier
-parseIdExprAssignment :: TokIdent -> EXPR Type -> Env -> Errors -> SSAState (Env, Errors, Stmt Env Type)
-parseIdExprAssignment tkId@(TokIdent (idPos, idVal)) expr env errors = case Env.lookup idVal env of
+parseIdExprAssignment :: TokIdent -> EXPR Type -> Env -> Errors -> PosEnds -> SSAState (Env, Errors, Stmt Env Type)
+parseIdExprAssignment tkId@(TokIdent (idPos, idVal)) expr env errors posEnds = case Env.lookup idVal env of
     Just (VarType mod envPos envType addr) ->
         if envType == exprType
             
@@ -394,13 +397,13 @@ parseIdExprAssignment tkId@(TokIdent (idPos, idVal)) expr env errors = case Env.
                     return (env, errors, StmtAssign (BaseExpr (Identifier tkId) envType) (CharToString expr) )
                 (_, _)  -> return (
                     env,
-                    ("Error at " ++ show idPos ++ ". Incompatible types: you can't assign a value of type " ++ show exprType ++ " to " ++ idVal ++ " because it has type " ++ show envType) :errors, 
+                    ("Error in range " ++ show posEnds ++ ". id "++ idVal ++ " is of type " ++ show envType ++ " but is assigned value of type " ++ show exprType) :errors, 
                     StmtAssign (BaseExpr (Identifier tkId) envType) expr 
                     )
 
     Nothing -> return (
         env,
-        ("Error at " ++ show idPos ++
+        ("Error in range " ++ show posEnds ++
         ". Unknown identifier: " ++ idVal ++ " is used but has never been declared."):errors,
         StmtAssign (BaseExpr (Identifier tkId) (TypeBaseType BaseType_error)) expr
         )
@@ -409,8 +412,8 @@ parseIdExprAssignment tkId@(TokIdent (idPos, idVal)) expr env errors = case Env.
         exprType = getTypeFromExpression expr
 
 
-parseExprExprAssignment :: EXPR Type -> EXPR Type -> Env -> Errors -> SSAState (Env, Errors, Stmt Env Type)
-parseExprExprAssignment expr1 expr2 env errs = 
+parseExprExprAssignment :: EXPR Type -> EXPR Type -> Env -> Errors -> PosEnds -> SSAState (Env, Errors, Stmt Env Type)
+parseExprExprAssignment expr1 expr2 env errs posEnds = 
     -- TODO: includere posizione e stringa dell'espressione sinistra nel messaggio di errore
     if getTypeFromExpression expr1 == getTypeFromExpression expr2
         then return (env, errs, (StmtAssign expr1 expr2) )
@@ -423,7 +426,7 @@ parseExprExprAssignment expr1 expr2 env errs =
             
             _ -> return (
                 env, 
-                ("Error. Incompatible types in assignment: you can't assign a value of type " ++ show (getTypeFromExpression expr2) ++ " to value of type " ++ show (getTypeFromExpression expr1) ++ "."):errs, 
+                ("Error in range " ++ show posEnds ++ ". l-Expression "++ showExpr expr1 ++ " is of type " ++ show (getTypeFromExpression expr1) ++ " but is assigned value of type " ++ show (getTypeFromExpression expr2)):errs, 
                 (StmtAssign expr1 expr2)
                 )
 
@@ -749,7 +752,7 @@ compareArguments env errs p (expr:args) (Param m ((IdElement (TokIdent (parpos@(
                     compareArguments env errs p args (Param m toks t) (pargs++[(CharToString expr)])
                 
                 --TODO: mettere qui al posto di show expr la funzione che stavi realizzando per stampare espressioni
-                _ -> compareArguments env (("Error at "++ show p ++": the argument "++ {-show expr-}" is of type " ++ show argExprType ++ " but it should be of type " ++ show t ++" as specified by parameter "++ parid ++ " at "++ show parPosEnds):errs) p args (Param m toks t) (pargs++[expr])
+                _ -> compareArguments env (("Error at "++ show p ++": the argument "++ showExpr expr ++" is of type " ++ show argExprType ++ " but it should be of type " ++ show t ++" as specified by parameter "++ parid ++ " at "++ show parPosEnds):errs) p args (Param m toks t) (pargs++[expr])
     where
         argExprType = getTypeFromExpression expr
         parPosEnds = PosEnds{ leftmost = parpos, rightmost = (x, y + length parid)}
