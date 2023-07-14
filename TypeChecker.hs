@@ -587,7 +587,7 @@ parseExpressionCall env errs (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) = d
 parseCall :: Env -> Errors -> Call infType -> SSAState (Env, Errors, Call Type, Type, PosEnds)
 parseCall env errs call@(CallArgs tkId@(TokIdent (tokpos@(x,y),tokid)) args ) = do
     --posEnds contiene la posizione dell'argomento più a destra
-    (env2, errs2, parsedargs, posEndsArgs) <- parseArguments env errs args []
+    (env2, errs2, parsedargs, posEndsArgs) <- parseArguments env errs args [] posEndsToken
     
     case Env.lookup tokid env of
         Just (Function pos parameters t _) -> do
@@ -636,13 +636,12 @@ parseCall env errs call@(CallArgs tkId@(TokIdent (tokpos@(x,y),tokid)) args ) = 
             posEndsToken = PosEnds { leftmost = tokpos, rightmost = (x, y + length tokid) }
         
 
-parseArguments :: Env -> Errors -> [EXPR infType] -> [EXPR Type] -> SSAState (Env, Errors, [EXPR Type], PosEnds)
-parseArguments env errs (arg:[]) res = do
-    (env2, err2, parsedexpr, posEnds) <- parseExpression env errs arg
-    return (env2, err2, res++[parsedexpr], posEnds)
-parseArguments env errs (arg:args) res = do
-    (env2, err2, parsedexpr, posEnds) <- parseExpression env errs arg
-    parseArguments env2 err2 args (res++[parsedexpr])
+parseArguments :: Env -> Errors -> [EXPR infType] -> [EXPR Type]-> PosEnds -> SSAState (Env, Errors, [EXPR Type], PosEnds)
+parseArguments env errs [] res posEnds = do
+    return (env, errs, res, posEnds)
+parseArguments env errs (arg:args) res posEnds = do
+    (env2, err2, parsedexpr, argPosEnds) <- parseExpression env errs arg
+    parseArguments env2 err2 args (res++[parsedexpr]) argPosEnds
         
 
 -- Last parameter is list of parsed expressions (call arguments) that have been type casted if needed
