@@ -1,3 +1,6 @@
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Redundant bracket" #-}
+
 module TypeChecker where
 import AbsGrammar
 import Env
@@ -193,7 +196,7 @@ parseIter (StmtIter (StmtWhileDo expr stmt)) env errs = do
 
     if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean
         then return (newEnv, newErrs, StmtIter (StmtWhileDo parsedExpr wrappedStmt))
-        else return (newEnv, newErrs ++ ["ERROR in range " ++ show (rangeFromExpr expr)  ++ ": condition of while-do statement is not boolean"], StmtIter (StmtWhileDo parsedExpr wrappedStmt)) 
+        else return (newEnv, newErrs ++ ["ERROR in range " ++ show posEnds  ++ ": condition of while-do statement is not boolean"], StmtIter (StmtWhileDo parsedExpr wrappedStmt)) 
 
 -- parsing of repeat-until statement
 parseIter (StmtIter (StmtRepeat stmt expr)) env errs = do
@@ -203,7 +206,7 @@ parseIter (StmtIter (StmtRepeat stmt expr)) env errs = do
 
     if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean
         then return (newEnv, newErrs, StmtIter (StmtRepeat wrappedStmt parsedExpr))
-        else return (newEnv, newErrs ++ ["ERROR in range " ++ show (rangeFromExpr expr) ++ ": condition of repeat-until statement is not boolean"], StmtIter (StmtRepeat wrappedStmt parsedExpr))
+        else return (newEnv, newErrs ++ ["ERROR in range " ++ show posEnds ++ ": condition of repeat-until statement is not boolean"], StmtIter (StmtRepeat wrappedStmt parsedExpr))
 
 parseSelection :: Stmt env infType -> Env -> Errors -> SSAState (Env, Errors, Stmt Env Type)
 parseSelection (StmtSelect (StmtIf expr stmt)) env errs = do
@@ -213,7 +216,7 @@ parseSelection (StmtSelect (StmtIf expr stmt)) env errs = do
 
     if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean
         then return (newEnv, newErrs, StmtSelect (StmtIf parsedExpr wrappedStmt))
-        else return (newEnv, newErrs ++ ["ERROR in range " ++ show (rangeFromExpr expr)  ++ ": condition of if statement is not boolean"], StmtSelect (StmtIf parsedExpr wrappedStmt))
+        else return (newEnv, newErrs ++ ["ERROR in range " ++ show posEnds  ++ ": condition of if statement is not boolean"], StmtSelect (StmtIf parsedExpr wrappedStmt))
 
 parseSelection (StmtSelect (StmtIfElse expr stmt1 stmt2)) env errs = do
     (env1, errs1, parsedExpr, posEnds) <- parseExpression env errs expr
@@ -224,7 +227,7 @@ parseSelection (StmtSelect (StmtIfElse expr stmt1 stmt2)) env errs = do
 
     if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean
         then return (newEnv2, newErrs2, StmtSelect (StmtIfElse parsedExpr wrappedStmt1 wrappedStmt2))
-        else return (newEnv2, newErrs2 ++ ["ERROR in range " ++ show (rangeFromExpr expr)  ++ ": condition of if-else statement is not boolean"], StmtSelect (StmtIfElse parsedExpr wrappedStmt1 wrappedStmt2))
+        else return (newEnv2, newErrs2 ++ ["ERROR in range " ++ show posEnds  ++ ": condition of if-else statement is not boolean"], StmtSelect (StmtIfElse parsedExpr wrappedStmt1 wrappedStmt2))
 
 
 -- If the provided statement is not insiede a begin-end block, wraps it in one
@@ -243,7 +246,7 @@ parseReturn (StmtReturn (Ret expr)) env errs = do
         Just (Return expectedType funName funPos) ->
             if sup expectedType (getTypeFromExpression parsedExpr) /= expectedType
                 then return ( newEnv,
-                        ("ERROR in range " ++ show (rangeFromExpr expr)  ++ ": function " ++ funName ++ " at " ++ show funPos ++ 
+                        ("ERROR in range " ++ show posEnds  ++ ": function " ++ funName ++ " at " ++ show funPos ++ 
                         " expects a " ++ show expectedType ++ " to be returned " ++
                         "but the expression following the return statement has type " ++ show (getTypeFromExpression parsedExpr) ) : newErrs, 
                         StmtReturn (Ret parsedExpr))
@@ -255,7 +258,7 @@ parseReturn (StmtReturn (Ret expr)) env errs = do
         -- since the return type of the function is saved in the environment when the function definition is parsed
         Nothing -> return (
             newEnv,
-            ("Internal type checking error: can't find expected return type of current function in the environment while parsing the expression following the return at " ++ show (rangeFromExpr expr)): newErrs,
+            ("Internal type checking error: can't find expected return type of current function in the environment while parsing the expression following the return at " ++ show posEnds): newErrs,
             StmtReturn (Ret parsedExpr)
             ) 
         
@@ -417,67 +420,6 @@ parseExprExprAssignment expr1 expr2 env errs =
                 ("Error. Incompatible types in assignment: you can't assign a value of type " ++ show (getTypeFromExpression expr2) ++ " to value of type " ++ show (getTypeFromExpression expr1) ++ "."):errs, 
                 (StmtAssign expr1 expr2)
                 )
-
-
--- needed in rangeFromExpr to distinguish between leftmost and rightmost positions
-data TypeOfPos = PosLeft | PosRight
-
--- returns a tuple with the starting position and the ending position of the expression in input
--- TODO: call this function from all error messages involing expressions
-
---TODO: mi sembra un modo inefficiente per fare questa cosa; io pensavo di aggiungere un altro valore di ritorno per tutte
---le espressioni di parse
-rangeFromExpr :: EXPR infType -> (Position, Position)
-rangeFromExpr expr = (getLeftmostPos expr, getRightmostPos expr) where
-
-    -- get position of the leftmost token
-    getLeftmostPos :: EXPR infType -> Position
-    -- base cases, position of id or literal
-    getLeftmostPos (BaseExpr (Identifier (TokIdent (pos, _))) _) = pos
-    getLeftmostPos (ExprLiteral l) = getPosFromLiteral l PosLeft
-    -- continue recursion on subexpressions
-    getLeftmostPos (UnaryExpression _ exp _) = getLeftmostPos exp
-    getLeftmostPos (BinaryExpression _ exp1 _ _) = getLeftmostPos exp1
-    getLeftmostPos (IntToReal expr) = getLeftmostPos expr
-    getLeftmostPos (ExprCall call _) = getPosFromCall call PosLeft
-    getLeftmostPos (BaseExpr  (ArrayElem e1 e2) _) = getPosFromArr (ArrayElem e1 e2) PosLeft
-
-    -- get position of the rightmost token
-    -- unlike the retrived positions in getLeftmostPos, here we need to add the length of the token to the column
-    getRightmostPos :: EXPR infType -> Position
-    -- base cases, position of id or literal
-    getRightmostPos (BaseExpr (Identifier (TokIdent ((x, y), str))) _) = (x, y + length str)
-    getRightmostPos (ExprLiteral l) = getPosFromLiteral l PosRight
-    -- continue recursion on subexpressions
-    getRightmostPos (UnaryExpression _ exp _) = getRightmostPos exp
-    getRightmostPos (BinaryExpression _ _ exp2 _) = getRightmostPos exp2
-    getRightmostPos (ExprCall call _) = getPosFromCall call PosRight
-    getRightmostPos (IntToReal expr) = getRightmostPos expr
-    getRightmostPos (BaseExpr (ArrayElem e1 e2) _) = getPosFromArr (ArrayElem e1 e2) PosRight
-
-    getPosFromLiteral :: Literal -> TypeOfPos -> Position
-    getPosFromLiteral (LiteralInteger (TokInteger (pos, _))) PosLeft = pos
-    getPosFromLiteral (LiteralInteger (TokInteger ((x, y), str))) PosRight = (x, y + length str)
-    getPosFromLiteral (LiteralDouble (TokDouble (pos, _))) PosLeft = pos
-    getPosFromLiteral (LiteralDouble (TokDouble ((x, y), str))) PosRight = (x, y + length str)
-    getPosFromLiteral (LiteralChar (TokChar (pos, _))) PosLeft = pos
-    getPosFromLiteral (LiteralChar (TokChar ((x, y), str))) PosRight = (x, y + length str)
-    getPosFromLiteral (LiteralString (TokString (pos, _))) PosLeft = pos
-    getPosFromLiteral (LiteralString (TokString ((x, y), str))) PosRight = (x, y + length str)
-    getPosFromLiteral (LiteralBoolean (TokBoolean (pos, _))) PosLeft = pos
-    getPosFromLiteral (LiteralBoolean (TokBoolean ((x, y), str))) PosRight = (x, y + length str)
-
-    getPosFromCall :: Call infType -> TypeOfPos -> Position
-    -- when function is the leftmost token, starting position is already contained in the identifier
-    getPosFromCall (CallArgs (TokIdent (pos, _)) _) PosLeft = pos
-    -- when function call is the rightmost token, returns the position of the last argument
-    getPosFromCall (CallArgs _ args) PosRight = (x, y+1) where -- +1 accounts for the closing parenthesis
-        (x, y) = getRightmostPos (last args)
-
-    getPosFromArr :: BEXPR infType -> TypeOfPos -> Position
-    getPosFromArr (ArrayElem expr1 _) PosLeft = getLeftmostPos expr1
-    getPosFromArr (ArrayElem _ expr2) PosRight = (x, y+1) where -- +1 accounts for the closing bracket
-        (x, y) = getRightmostPos expr2
 
 
 -- Given current environment, errors and syntax tree, returns annotated tree and updated environment and errors
