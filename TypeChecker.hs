@@ -191,6 +191,7 @@ parseIter :: Stmt env infType -> Env -> Errors -> SSAState (Env, Errors, Stmt En
 -- parsing of while-do statement
 parseIter (StmtIter (StmtWhileDo expr stmt)) env errs = do
     (env1, errs1, parsedExpr, posEnds) <- parseExpression env errs expr
+
     (newEnv, newErrs, parsedStmt) <- parseStatement stmt env1 errs1
     let wrappedStmt = wrapInBeginEnd parsedStmt newEnv
 
@@ -799,9 +800,9 @@ parseBaseExpression env errs (Identifier tkId@(TokIdent (tokpos@(x,y),tokid)) ) 
 
 parseBaseExpression env errs (ArrayElem bexpr iexpr) = do
     --TODO: con parsediexpr sarebbe necessario verifiicare se l'indice rientra entro i limiti dell'array
-    (env2, err2, parsediexpr, posEndsL) <- parseExpression env errs iexpr -- parsing of index for type checking (and casting if needed)
-    (env3, err3, parsedbexpr, posEndsR) <- parseExpression env2 err2 bexpr -- parsing of base expression to get its type: if it is an array type, return type of element of that array; otherwise it is an error
-    
+    (env2, err2, parsediexpr, posEndsR) <- parseExpression env errs iexpr -- parsing of index for type checking (and casting if needed)
+    (env3, err3, parsedbexpr, posEndsL) <- parseExpression env2 err2 bexpr -- parsing of base expression to get its type: if it is an array type, return type of element of that array; otherwise it is an error
+
     case (getTypeFromExpression parsedbexpr, getTypeFromExpression parsediexpr) of -- TODO: refactoring possibile di questa parte di codice? --TODO: posizione nei messaggi di errore
         
         -- 4 cases: 1) array and integer; 2) array and error; 3) error and integer; 4) error and error (distinction necessary to generate appropriate error messages)
