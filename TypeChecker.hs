@@ -586,37 +586,61 @@ parseExpressionCall env errs (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) = d
     return (env2, err2, (ExprCall parsedcall t), posEnds )
 
 parseCall :: Env -> Errors -> Call infType -> SSAState (Env, Errors, Call Type, Type, PosEnds)
-parseCall env errs (CallArgs tkId@(TokIdent (tokpos@(x,y),tokid)) args ) = do 
-    (env2, err2, parsedargs) <- parseArguments env errs args []
+parseCall env errs call@(CallArgs tkId@(TokIdent (tokpos@(x,y),tokid)) args ) = do
+    --posEnds contiene la posizione dell'argomento più a destra
+    (env2, errs2, parsedargs, posEndsArgs) <- parseArguments env errs args []
+    
     case Env.lookup tokid env of
         Just (Function pos parameters t _) -> do
             --TODO: implementare ritorno posEnds da parseFunction
-            (env, errs, clType, tp) <- parseFunction env errs (CallArgs tkId parsedargs ) parameters t []
-            return (env, errs, clType, tp, posEndsFittizio)
+            (env, errs, clType, tp) <- parseFunction env2 errs2 (CallArgs tkId parsedargs) parameters t [] posEndsToken{rightmost = rightmost posEndsArgs}
+            return (env, errs, clType, tp, posEndsToken)
         
         Just (Procedure pos parameters _) -> do
             --TODO: implementare ritorno posEnds da parseProcedure
-            (env, errs, clType, tp) <- parseProcedure env errs (CallArgs tkId parsedargs ) parameters []
-            return (env, errs, clType, tp, posEndsFittizio)
+            (env, errs, clType, tp) <- parseProcedure env2 errs2 (CallArgs tkId parsedargs) parameters [] posEndsToken{rightmost = rightmost posEndsArgs}
+            return (env, errs, clType, tp, posEndsToken)
         
-        Just (DefaultProc t) -> return (env, errs, (CallArgs tkId parsedargs ), t, posEndsFittizio  ) --TODO: refactoring procedure default nell'environment
+        --TODO:rimuovere DefaultProc
+        Just (DefaultProc t) -> do
+            return (env2, errs2, (CallArgs tkId parsedargs ), t, posEndsToken  ) --TODO: refactoring procedure default nell'environment
         
-        Just (Constant pos t addr) -> return (env, ("Error at " ++ show tokpos ++". Identifier " ++ tokid ++" is used as a function/procedure but it is a constant."):errs,
-                    (CallArgs tkId parsedargs ), (TypeBaseType BaseType_error), posEndsFittizio )
+        Just (Constant pos t addr) -> do
+            return (
+                env2, 
+                ("Error at: " ++ show posEndsToken ++". Identifier " ++ tokid ++" is used as a function/procedure but it is a constant."):errs2,
+                (CallArgs tkId parsedargs ), 
+                (TypeBaseType BaseType_error), 
+                posEndsToken 
+                )
         
-        Just (VarType mod pos t addr) -> return (env, ("Error at " ++ show tokpos ++". Identifier " ++ tokid ++" is used as a function/procedure but it is a variable."):errs,
-                    (CallArgs tkId parsedargs ), (TypeBaseType BaseType_error), posEndsFittizio ) 
+        Just (VarType mod pos t addr) -> do
+            return (
+                env2, 
+                ("Error at: " ++ show posEndsToken ++". Identifier " ++ tokid ++" is used as a function/procedure but it is a variable."):errs2,
+                (CallArgs tkId parsedargs ),
+                (TypeBaseType BaseType_error), 
+                posEndsToken 
+                ) 
         
-        Nothing -> return (env, ("Error at " ++ show tokpos ++". Unknown identifier: " ++ tokid ++" is used but has never been declared."):errs,
-                    (CallArgs tkId parsedargs ), (TypeBaseType BaseType_error), posEndsFittizio ) 
+        Nothing -> do
+            return (
+                env2, 
+                ("Error at: " ++ show posEndsToken ++". Unknown identifier: " ++ tokid ++" is used but has never been declared."):errs2,
+                (CallArgs tkId parsedargs ), 
+                (TypeBaseType BaseType_error), 
+                posEndsToken 
+                ) 
 
         where
             -----------------TODO------------------------- implementare posEnds per funzioni/procedure
-            posEndsFittizio = PosEnds { leftmost = tokpos, rightmost = (x, y + length tokid) }
+            posEndsToken = PosEnds { leftmost = tokpos, rightmost = (x, y + length tokid) }
         
 
-parseArguments :: Env -> Errors -> [EXPR infType] -> [EXPR Type] -> SSAState (Env, Errors, [EXPR Type])
-parseArguments env errs [] res = return (env, errs, res)
+parseArguments :: Env -> Errors -> [EXPR infType] -> [EXPR Type] -> SSAState (Env, Errors, [EXPR Type], PosEnds)
+parseArguments env errs (arg:[]) res = do
+    (env2, err2, parsedexpr, posEnds) <- parseExpression env errs arg
+    return (env2, err2, res++[parsedexpr], posEnds)
 parseArguments env errs (arg:args) res = do
     (env2, err2, parsedexpr, posEnds) <- parseExpression env errs arg
     parseArguments env2 err2 args (res++[parsedexpr])
@@ -624,57 +648,105 @@ parseArguments env errs (arg:args) res = do
 
 -- Last parameter is list of parsed expressions (call arguments) that have been type casted if needed
 -- Parameters: env, errors, call, params, parsedargs --TODO: dire nel messaggio di errore di mismatch quanti parametri sono previsti?
-parseFunction :: Env -> Errors -> Call Type -> Prms -> Type -> [EXPR Type] -> SSAState (Env, Errors, Call Type, Type)
-parseFunction env errs (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) NoParams t pargs = return (env, errs, (CallArgs tkId pargs ), t )
-parseFunction env errs (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) (Params prms) t pargs = return (env, ("Error at " ++ show tokpos ++ " in function "++tokid++": mismatch in number of arguments"):errs, (CallArgs tkId pargs ), (TypeBaseType BaseType_error) )
-parseFunction env errs (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) NoParams t pargs = return (env, ("Error at " ++ show tokpos ++ " in function "++tokid++": mismatch in number of arguments"):errs, (CallArgs tkId (pargs++args) ), (TypeBaseType BaseType_error) )
-parseFunction env errs (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) (Params (prm:prms) ) t pargs = do
-    (env2, err2, args2, compatible, pargs2) <- compareArguments env errs tokpos args prm True pargs
+parseFunction :: Env -> Errors -> Call Type -> Prms -> Type -> [EXPR Type] -> PosEnds -> SSAState (Env, Errors, Call Type, Type)
+
+parseFunction env errs (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) NoParams t pargs posEnds = 
+    return (env, errs, (CallArgs tkId pargs ), t )
+
+parseFunction env errs (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) (Params prms) t pargs posEnds = 
+    return (
+        env, 
+        ("Error at " ++ show tokpos ++ " in function "++tokid++": mismatch in number of arguments"):errs, 
+        (CallArgs tkId pargs ), 
+        (TypeBaseType BaseType_error) 
+        )
+
+parseFunction env errs (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) NoParams t pargs posEnds = return (
+    env, 
+    ("Error at " ++ show tokpos ++ " in function "++tokid++": mismatch in number of arguments"):errs, 
+    (CallArgs tkId (pargs++args) ), 
+    (TypeBaseType BaseType_error) 
+    )
+
+parseFunction env errs (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) (Params (prm:prms) ) t pargs posEnds = do
+    (env2, err2, args2, compatible, pargs2) <- compareArguments env errs posEnds args prm True pargs
+    
     newparams <- case prms of
                     [] -> return NoParams
                     _ -> return (Params prms)
     if compatible
         then
-            parseFunction env2 err2 (CallArgs tkId args2 ) newparams t pargs2
+            parseFunction env2 err2 (CallArgs tkId args2 ) newparams t pargs2 posEnds
         else
-            parseFunction env2 err2 (CallArgs tkId args2 ) newparams (TypeBaseType BaseType_error) pargs2
+            parseFunction env2 err2 (CallArgs tkId args2 ) newparams (TypeBaseType BaseType_error) pargs2 posEnds
+      
         
 
-parseProcedure :: Env -> Errors -> Call Type -> Prms -> [EXPR Type] -> SSAState (Env, Errors, Call Type, Type)
-parseProcedure env errs (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) NoParams pargs = return (env, errs, (CallArgs tkId pargs ), (TypeBaseType BaseType_void) )
-parseProcedure env errs (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) (Params prms) pargs = return (env, ("Error at " ++ show tokpos ++ " in procedure "++tokid++": mismatch in number of arguments"):errs, (CallArgs tkId pargs ), (TypeBaseType BaseType_error) )
-parseProcedure env errs (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) NoParams pargs = return (env, ("Error at " ++ show tokpos ++ " in procedure "++tokid++": mismatch in number of arguments"):errs, (CallArgs tkId (pargs++args) ), (TypeBaseType BaseType_error) )
-parseProcedure env errs (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) (Params (prm:prms) ) pargs = do
-    (env2, err2, args2, compatible, pargs2) <- compareArguments env errs tokpos args prm True pargs
+parseProcedure :: Env -> Errors -> Call Type -> Prms -> [EXPR Type] -> PosEnds -> SSAState (Env, Errors, Call Type, Type)
+parseProcedure env errs (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) NoParams pargs posEnds = 
+    return (
+        env, 
+        errs, 
+        (CallArgs tkId pargs ), 
+        (TypeBaseType BaseType_void)
+        )
+
+parseProcedure env errs (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) (Params prms) pargs posEnds = 
+    return (
+        env, 
+        ("Error at " ++ show tokpos ++ " in procedure "++tokid++": mismatch in number of arguments"):errs, 
+        (CallArgs tkId pargs ), 
+        (TypeBaseType BaseType_error) 
+        )
+
+parseProcedure env errs (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) NoParams pargs posEnds = 
+    return (
+        env, 
+        ("Error at " ++ show tokpos ++ " in procedure "++tokid++": mismatch in number of arguments"):errs, 
+        (CallArgs tkId (pargs++args) ), 
+        (TypeBaseType BaseType_error) 
+        )
+
+parseProcedure env errs (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) (Params (prm:prms) ) pargs posEnds = do
+    (env2, err2, args2, compatible, pargs2) <- compareArguments env errs posEnds args prm True pargs
     newparams <- case prms of
                 [] -> return NoParams
                 _ -> return $ Params prms
     if compatible
         then
-            parseProcedure env2 err2 (CallArgs tkId args2 ) newparams pargs2
+            parseProcedure env2 err2 (CallArgs tkId args2 ) newparams pargs2 posEnds
         else
-            parseProcedure env2 (("Error at " ++ show tokpos ++ ": arguments not compatible"):err2) (CallArgs tkId args ) newparams pargs2
+            parseProcedure env2 (("Error at " ++ show tokpos ++ ": arguments not compatible"):err2) (CallArgs tkId args ) newparams pargs2 posEnds
 
 
 -- Parses arguments of the same type defined together and print accurate error messages with position of arguments
 -- Boolean parameter keeps track of whether all arguments are of correct type, Last list of expressions are function call arguments type casted if needed
-compareArguments :: Env -> Errors -> Position -> [EXPR Type] -> Prm -> Bool -> [EXPR Type] -> SSAState (Env, Errors, [EXPR Type], Bool, [EXPR Type])
+compareArguments :: Env -> Errors -> PosEnds -> [EXPR Type] -> Prm -> Bool -> [EXPR Type] -> SSAState (Env, Errors, [EXPR Type], Bool, [EXPR Type])
 compareArguments env errs p [] (Param _ [] t) comp pargs = return (env, errs, [], comp, pargs)
 compareArguments env errs p args (Param _ [] t) comp pargs = return (env, errs, args, comp, pargs)
 compareArguments env errs p [] (Param _ toks t) comp pargs = return (env, errs, [], False, pargs)
+
 compareArguments env errs p (expr:args) (Param m ((IdElement (TokIdent (_,parid))):toks) t) comp pargs = do
-    (env2, err2, parsedexpr, posEnds) <- parseExpression env errs expr
+    --(env2, err2, parsedexpr, posEnds) <- parseExpression env errs expr
+    
     -- confronto tra parametri, diversi casi: 1) int to real, 2) real to int, 3) incompatibile --TODO: type casting CharToString?
-    if (getTypeFromExpression parsedexpr) == t
+    if argExprType == t
         then
-            compareArguments env2 err2 p args (Param m toks t) comp (pargs++[parsedexpr])
+            compareArguments env errs p args (Param m toks t) comp (pargs++[expr])
         else
-            case ((getTypeFromExpression parsedexpr),t) of
-                (TypeBaseType BaseType_integer, TypeBaseType BaseType_real) -> compareArguments env2 err2 p args (Param m toks t) comp (pargs++[(IntToReal parsedexpr)])
-                (TypeBaseType BaseType_char, TypeBaseType BaseType_string) -> compareArguments env2 err2 p args (Param m toks t) comp (pargs++[(CharToString parsedexpr)])
-                _ -> compareArguments env2 (("Error at "++ show p ++": parameter "++ parid ++" is assigned type " ++ show (getTypeFromExpression parsedexpr) ++ " but it should be of type " ++ show t):err2) p args (Param m toks t) False (pargs++[parsedexpr])
-            
+            case (argExprType, t) of
+                
+                (TypeBaseType BaseType_integer, TypeBaseType BaseType_real) -> 
+                    compareArguments env errs p args (Param m toks t) comp (pargs++[(IntToReal expr)])
+                
+                (TypeBaseType BaseType_char, TypeBaseType BaseType_string) -> 
+                    compareArguments env errs p args (Param m toks t) comp (pargs++[(CharToString expr)])
+                
+                _ -> compareArguments env (("Error at "++ show p ++": parameter "++ parid ++" is assigned type " ++ show argExprType ++ " but it should be of type " ++ show t):errs) p args (Param m toks t) False (pargs++[expr])
+    where
+        argExprType = getTypeFromExpression expr
         
+
 parseBinaryBooleanExpression :: Env -> Errors -> BinaryOperator -> EXPR infType -> EXPR infType -> SSAState (Env, Errors, EXPR Type, PosEnds)
 parseBinaryBooleanExpression env errs op exp1 exp2 = do
     (env2, errs2, parsedexp1, posEndsL) <- parseExpression env errs exp1
