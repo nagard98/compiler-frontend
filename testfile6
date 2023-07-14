@@ -1,0 +1,9 @@
+program TACTest;
+
+var b : integer;
+var c : char;
+
+begin
+    c := 'k';
+    b := c + 33;
+end.
