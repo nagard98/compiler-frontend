@@ -5,7 +5,6 @@ module TypeChecker where
 import AbsGrammar
 import Env
 import Text.Parsec (parserReturn)
-import Data.Text.Array (new)
 import HelperTAC
 import Control.Monad.State.Strict
 import Debug.Trace
@@ -27,7 +26,7 @@ instance Show PosEnds where {
 --se volete risolvere voi il problema, scrivete su Whatsapp; altrimenti lo farò io quando avrò tempo
 
 launchStatSemAnalysis :: P env infType -> (Env, Errors, P Env Type)
-launchStatSemAnalysis tree = evalState (parseTree tree emptyEnv {-defaultEnv-} emptyErrors) (SSAStateStruct {idCount = 0, errors=[]})
+launchStatSemAnalysis tree = evalState (parseTree tree emptyEnv {-defaultEnv-} emptyErrors) (SSAStateStruct {idCount = 0, errors=[], unInitVars=emptyEnv})
 
 -- Type Checking starting point
 parseTree :: P env infType -> Env -> Errors -> SSAState (Env, Errors, P Env Type)

@@ -10,7 +10,8 @@ type SSAState = State SSAStateStruct
 
 data SSAStateStruct = SSAStateStruct {
     idCount :: Int,
-    errors :: [String]
+    errors :: [String],
+    unInitVars :: Env
 }
 
 -- This is the global environment.
