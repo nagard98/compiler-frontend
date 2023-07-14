@@ -667,16 +667,19 @@ parseFunction env errs (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) NoParams 
     )
 
 parseFunction env errs (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) (Params (prm:prms) ) t pargs posEnds = do
-    (env2, err2, args2, compatible, pargs2) <- compareArguments env errs posEnds args prm True pargs
+    (env2, err2, args2, pargs2) <- compareArguments env errs posEnds args prm pargs
     
     newparams <- case prms of
                     [] -> return NoParams
                     _ -> return (Params prms)
-    if compatible
+
+    parseFunction env2 err2 (CallArgs tkId args2 ) newparams t pargs2 posEnds
+
+    {-if compatible
         then
             parseFunction env2 err2 (CallArgs tkId args2 ) newparams t pargs2 posEnds
         else
-            parseFunction env2 err2 (CallArgs tkId args2 ) newparams (TypeBaseType BaseType_error) pargs2 posEnds
+            parseFunction env2 err2 (CallArgs tkId args2 ) newparams (TypeBaseType BaseType_error) pargs2 posEnds-}
       
         
 
@@ -706,42 +709,47 @@ parseProcedure env errs (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) NoParams
         )
 
 parseProcedure env errs (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) (Params (prm:prms) ) pargs posEnds = do
-    (env2, err2, args2, compatible, pargs2) <- compareArguments env errs posEnds args prm True pargs
+    (env2, err2, args2, pargs2) <- compareArguments env errs posEnds args prm pargs
     newparams <- case prms of
                 [] -> return NoParams
                 _ -> return $ Params prms
-    if compatible
+
+    parseProcedure env2 err2 (CallArgs tkId args2 ) newparams pargs2 posEnds
+
+    {-if compatible
         then
             parseProcedure env2 err2 (CallArgs tkId args2 ) newparams pargs2 posEnds
         else
             parseProcedure env2 (("Error at " ++ show tokpos ++ ": arguments not compatible"):err2) (CallArgs tkId args ) newparams pargs2 posEnds
+-}
+
 
 
 -- Parses arguments of the same type defined together and print accurate error messages with position of arguments
 -- Boolean parameter keeps track of whether all arguments are of correct type, Last list of expressions are function call arguments type casted if needed
-compareArguments :: Env -> Errors -> PosEnds -> [EXPR Type] -> Prm -> Bool -> [EXPR Type] -> SSAState (Env, Errors, [EXPR Type], Bool, [EXPR Type])
-compareArguments env errs p [] (Param _ [] t) comp pargs = return (env, errs, [], comp, pargs)
-compareArguments env errs p args (Param _ [] t) comp pargs = return (env, errs, args, comp, pargs)
-compareArguments env errs p [] (Param _ toks t) comp pargs = return (env, errs, [], False, pargs)
+compareArguments :: Env -> Errors -> PosEnds -> [EXPR Type] -> Prm -> [EXPR Type] -> SSAState (Env, Errors, [EXPR Type], [EXPR Type])
+compareArguments env errs p [] (Param _ [] t) pargs = return (env, errs, [] , pargs)
+compareArguments env errs p args (Param _ [] t) pargs = return (env, errs, args, pargs)
+compareArguments env errs p [] (Param _ toks t) pargs = return (env, errs, [], pargs)
 
-compareArguments env errs p (expr:args) (Param m ((IdElement (TokIdent (parpos@(x,y),parid))):toks) t) comp pargs = do
+compareArguments env errs p (expr:args) (Param m ((IdElement (TokIdent (parpos@(x,y),parid))):toks) t) pargs = do
     --(env2, err2, parsedexpr, posEnds) <- parseExpression env errs expr
     
     -- confronto tra parametri, diversi casi: 1) int to real, 2) real to int, 3) incompatibile --TODO: type casting CharToString?
     if argExprType == t
         then
-            compareArguments env errs p args (Param m toks t) comp (pargs++[expr])
+            compareArguments env errs p args (Param m toks t) (pargs++[expr])
         else
             case (argExprType, t) of
                 
                 (TypeBaseType BaseType_integer, TypeBaseType BaseType_real) -> 
-                    compareArguments env errs p args (Param m toks t) comp (pargs++[(IntToReal expr)])
+                    compareArguments env errs p args (Param m toks t) (pargs++[(IntToReal expr)])
                 
                 (TypeBaseType BaseType_char, TypeBaseType BaseType_string) -> 
-                    compareArguments env errs p args (Param m toks t) comp (pargs++[(CharToString expr)])
+                    compareArguments env errs p args (Param m toks t) (pargs++[(CharToString expr)])
                 
                 --TODO: mettere qui al posto di show expr la funzione che stavi realizzando per stampare espressioni
-                _ -> compareArguments env (("Error at "++ show p ++": the argument "++ {-show expr-}" is of type " ++ show argExprType ++ " but it should be of type " ++ show t ++" as specified by parameter "++ parid ++ " at "++ show parPosEnds):errs) p args (Param m toks t) False (pargs++[expr])
+                _ -> compareArguments env (("Error at "++ show p ++": the argument "++ {-show expr-}" is of type " ++ show argExprType ++ " but it should be of type " ++ show t ++" as specified by parameter "++ parid ++ " at "++ show parPosEnds):errs) p args (Param m toks t) (pargs++[expr])
     where
         argExprType = getTypeFromExpression expr
         parPosEnds = PosEnds{ leftmost = parpos, rightmost = (x, y + length parid)}
