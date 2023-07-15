@@ -2,35 +2,38 @@ program TACTest;
 
 {var arr : array [0..100] of array [0..7] of integer ; 
 {var b, z: integer;
-{var a: real;
+var a: real;
 
-{var u,v,z: real;
+var u,v: real;
 {const pk = 3.14;
 { TODO : valutare perchè non posso passare un int ad una funzione che richede real
-{*function f (k,l : real):real;
+function f (k,l : real):real;
 begin
+    a:=2;
     var o:real;
     procedure g(b,m:real);
     begin
         var x:integer;
         var b: char;
+        x:=5;
     end;
     var y:real;
-    {m(3.2,4.8);
-    return y;
+    return 1.4;
     {TODO: durante static semantic analysis bisogna garantire che ci sia return per le funzioni
 end;
-*}
 
-procedure m (q,h:real);
+
+{*procedure m (q,h:real);
 begin
     {TODO: c'è qualche problema con analisi semantica statica in quanto segna errore qui
     {      dice ["Function m at (19,10) expects a Real to be returned but the expression following the return statement has type Real"]
     var rr:real;
 end;
-
+*}
 
 begin
+    u:=4.909;
+{   a:=2.3;
 {    arr[10][3] := 99;
 {   if b>4+5 and u<7.2 then z:= 55;
 {    while b>4 do z:= 55;
@@ -40,5 +43,5 @@ begin
 {    b := 3;
 {    a := 4.5 * (-b);
 {    z := f(u,v);
-    m('a',4.8)
+{    m(3.2,4.8)
 end.

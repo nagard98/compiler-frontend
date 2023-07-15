@@ -8,6 +8,7 @@ import Text.Parsec (parserReturn)
 import HelperTAC
 import Control.Monad.State.Strict
 import Debug.Trace
+import Data.Map
 
 type Errors = [String]
 emptyErrors :: [String]
@@ -26,17 +27,19 @@ instance Show PosEnds where {
 --se volete risolvere voi il problema, scrivete su Whatsapp; altrimenti lo farò io quando avrò tempo
 
 launchStatSemAnalysis :: P env infType -> (Env, Errors, P Env Type)
-launchStatSemAnalysis tree = evalState (parseTree tree emptyEnv {-defaultEnv-} emptyErrors) (SSAStateStruct {idCount = 0, errors=[], unInitVars=emptyEnv})
+launchStatSemAnalysis tree = evalState (parseTree tree emptyEnv {-defaultEnv-} emptyErrors) (SSAStateStruct {idCount = 0, errors=[], unInitVars= newStack } )
 
 -- Type Checking starting point
 parseTree :: P env infType -> Env -> Errors -> SSAState (Env, Errors, P Env Type)
 parseTree (Prog pBlock dclBlock beBlock _) env errs = do
+    pushNewUninit
     (globEnv, errors1, dBlks) <- parseDclBlocks env errs dclBlock
         -- errors and env are propagated from declaration block into beginEnd Block!
         -- notice that globEnv is the env after parsing declaration blocks
-    (newEnv, newErrors, beBlks) <- parseBEBlock globEnv errors1 beBlock
+    (finalEnv, errors2, beBlks) <- parseBEBlock globEnv errors1 beBlock
+    finalErrors <- popUninit errors2
     
-    return (newEnv, newErrors, Prog pBlock dBlks beBlks globEnv)
+    return (finalEnv, finalErrors, Prog pBlock dBlks beBlks globEnv)
 
 
 -- Navigates syntax tree and saves info about variables type (declared in a Declaration block) in the global environment
@@ -77,7 +80,7 @@ parseDclVrBlock env errors (DclBlockVrBlock (VarBlock vrDefs)) = do
             parseVrDefs :: [VrDef] -> Env -> SSAState Env
             parseVrDefs ((VarDefinition idElements t):vrDefs) env = do
                 -- TODO : probabilmente necessaria gestione errori (ovvero restituire anche errori)
-                (tmpEnv, tmpErrs, _) <- parseIds idElements Modality_val t env []
+                (tmpEnv, tmpErrs, _) <- parseIds idElements Modality_val t env [] True
                 return tmpEnv
             parseVrDefs _ env = return env
                         
@@ -123,16 +126,16 @@ parseDclPcBlock env errors (DclBlockPcBlock pB@(ProcBlock idTok@(TokIdent (pos, 
     pcAddr <- Env.newIdAddr id env
     tmpEnv <- Env.insert id (Procedure pos params pcAddr) env
     (pEnv, pErrs, pPrms) <- parseParams params [] tmpEnv errors
-    (fEnv, fErrs, annBEB) <- parseBEBlock pEnv errors beb
+    (fEnv, fErrs, annBEB) <- parseBEBlock pEnv pErrs beb
 
-    return (tmpEnv, errors, DclBlockPcBlock (ProcBlock idTok params annBEB))
+    return (fEnv, fErrs, DclBlockPcBlock (ProcBlock idTok pPrms annBEB))
 
 
 parseParams :: Prms -> [Prm] -> Env -> Errors -> SSAState (Env, Errors, Prms)
 parseParams prms accPrms env errs = do 
     case prms of
         (Params ( p@(Param mod idList typ):ps )) -> do
-            (tmpEnv, tmpErrs, _) <- parseIds idList mod typ env errs
+            (tmpEnv, tmpErrs, _) <- parseIds idList mod typ env errs False
             (pEnv,pErrs, pPrms) <- parseParams (Params ps) (p:accPrms) tmpEnv tmpErrs
             return (pEnv, pErrs, pPrms)
                 
@@ -141,20 +144,29 @@ parseParams prms accPrms env errs = do
         NoParams -> return (env, errs, prms)
 
 
-parseIds :: [IdElem] -> Modality -> Type -> Env -> Errors -> SSAState (Env, Errors, [IdElem])
-parseIds [] mod typ env errs = return (env, errs, [])
-parseIds ( idElem@(IdElement (TokIdent (pos, id))):ids) mod typ env errs = do
+parseIds :: [IdElem] -> Modality -> Type -> Env -> Errors -> Bool -> SSAState (Env, Errors, [IdElem])
+parseIds [] mod typ env errs _ = return (env, errs, [])
+parseIds ( idElem@(IdElement (TokIdent (pos, id))):ids) mod typ env errs isVar = do
     idAddr <- newIdAddr id env
     tmpEnv <- Env.insert id (VarType mod pos typ idAddr) env
-    (newEnv, newErrs, newIds) <- parseIds ids mod typ tmpEnv errs
-    return (newEnv, errs, idElem:newIds)
+
+    if isVar
+        then do
+            insertVar id (VarType mod pos typ idAddr)
+            (newEnv, newErrs, newIds) <- parseIds ids mod typ tmpEnv errs isVar
+            return (newEnv, errs, idElem:newIds)
+        else do
+            (newEnv, newErrs, newIds) <- parseIds ids mod typ tmpEnv errs isVar
+            return (newEnv, errs, idElem:newIds) 
 
 
 -- parse the begin-end block and check the statements for type errors
 parseBEBlock:: Env -> Errors -> BEBlock env infType -> SSAState (Env, Errors, BEBlock Env Type)
 parseBEBlock env errors (BegEndBlock statements annEnv) = do
+    pushNewUninit
     (newEnv, newErrors, newStatements) <- parseStatements env errors statements
-    return (newEnv, newErrors, BegEndBlock newStatements newEnv)
+    newErrors2 <- popUninit newErrors
+    return (newEnv, newErrors2, BegEndBlock newStatements newEnv)
         
 
 parseStatements:: Env -> Errors -> [Stmt env infType] -> SSAState (Env, Errors, [Stmt Env Type])
@@ -277,12 +289,14 @@ parseReturn (StmtReturn (Ret expr)) env errs = do
 parseAssignment :: EXPR infType -> EXPR infType -> Env -> Errors -> SSAState (Env, Errors, Stmt Env Type)
 parseAssignment expr1 expr2 env errs = case (expr1, expr2) of
             -- Assegno a variabile un letterale
-            ( (BaseExpr (Identifier tId) tp), (ExprLiteral literal) ) -> do
+            ( (BaseExpr (Identifier tId@(TokIdent (_,id))) tp), (ExprLiteral literal) ) -> do
+                removeVar id
                 (env2, errs2, parsedid, posEnds) <- parseExpression env errs (BaseExpr (Identifier tId) tp)
                 parseLitAssignment tId literal env2 errs2 posEnds
             
             -- Assegno a variabile valore espressione generica: 1) parsing dell'espressione e trovo il tipo; 2) controllo compatibilità con letterale in assegnamento
-            ( (BaseExpr (Identifier tId) tp), expr ) -> do
+            ( (BaseExpr (Identifier tId@(TokIdent (_,id))) tp), expr ) -> do
+                removeVar id
                 (env2, errs2, parsedid, posEnds) <- parseExpression env errs (BaseExpr (Identifier tId) tp)
                 (env3, errs3, parsedexpr, posEnds2) <- parseExpression env2 errs2 expr
                 parseIdExprAssignment tId parsedexpr env3 errs3 posEnds --TODO: ricavare il range corretto, anche nei casi successivi
@@ -1049,3 +1063,54 @@ getLitPosEnds (LiteralChar (TokChar (pos@(x,y), val))) = PosEnds {leftmost=pos, 
 getLitPosEnds (LiteralString (TokString (pos@(x,y), val))) = PosEnds {leftmost=pos, rightmost = (x, y + (length val))}
 getLitPosEnds (LiteralBoolean (TokBoolean (pos@(x,y), val))) = PosEnds {leftmost=pos, rightmost = (x, y + (length val))}
 getLitPosEnds (LiteralDouble (TokDouble (pos@(x,y), val))) = PosEnds {leftmost=pos, rightmost = (x, y + (length val))}
+
+
+insertVar :: String -> EnvData -> SSAState ()
+insertVar id entry = do
+    state <- get
+    (locUninit, poppedStack) <- pop $ unInitVars state
+    newLocUninit <- Env.insert id entry locUninit
+    newStack <- push newLocUninit poppedStack
+    put (state {unInitVars = newStack})
+    return ()
+
+removeVar :: String -> SSAState ()
+removeVar id = do
+    state <- get
+    newStack <- recRem id (unInitVars state)
+    put $ state{ unInitVars = newStack }
+    where
+        recRem :: String -> [Env] -> SSAState ([Env])
+        recRem _ [] = return []
+        recRem key (topEnv:rest) = 
+            if member key topEnv 
+                then do
+                    return $ (delete key topEnv):rest
+                else do
+                    recRest <- recRem key rest
+                    return $ topEnv : recRest
+
+
+pushNewUninit :: SSAState()
+pushNewUninit = do
+    state <- get
+    newStack <- push emptyEnv (unInitVars state)
+    put $ state {unInitVars = newStack}
+
+popUninit :: Errors -> SSAState (Errors)
+popUninit errs = do
+    state <- get
+    (locUninit, rest) <- pop $ unInitVars state
+    --traceM $ "\nNum errors "++ show (length locUninit)++"\n"
+    traceM $ "\nAll errors are: " ++show errs ++"\n"
+    newErrs <- makeUninitErrs errs (toList locUninit)
+    put $ state { unInitVars = rest }
+    traceM $ "\nafter errors are: " ++show newErrs ++"\n"
+    return newErrs
+    where
+        makeUninitErrs :: Errors -> [(String, EnvData)] -> SSAState (Errors)
+        makeUninitErrs errs [] = return errs
+        makeUninitErrs errs ((id,(VarType _ pos@(x,y) _ _)):rest) = makeUninitErrs errMsg rest
+            where
+                posEnds = PosEnds { leftmost = pos, rightmost = (x, y + length id) }
+                errMsg = ("Error at " ++ show posEnds ++ ": Variable " ++ id ++ " has never been initialized"): errs 

@@ -29,10 +29,10 @@ concatQSeq :: TACQuadSeq -> TACQuadSeq -> TACQuadSeq
 concatQSeq (TACQuadSeq seq1) (TACQuadSeq seq2) = TACQuadSeq (seq1 DS.>< seq2) 
 
 
-push :: a -> Stack a -> StateTAC (Stack a)
+push :: a -> Stack a -> State b (Stack a)
 push val stack = return $ val:stack
 
-pop :: Stack a -> StateTAC (a, Stack a)
+pop :: Stack a -> State b (a, Stack a)
 pop (val:stack) = return (val, stack)
 pop [] = error "TODO: trying to pop empty stack" 
 
