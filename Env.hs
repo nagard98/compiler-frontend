@@ -17,6 +17,7 @@ data SSAStateStruct = SSAStateStruct {
 -- This is the global environment.
 -- first argument is the key type, second one the value type 
 type Env = Map.Map String EnvData
+
 emptyEnv:: Env
 emptyEnv = Map.empty
 
@@ -24,8 +25,6 @@ emptyEnv = Map.empty
 -- E.g. variable types: the key is the name of the variable, data created using VarType constructor
 -- TODO: create new constructors as needed
 data EnvData =    VarType Modality Position Type Addr
-                --TODO: rimuovere DefaultProc; funz/proc vanno in function o procedure in base a se restituiscono valore o meno
-                | DefaultProc Type
                 | Function Position Prms Type Addr
                 | Procedure Position Prms Addr
                 | Constant Position Type Addr
@@ -34,7 +33,6 @@ data EnvData =    VarType Modality Position Type Addr
 -- data Parameter = Parameter TokIdent Modality Type deriving Show
 
 -- TODO: aggiungere gli altri casi per gestire EnvData
--- TODO: rifare implementazione di procedure default, per le read servono gli argomenti
 -- TODO: aggiunti campo addr ad alcuni tipi di EnvData; stampare anche quelli
 -- make EnvData printable
 instance Show EnvData where
@@ -42,8 +40,6 @@ instance Show EnvData where
     show (VarType mod p (TypeCompType (Pointer t)) adr) = "{variable, " ++ show p ++ ", pointer to " ++ show t ++ "}"
     show (VarType mod p (TypeCompType (Array (TokInteger (_,i1)) (TokInteger (_,i2)) t)) adr) = "{variable, " ++ show p ++ ", Array ["++ i1++".."++ i2++ "] of " ++ show t ++ "}"
     show (Constant p (TypeBaseType t) addr) = "{constant, " ++ show p ++ ", " ++ show t ++ "}"
-    show (DefaultProc (TypeBaseType t)) = " default procedure of type " ++ show t -- TODO: why two implementation of DefaultProc?
-    show (DefaultProc t) = " default procedure of type " ++ show t
     show (Function p prms tp _) = "{function, " ++ show p ++ ", " ++ show prms ++ ", " ++ show tp ++ "}"
     show (Procedure p prms _) = "{procedure, " ++ show p ++ ", " ++ show prms ++  "}"
     show (Return t _ _) = "{exected return type: " ++ show t  ++ "}" 
@@ -52,14 +48,14 @@ instance Show EnvData where
     show _ = "CANT_SHOW. IMPLEMENT ME!"
 
 -- Initial environment with default procedures
-defaultEnv = foldl1 Map.union [ Map.singleton "writeInt" (DefaultProc (TypeBaseType BaseType_void) ),
-                                  Map.singleton "writeReal" (DefaultProc (TypeBaseType BaseType_void) ),
-                                  Map.singleton "writeChar" (DefaultProc (TypeBaseType BaseType_void) ),
-                                  Map.singleton "writeString" (DefaultProc (TypeBaseType BaseType_void) ),
-                                  Map.singleton "readInt" (DefaultProc (TypeBaseType BaseType_integer) ),
-                                  Map.singleton "readReal" (DefaultProc (TypeBaseType BaseType_real) ),
-                                  Map.singleton "readChar" (DefaultProc (TypeBaseType BaseType_char) ),
-                                  Map.singleton "readString" (DefaultProc (TypeBaseType BaseType_string) )]
+defaultEnv = foldl1 Map.union [ Map.singleton "writeInt" (Procedure (0,0) (Params [Param Modality_val [IdElement (TokIdent ((0,0),"val"))] (TypeBaseType BaseType_integer)]) (ProgVar "writeInt") ),
+                                  Map.singleton "writeReal" (Procedure (0,0) (Params [Param Modality_val [IdElement (TokIdent ((0,0),"val"))] (TypeBaseType BaseType_real)]) (ProgVar "writeReal") ),
+                                  Map.singleton "writeChar" (Procedure (0,0) (Params [Param Modality_val [IdElement (TokIdent ((0,0),"val"))] (TypeBaseType BaseType_char)]) (ProgVar "writeChar") ),
+                                  Map.singleton "writeString" (Procedure (0,0) (Params [Param Modality_val [IdElement (TokIdent ((0,0),"val"))] (TypeBaseType BaseType_string)]) (ProgVar "writeString") ),
+                                  Map.singleton "readInt" (Procedure (0,0) (Params [Param Modality_ref [IdElement (TokIdent ((0,0),"val"))] (TypeBaseType BaseType_integer)]) (ProgVar "readInt") ),
+                                  Map.singleton "readReal" (Procedure (0,0) (Params [Param Modality_ref [IdElement (TokIdent ((0,0),"val"))] (TypeBaseType BaseType_real)]) (ProgVar "readReal") ),
+                                  Map.singleton "readChar" (Procedure (0,0) (Params [Param Modality_ref [IdElement (TokIdent ((0,0),"val"))] (TypeBaseType BaseType_char)]) (ProgVar "readChar") ),
+                                  Map.singleton "readString" (Procedure (0,0) (Params [Param Modality_ref [IdElement (TokIdent ((0,0),"val"))] (TypeBaseType BaseType_string)]) (ProgVar "readString") ) ]
 
 
 -- TODO : aggiungere generazione warning quando un identificatore nel env viene sovrascritto? Forse bisogna passare

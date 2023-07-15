@@ -17,4 +17,5 @@ end;
 
 begin
     a := f(3.2,5.4);
+    writeInt(5);
 end.

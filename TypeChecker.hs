@@ -23,11 +23,9 @@ instance Show PosEnds where {
     show (PosEnds leftmost rightmost) = show leftmost ++"-"++ show rightmost
 }
 
---TODO: per come è implementato ora, non supportiamo la mutua ricorsione (che è obbligatoria)
---se volete risolvere voi il problema, scrivete su Whatsapp; altrimenti lo farò io quando avrò tempo
 
 launchStatSemAnalysis :: P env infType -> (Env, Errors, P Env Type)
-launchStatSemAnalysis tree = evalState (parseTree tree emptyEnv {-defaultEnv-} emptyErrors) (SSAStateStruct {idCount = 0, errors=[], unInitVars= newStack } )
+launchStatSemAnalysis tree = evalState (parseTree tree defaultEnv emptyErrors) (SSAStateStruct {idCount = 0, errors=[], unInitVars= newStack } )
 
 -- Type Checking starting point
 parseTree :: P env infType -> Env -> Errors -> SSAState (Env, Errors, P Env Type)
@@ -697,11 +695,7 @@ parseCall env errs call@(CallArgs tkId@(TokIdent (tokpos@(x,y),tokid)) args ) = 
             --TODO: implementare ritorno posEnds da parseProcedure
             (env, errs, clType, tp) <- parseProcedure env2 errs2 (CallArgs tkId parsedargs) parameters [] posEndsToken{rightmost = rightmost posEndsArgs}
             return (env, errs, clType, tp, posEndsToken)
-        
-        --TODO:rimuovere DefaultProc
-        Just (DefaultProc t) -> do
-            return (env2, errs2, (CallArgs tkId parsedargs ), t, posEndsToken  ) --TODO: refactoring procedure default nell'environment
-        
+
         Just (Constant pos t addr) -> do
             return (
                 env2, 
@@ -1140,11 +1134,8 @@ popUninit :: Errors -> SSAState (Errors)
 popUninit errs = do
     state <- get
     (locUninit, rest) <- pop $ unInitVars state
-    --traceM $ "\nNum errors "++ show (length locUninit)++"\n"
-    traceM $ "\nAll errors are: " ++show errs ++"\n"
     newErrs <- makeUninitErrs errs (toList locUninit)
     put $ state { unInitVars = rest }
-    traceM $ "\nafter errors are: " ++show newErrs ++"\n"
     return newErrs
     where
         makeUninitErrs :: Errors -> [(String, EnvData)] -> SSAState (Errors)
