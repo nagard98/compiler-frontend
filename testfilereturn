@@ -16,4 +16,10 @@ begin
     begin 
         num:=10;
     end;
+
+    {This procedure so return statement should not be checked and an error should be returned}
+    procedure testP (h:real);
+    begin
+       return 1;
+    end;
 end.
