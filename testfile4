@@ -4,17 +4,27 @@ program HelloMath;
 var a: array[1..5]of integer; 
 var b: ^real;
 var c: real;
+var d: boolean;
 function sum(x,y: real): real;
 begin return x+y end;
 begin
   {@b := a[3];
-  {@b := sum(@b,a[3]); {test chiamata funzione}
+  {@b := sum(@b,a[3],true); {test chiamata funzione}
   {var aa: array [1..5] of array [1..5] of integer;
   {aa[3] := a;
   {sum(1,true);
 
-  @b := not true;
+  {@b := not true;
   
+  d := (@a)[1]>1;
+    
+{*
+  {Test loop
+  while 1+true do
+  begin
+    c := 1.0;
+  end;
+*}  
 {*
   {Test type casting char->string
   var s: string;
