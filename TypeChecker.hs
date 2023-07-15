@@ -24,8 +24,9 @@ instance Show PosEnds where {
 }
 
 
--- need to pass this values to parseBEBlock based on the calling function
--- this is needed for example to know if a Return statement is inside a function (ok) or a procedure (error)
+-- Each Begin-End block is annotated with one of this values from the function calling parseBEBlock
+-- For example, this infomation is further passed to parseStatement, so we can check  
+-- if a Return statement is inside a function (ok) or a procedure (error)
 data BlockType = GlobalBlk | FunctionBlk | ProcedureBlk | AnonymousBlk deriving (Eq, Show)
 
 
@@ -214,8 +215,9 @@ parseStatement stmt env errs blkType = case stmt of
                 FunctionBlk -> parseReturn (StmtReturn (Ret expr)) env errs
                 _ -> do
                     -- if the return statement is not in a function block we only parse the expression following it
-                     (newEnv, errs1, parsedExpr, _) <- parseExpression env errs expr
-                     let newErrs = "ERROR: found a return statment at (TODO: implmement statement position) but this is not a function block" :errs1
+                     (newEnv, errs1, parsedExpr, posEnds) <- parseExpression env errs expr
+                     let rowNum = fst (leftmost posEnds)
+                     let newErrs = ("ERROR at row " ++ show rowNum ++ ". This return statement is not a direct child of the begin-end block of a function") :errs1
                      return (newEnv, newErrs, (StmtReturn (Ret parsedExpr)))
 
             -- Select

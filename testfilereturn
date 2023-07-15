@@ -12,14 +12,32 @@ begin
     begin return num+1; end;
 
     {This function is missing the return statement!}
-    function inc3 (num: integer) : boolean;
+    function fun (num: integer) : boolean;
     begin 
         num:=10;
     end;
 
-    {This procedure so return statement should not be checked and an error should be returned}
+    {This is procedure so return statement should not be checked and an error should be returned}
     procedure testP (h:real);
     begin
        return 1;
+    end;
+  
+    {Return statements are valid only when direct childs of a BeginEnd function block}
+    {so this function is not correct because return statements are inside if-else branches}  
+    function fun2 (a: integer) : integer;
+    begin 
+        if a>0 then 
+            return 0
+        else return 1;
+    end;
+
+    function fun2 (a: integer) : integer;
+    begin 
+        var result: integer;
+        if a>0 then 
+            result:= 0
+        else result:= 1;
+        return result
     end;
 end.
