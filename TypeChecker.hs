@@ -33,105 +33,130 @@ launchStatSemAnalysis tree = evalState (parseTree tree emptyEnv {-defaultEnv-} e
 parseTree :: P env infType -> Env -> Errors -> SSAState (Env, Errors, P Env Type)
 parseTree (Prog pBlock dclBlock beBlock _) env errs = do
     pushNewUninit
-    (globEnv, errors1, dBlks) <- parseDclBlocks env errs dclBlock
+    (globEnv, errors, dBlks) <- parseDclBlocksFirstPass env errs dclBlock
+    (globEnv1, errors1, annBlks) <- parseDclBlocks globEnv errors dBlks
         -- errors and env are propagated from declaration block into beginEnd Block!
         -- notice that globEnv is the env after parsing declaration blocks
     (finalEnv, errors2, beBlks) <- parseBEBlock globEnv errors1 beBlock
     finalErrors <- popUninit errors2
     
-    return (finalEnv, finalErrors, Prog pBlock dBlks beBlks globEnv)
+    return (finalEnv, finalErrors, Prog pBlock annBlks beBlks globEnv)
+
+-- Navigates syntax tree and saves info about variables type (declared in a Declaration block) in the global environment
+parseDclBlocksFirstPass:: Env -> Errors -> [DclBlock env infType] -> SSAState (Env, Errors, [DclBlock env infType])
+parseDclBlocksFirstPass env errors [] = return (env, errors, [])
+parseDclBlocksFirstPass env errors (x:xs) = do
+    (env1, errors1, newBlock) <- parseSingleDclBlockFirstPass env errors x
+    (finalEnv, finalErrors, newBlocks) <- parseDclBlocksFirstPass env1 errors1 xs
+    return (finalEnv, finalErrors, newBlock : newBlocks)
+    where
+        -- TODO: make sure errores are updated after parsing declaration blocks
+        -- e.g. redefining a variable could produce a warning and redefinig a constant an error
+        parseSingleDclBlockFirstPass :: Env -> Errors -> DclBlock env infType -> SSAState (Env, Errors, DclBlock env infType)
+        parseSingleDclBlockFirstPass env errors blk = case blk of
+            DclBlockVrBlock _ -> parseDclVrBlockFirstPass env errors blk
+            DclBlockCsBlock _ -> parseDclCsBlockFirstPass env errors blk
+            -- TODO: pass global environment to begin-end block and parse inner statemets
+            DclBlockFcBlock _ -> parseDclFcBlockFirstPass env errors blk
+            DclBlockPcBlock _ -> parseDclPcBlockFirstPass env errors blk
 
 
 -- Navigates syntax tree and saves info about variables type (declared in a Declaration block) in the global environment
 parseDclBlocks:: Env -> Errors -> [DclBlock env infType] -> SSAState (Env, Errors, [DclBlock Env Type])
+parseDclBlocks env errors [] = return (env, errors, [])
 parseDclBlocks env errors (x:xs) = do
     (env1, errors1, newBlock) <- parseSingleDclBlock env errors x
     (finalEnv, finalErrors, newBlocks) <- parseDclBlocks env1 errors1 xs
     return (finalEnv, finalErrors, newBlock : newBlocks)
-        
-parseDclBlocks env errors [] = return (env, errors, [])
-
- -- TODO: make sure errores are updated after parsing declaration blocks
- -- e.g. redefining a variable could produce a warning and redefinig a constant an error
-parseSingleDclBlock :: Env -> Errors -> DclBlock env infType -> SSAState (Env, Errors, DclBlock Env Type)
-parseSingleDclBlock env errors blk = case blk of
-
-    DclBlockVrBlock _ -> parseDclVrBlock env errors blk --return (newEnv, errors, DclBlockVrBlock (VarBlock vrDefs))
-
-    -- add info about constants to the environment
-    DclBlockCsBlock _ -> parseDclCsBlock env errors blk
-
-    -- add info about functions to the environment
-    -- info are: function position, function name, parameters, return type
-    -- TODO: pass global environment to begin-end block and parse inner statemets
-    DclBlockFcBlock _ -> parseDclFcBlock env errors blk
-
-    -- add info about procedures to the environment. Same as functions but without return type
-    DclBlockPcBlock _ -> parseDclPcBlock env errors blk
+    where
+        -- TODO: make sure errores are updated after parsing declaration blocks
+        -- e.g. redefining a variable could produce a warning and redefinig a constant an error
+        parseSingleDclBlock :: Env -> Errors -> DclBlock env infType -> SSAState (Env, Errors, DclBlock Env Type)
+        parseSingleDclBlock env errors blk = case blk of
+            DclBlockVrBlock (VarBlock vrDefs) -> return (env, errors, DclBlockVrBlock (VarBlock vrDefs))
+            DclBlockCsBlock (ConstBlock csDefs) -> return (env, errors, DclBlockCsBlock (ConstBlock csDefs)) 
+            -- TODO: pass global environment to begin-end block and parse inner statemets
+            DclBlockFcBlock _ -> parseDclFcBlock env errors blk
+            DclBlockPcBlock _ -> parseDclPcBlock env errors blk
 
 
-parseDclVrBlock :: Env -> Errors -> DclBlock env infType -> SSAState (Env, Errors, DclBlock Env Type)
-parseDclVrBlock env errors (DclBlockVrBlock (VarBlock vrDefs)) = do
+parseDclVrBlockFirstPass :: Env -> Errors -> DclBlock env infType -> SSAState (Env, Errors, DclBlock env infType)
+parseDclVrBlockFirstPass env errors (DclBlockVrBlock (VarBlock vrDefs)) = do
     newEnv <- parseVrDefs vrDefs env;
     -- add info about variables to the environment
     return (newEnv, errors, DclBlockVrBlock (VarBlock vrDefs))
         where
             -- savese info about variables type in env 
             parseVrDefs :: [VrDef] -> Env -> SSAState Env
+            parseVrDefs [] env = return env
             parseVrDefs ((VarDefinition idElements t):vrDefs) env = do
                 -- TODO : probabilmente necessaria gestione errori (ovvero restituire anche errori)
                 (tmpEnv, tmpErrs, _) <- parseIds idElements Modality_val t env [] True
                 return tmpEnv
-            parseVrDefs _ env = return env
-                        
-parseDclCsBlock :: Env -> Errors -> DclBlock env infType -> SSAState (Env, Errors, DclBlock Env Type)
-parseDclCsBlock env errors (DclBlockCsBlock (ConstBlock csDefs)) = do 
+            
+
+-- add info about constants to the environment          
+parseDclCsBlockFirstPass :: Env -> Errors -> DclBlock env infType -> SSAState (Env, Errors, DclBlock env infType)
+parseDclCsBlockFirstPass env errors (DclBlockCsBlock (ConstBlock csDefs)) = do 
     newEnv <- parseConsDefs csDefs env
     return (newEnv, errors, DclBlockCsBlock (ConstBlock csDefs))
         where
             -- saves info about constants type in env 
             parseConsDefs :: [CsDef] -> Env -> SSAState Env
+            parseConsDefs [] env = return env
             parseConsDefs ((ConstDefinition (IdElement (TokIdent (pos, id))) literal):cs) env = do 
                 tmpEnv <- Env.insert id (Constant pos (TypeBaseType (getTypeFromLiteral literal)) (TacLit (makeTACLit literal))) env
                 parseConsDefs cs tmpEnv;
-            parseConsDefs _ env = return env
             
 
-parseDclFcBlock :: Env -> Errors -> DclBlock env infType -> SSAState (Env, Errors, DclBlock Env Type)
-parseDclFcBlock env errors (DclBlockFcBlock fB@(FuncBlock idTok@(TokIdent (pos, id)) params retType beb)) = do 
+-- add info about functions to the environment
+-- info are: function position, function name, parameters, return type
+parseDclFcBlockFirstPass :: Env -> Errors -> DclBlock env infType -> SSAState (Env, Errors, DclBlock env infType)
+parseDclFcBlockFirstPass env errors dcBlockFc@(DclBlockFcBlock (FuncBlock (TokIdent (pos, id)) params retType beb)) = do 
     fcAddr <- Env.newIdAddr id env
 
     -- add to env return type (needed for type checking of the return statement) and function info
     -- IMPORTANT NOTE: env must be the secondo argument of mergeEnvs, otherwise the new "return" key will not be updated
     -- this is because the underlying function union (t1, t2) of Data.Map prefers t1 when duplicated keys are encountered
     tmpEnv <- Env.mergeEnvs (Env.fromList [(id, Function pos params retType fcAddr), ("return", Return retType id pos)]) env
+    (tmpEnv1, tmpErrors1, parsedParams) <- parseParams params [] tmpEnv errors
+    return (tmpEnv1, tmpErrors1, dcBlockFc)
 
+
+parseDclFcBlock :: Env -> Errors -> DclBlock env infType -> SSAState (Env, Errors, DclBlock Env Type)
+parseDclFcBlock env errors (DclBlockFcBlock fB@(FuncBlock idTok@(TokIdent (pos, id)) params retType beb)) = do 
     -- check if function body contains a return statement
     errors1 <- if hasReturnStmt beb then 
         return errors 
         else return (("Missing return statement: body of function " ++ id ++ " at " ++ show pos ++ " does not contain a return statement"):errors)
     
-    (tmpEnv2, tmpErrors2, annotatedParams) <- parseParams params [] tmpEnv errors1
-    (finalEnv, finalErrors, annotatedBEB) <- parseBEBlock tmpEnv2 tmpErrors2 beb
-
+    (finalEnv, finalErrors, annotatedBEB) <- parseBEBlock env errors1 beb
     return (finalEnv, finalErrors, DclBlockFcBlock (FuncBlock idTok params retType annotatedBEB))
 
-hasReturnStmt :: BEBlock env infType -> Bool
-hasReturnStmt (BegEndBlock stmts env) = do
-    case stmts of
-        [] ->  False
-        (x:xs) -> case x of
-            (StmtReturn _) -> True -- return statement found
-            _ -> hasReturnStmt (BegEndBlock xs env) -- check next statement
+    where        
+        hasReturnStmt :: BEBlock env infType -> Bool
+        hasReturnStmt (BegEndBlock stmts env) = do
+            case stmts of
+                [] ->  False
+                (x:xs) -> case x of
+                    (StmtReturn _) -> True -- return statement found
+                    _ -> hasReturnStmt (BegEndBlock xs env) -- check next statement
 
-parseDclPcBlock :: Env -> Errors -> DclBlock env infType -> SSAState (Env, Errors, DclBlock Env Type)
-parseDclPcBlock env errors (DclBlockPcBlock pB@(ProcBlock idTok@(TokIdent (pos, id)) params beb)) = do
+
+-- add info about procedures to the environment. Same as functions but without return type
+parseDclPcBlockFirstPass :: Env -> Errors -> DclBlock env infType -> SSAState (Env, Errors, DclBlock env infType)
+parseDclPcBlockFirstPass env errors dclBlockPc@(DclBlockPcBlock (ProcBlock (TokIdent (pos, id)) params beb)) = do
     pcAddr <- Env.newIdAddr id env
     tmpEnv <- Env.insert id (Procedure pos params pcAddr) env
     (pEnv, pErrs, pPrms) <- parseParams params [] tmpEnv errors
-    (fEnv, fErrs, annBEB) <- parseBEBlock pEnv pErrs beb
 
-    return (fEnv, fErrs, DclBlockPcBlock (ProcBlock idTok pPrms annBEB))
+    return (pEnv, pErrs, dclBlockPc)
+
+-- add info about procedures to the environment. Same as functions but without return type
+parseDclPcBlock :: Env -> Errors -> DclBlock env infType -> SSAState (Env, Errors, DclBlock Env Type)
+parseDclPcBlock env errors (DclBlockPcBlock (ProcBlock idTok@(TokIdent (pos, id)) params beb)) = do
+    (fEnv, fErrs, annBEB) <- parseBEBlock env errors beb
+    return (fEnv, fErrs, DclBlockPcBlock (ProcBlock idTok params annBEB))
 
 
 parseParams :: Prms -> [Prm] -> Env -> Errors -> SSAState (Env, Errors, Prms)
@@ -167,12 +192,22 @@ parseIds ( idElem@(IdElement (TokIdent (pos, id))):ids) mod typ env errs isVar =
 parseBEBlock:: Env -> Errors -> BEBlock env infType -> SSAState (Env, Errors, BEBlock Env Type)
 parseBEBlock env errors (BegEndBlock statements annEnv) = do
     pushNewUninit
-    (newEnv, newErrors, newStatements) <- parseStatements env errors statements
+    (tmpEnv, tmpErrors) <- parseStatementsFirstPass env errors statements
+    (newEnv, newErrors, newStatements) <- parseStatements tmpEnv tmpErrors statements
     newErrors2 <- popUninit newErrors
     return (newEnv, newErrors2, BegEndBlock newStatements newEnv)
         
 
-parseStatements:: Env -> Errors -> [Stmt env infType] -> SSAState (Env, Errors, [Stmt Env Type])
+parseStatementsFirstPass :: Env -> Errors -> [Stmt env infType] -> SSAState (Env, Errors)
+parseStatementsFirstPass env errors ((StmtDecl dclBlock):stmts) = do
+    (newEnv, newErrs, tmpDclBlocks) <- parseDclBlocksFirstPass env errors [dclBlock]
+    parseStatementsFirstPass newEnv newErrs stmts
+
+parseStatementsFirstPass env errors (_:stmts) = parseStatementsFirstPass env errors stmts
+parseStatementsFirstPass env errors _ = return (env,errors)
+
+
+parseStatements :: Env -> Errors -> [Stmt env infType] -> SSAState (Env, Errors, [Stmt Env Type])
 parseStatements env errors [] = return (env, errors, [])
 parseStatements env errors allStmts =  q env errors allStmts []
         where
@@ -188,8 +223,8 @@ parseStatement stmt env errs = case stmt of
             -- tipologie di statement: dichiarazione, blocco, assegnamento, chiamata funzione, if-else, iterazione, return
             -- Dichiarazione
             (StmtDecl dclblock) -> do
-                (env2, err2, block) <- parseSingleDclBlock env errs dclblock
-                return (env2, err2, (StmtDecl block))
+                (env2, err2, blocks) <- parseDclBlocks env errs [dclblock]
+                return (env2, err2, (StmtDecl (head blocks)))
                     
             -- Blocco
             (StmtComp beblock) -> do
@@ -1066,6 +1101,7 @@ getLitPosEnds (LiteralChar (TokChar (pos@(x,y), val))) = PosEnds {leftmost=pos, 
 getLitPosEnds (LiteralString (TokString (pos@(x,y), val))) = PosEnds {leftmost=pos, rightmost = (x, y + (length val))}
 getLitPosEnds (LiteralBoolean (TokBoolean (pos@(x,y), val))) = PosEnds {leftmost=pos, rightmost = (x, y + (length val))}
 getLitPosEnds (LiteralDouble (TokDouble (pos@(x,y), val))) = PosEnds {leftmost=pos, rightmost = (x, y + (length val))}
+
 
 
 insertVar :: String -> EnvData -> SSAState ()
