@@ -24,7 +24,7 @@ import ParGrammar   ( pP, myLexer )
 import PrintGrammar ( Print, printTree )
 import PrintTAC
 import SkelGrammar  ()
-import TypeChecker ( launchStatSemAnalysis, emptyErrors) -- includere Type Checker
+import TypeChecker ( launchStatSemAnalysis) -- includere Type Checker
 import Env
 import GeneratorTAC
 import Control.Monad.State.Lazy

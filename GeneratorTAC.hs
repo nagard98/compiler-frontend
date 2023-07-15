@@ -7,7 +7,6 @@ import HelperTAC
 import qualified Data.Sequence as DS
 import System.Process (CreateProcess(env))
 import Data.IntMap (size)
-import TypeChecker (getTypeFromExpression)
 import Debug.Trace (traceM)
 
 
@@ -101,7 +100,7 @@ genVrDcl (AbsGrammar.VarBlock vrDefs) env = do
                 genVrDefIds [] _ = return ()
                 genVrDefIds ((AbsGrammar.IdElement (AbsGrammar.TokIdent (_,id))):ids) env = do
                     case Env.lookup id env of
-                        Just (VarType mod _ tp addr) -> addInstr (TACNulAss addr (getVarDefaultVal tp))
+                        Just (Variable mod _ tp addr) -> addInstr (TACNulAss addr (getVarDefaultVal tp))
                         _ -> error "TODO: genVrDefIds -> id non esiste in env"
                     genVrDefIds ids env
                 
@@ -477,7 +476,7 @@ genBaseExpr expr@(AbsGrammar.BaseExpr bexpr tp) genL env = case bexpr of
 
     (AbsGrammar.Identifier (AbsGrammar.TokIdent (_, id))) -> do
         case Env.lookup id env of
-            Just (Env.VarType AbsGrammar.Modality_val _ idType addr) -> return $ Addr addr
+            Just (Env.Variable AbsGrammar.Modality_val _ idType addr) -> return $ Addr addr
             _ -> error "TODO : genBaseExpr -> gestisci altri casi con diverse modalità"
     
     arr@(AbsGrammar.ArrayElem _ _) -> do

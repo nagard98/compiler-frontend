@@ -6,13 +6,8 @@ import AbsGrammar
 import HelperTAC
 import Control.Monad.State.Strict
 
-type SSAState = State SSAStateStruct
 
-data SSAStateStruct = SSAStateStruct {
-    idCount :: Int,
-    errors :: [String],
-    unInitVars :: Stack Env
-}
+-------------------------Environment----------------------------------------------------------------
 
 -- This is the global environment.
 -- first argument is the key type, second one the value type 
@@ -24,7 +19,7 @@ emptyEnv = Map.empty
 -- Needed for modelling how data of the map entries in Env should be
 -- E.g. variable types: the key is the name of the variable, data created using VarType constructor
 -- TODO: create new constructors as needed
-data EnvData =    VarType Modality Position Type Addr
+data EnvData =    Variable Modality Position Type Addr
                 | Function Position Prms Type Addr
                 | Procedure Position Prms Addr
                 | Constant Position Type Addr
@@ -36,9 +31,9 @@ data EnvData =    VarType Modality Position Type Addr
 -- TODO: aggiunti campo addr ad alcuni tipi di EnvData; stampare anche quelli
 -- make EnvData printable
 instance Show EnvData where
-    show (VarType mod p (TypeBaseType t) adr) = "{variable, " ++ show p ++ ", " ++ show t ++ "}"
-    show (VarType mod p (TypeCompType (Pointer t)) adr) = "{variable, " ++ show p ++ ", pointer to " ++ show t ++ "}"
-    show (VarType mod p (TypeCompType (Array (TokInteger (_,i1)) (TokInteger (_,i2)) t)) adr) = "{variable, " ++ show p ++ ", Array ["++ i1++".."++ i2++ "] of " ++ show t ++ "}"
+    show (Variable mod p (TypeBaseType t) adr) = "{variable, " ++ show p ++ ", " ++ show t ++ "}"
+    show (Variable mod p (TypeCompType (Pointer t)) adr) = "{variable, " ++ show p ++ ", pointer to " ++ show t ++ "}"
+    show (Variable mod p (TypeCompType (Array (TokInteger (_,i1)) (TokInteger (_,i2)) t)) adr) = "{variable, " ++ show p ++ ", Array ["++ i1++".."++ i2++ "] of " ++ show t ++ "}"
     show (Constant p (TypeBaseType t) addr) = "{constant, " ++ show p ++ ", " ++ show t ++ "}"
     show (Function p prms tp _) = "{function, " ++ show p ++ ", " ++ show prms ++ ", " ++ show tp ++ "}"
     show (Procedure p prms _) = "{procedure, " ++ show p ++ ", " ++ show prms ++  "}"
@@ -73,7 +68,7 @@ lookup = Map.lookup
 
 getIdAddr :: String -> Env -> StateTAC Addr
 getIdAddr id env = case lookup id env of
-    Just (VarType _ _ _ addr) -> return addr
+    Just (Variable _ _ _ addr) -> return addr
     Just (Constant _ _ addr) -> return addr
     _ -> error "TODO : errore id non trovato in env per recuper addr; funzione getIdAddr"
 
@@ -99,3 +94,121 @@ getTypeFromLiteral (LiteralString _) = BaseType_string
 getTypeFromLiteral (LiteralBoolean _) = BaseType_boolean
 getTypeFromLiteral (LiteralDouble _) = BaseType_real
 getTypeFromLiteral (LiteralChar _) = BaseType_char
+
+------------------------------------------------------------------------------------------
+
+
+-------------Static Semantic Analysis Utils-----------------------------------------------
+
+type Errors = [String]
+
+emptyErrors :: [String]
+emptyErrors = []
+
+data PosEnds = PosEnds {
+    leftmost :: Position,
+    rightmost :: Position
+}
+
+instance Show PosEnds where {
+    show (PosEnds leftmost rightmost) = show leftmost ++"-"++ show rightmost
+}
+
+type SSAState = State SSAStateStruct
+
+data SSAStateStruct = SSAStateStruct {
+    idCount :: Int,
+    errors :: Errors,
+    unInitVars :: Stack Env
+}
+
+
+-- Returns annotated type for expressions
+getTypeFromExpression :: EXPR Type -> Type
+getTypeFromExpression (UnaryExpression op exp t) = t
+getTypeFromExpression (BinaryExpression op exp1 exp2 t) = t
+getTypeFromExpression (ExprLiteral literal) = (TypeBaseType (getTypeFromLiteral literal) )
+getTypeFromExpression (ExprCall call t) = t
+getTypeFromExpression (BaseExpr bexp t) = t
+getTypeFromExpression (IntToReal _) = TypeBaseType BaseType_real
+getTypeFromExpression (CharToString _) = TypeBaseType BaseType_string
+
+getTypeFromBaseExpression:: BEXPR Type -> Env -> Type
+getTypeFromBaseExpression (Identifier (TokIdent (tokpos, tokid)) ) env = case Env.lookup tokid env of
+    Just (Variable _ _ envType _) -> envType
+    Just (Constant _ envType _) -> envType
+    Just _ -> TypeBaseType BaseType_error
+    Nothing -> TypeBaseType BaseType_error
+getTypeFromBaseExpression (ArrayElem bexpr iexpr) env = getTypeFromExpression bexpr
+
+-- Type compatibility for operations
+sup :: Type -> Type -> Type
+sup t1 t2
+    | t1 == t2 = t1
+    | t1 == (TypeBaseType BaseType_integer) && t2 == (TypeBaseType BaseType_real) = (TypeBaseType BaseType_real)
+    | t1 == (TypeBaseType BaseType_real) && t2 == (TypeBaseType BaseType_integer) = (TypeBaseType BaseType_real)
+    | t1 == (TypeBaseType BaseType_char) && t2 == (TypeBaseType BaseType_string) = (TypeBaseType BaseType_string)
+    | t1 == (TypeBaseType BaseType_string) && t2 == (TypeBaseType BaseType_char) = (TypeBaseType BaseType_string)
+    | otherwise = (TypeBaseType BaseType_error)
+
+
+getLitPosEnds :: Literal -> PosEnds
+getLitPosEnds (LiteralInteger (TokInteger (pos@(x,y), val))) = PosEnds {leftmost=pos, rightmost = (x, y + (length val))}
+getLitPosEnds (LiteralChar (TokChar (pos@(x,y), val))) = PosEnds {leftmost=pos, rightmost = (x, y + (length val))}
+getLitPosEnds (LiteralString (TokString (pos@(x,y), val))) = PosEnds {leftmost=pos, rightmost = (x, y + (length val))}
+getLitPosEnds (LiteralBoolean (TokBoolean (pos@(x,y), val))) = PosEnds {leftmost=pos, rightmost = (x, y + (length val))}
+getLitPosEnds (LiteralDouble (TokDouble (pos@(x,y), val))) = PosEnds {leftmost=pos, rightmost = (x, y + (length val))}
+
+
+
+insertVar :: String -> EnvData -> SSAState ()
+insertVar id entry = do
+    state <- get
+    (locUninit, poppedStack) <- pop $ unInitVars state
+    newLocUninit <- Env.insert id entry locUninit
+    newStack <- push newLocUninit poppedStack
+    put (state {unInitVars = newStack})
+    return ()
+
+removeVar :: String -> SSAState ()
+removeVar id = do
+    state <- get
+    newStack <- recRem id (unInitVars state)
+    put $ state{ unInitVars = newStack }
+    where
+        recRem :: String -> [Env] -> SSAState [Env]
+        recRem _ [] = return []
+        recRem key (topEnv:rest) = 
+            if Map.member key topEnv 
+                then do
+                    return $ (Map.delete key topEnv):rest
+                else do
+                    recRest <- recRem key rest
+                    return $ topEnv : recRest
+
+
+pushNewUninit :: SSAState()
+pushNewUninit = do
+    state <- get
+    newStack <- push emptyEnv (unInitVars state)
+    put $ state {unInitVars = newStack}
+
+popUninit :: SSAState ()
+popUninit = do
+    state <- get
+    (locUninit, rest) <- pop $ unInitVars state
+    newErrs <- makeUninitErrs (Map.toList locUninit)
+    put $ state { unInitVars = rest }
+    where
+        makeUninitErrs :: [(String, EnvData)] -> SSAState ()
+        makeUninitErrs [] = return ()
+        makeUninitErrs ((id,(Variable _ pos@(x,y) _ _)):rest) = do
+            state <- get
+            put $ state { errors = errMsg:(errors state)}
+            makeUninitErrs rest
+            where
+                posEnds = PosEnds { leftmost = pos, rightmost = (x, y + length id) }
+                errMsg = ("Error at " ++ show posEnds ++ ": Variable " ++ id ++ " has never been initialized") 
+
+
+------------------------------------------------------------------------------------------
