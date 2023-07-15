@@ -1,0 +1,20 @@
+{Global variable b and variable y declared in myFun are not initized. This producecs and error}
+
+program HelloInit;
+ var a, b: integer;
+
+function myFun (x: integer): integer;
+begin
+    var y, z: integer;
+    
+    begin
+        z:= 10; {notice how z in declared in the outer block}
+    end;
+
+    x:= 20;
+    return x;
+end;
+
+begin
+    a:= 30;
+end.
