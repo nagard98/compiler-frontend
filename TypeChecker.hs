@@ -106,20 +106,23 @@ parseDclFcBlock env errors (DclBlockFcBlock fB@(FuncBlock idTok@(TokIdent (pos, 
     -- this is because the underlying function union (t1, t2) of Data.Map prefers t1 when duplicated keys are encountered
     tmpEnv <- Env.mergeEnvs (Env.fromList [(id, Function pos params retType fcAddr), ("return", Return retType id pos)]) env
 
-    errors1 <- checkReturnStmt idTok beb errors
+    -- check if function body contains a return statement
+    errors1 <- if hasReturnStmt beb then 
+        return errors 
+        else return (("Missing return statement: body of function " ++ id ++ " at " ++ show pos ++ " does not contain a return statement"):errors)
+    
     (tmpEnv2, tmpErrors2, annotatedParams) <- parseParams params [] tmpEnv errors1
     (finalEnv, finalErrors, annotatedBEB) <- parseBEBlock tmpEnv2 tmpErrors2 beb
 
     return (finalEnv, finalErrors, DclBlockFcBlock (FuncBlock idTok params retType annotatedBEB))
 
--- add "missing return statment" in errors if no return statement is found in begin-end block
-checkReturnStmt :: TokIdent -> BEBlock env infType -> Errors -> SSAState (Errors)
-checkReturnStmt funTok@(TokIdent (pos, id)) (BegEndBlock stmts env) errors = do
+hasReturnStmt :: BEBlock env infType -> Bool
+hasReturnStmt (BegEndBlock stmts env) = do
     case stmts of
-        [] -> return (("Missing return statement: body of function " ++ id ++ " at " ++ show pos ++ " does not contain a return statement"):errors)
+        [] ->  False
         (x:xs) -> case x of
-            (StmtReturn _) -> return errors -- return statement found
-            _ -> checkReturnStmt funTok (BegEndBlock xs env) errors -- check next statement
+            (StmtReturn _) -> True -- return statement found
+            _ -> hasReturnStmt (BegEndBlock xs env) -- check next statement
 
 parseDclPcBlock :: Env -> Errors -> DclBlock env infType -> SSAState (Env, Errors, DclBlock Env Type)
 parseDclPcBlock env errors (DclBlockPcBlock pB@(ProcBlock idTok@(TokIdent (pos, id)) params beb)) = do
