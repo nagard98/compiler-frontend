@@ -27,7 +27,8 @@ data Error =
     ImplicitCasting String String String | --posEnds from to
     CallingConstant String String  | --posEnds idVal
     CallingVariable String String | --posEnds idVal
-    NumOfArgsMissmatch String String String --posEnds fun/proc name
+    NumOfArgsMissmatch String String String | --posEnds fun/proc name
+    TypeMissmatchArgument String String String String String String --posEnds argExpr argTp expectedTp paramId paramPos
 
 instance Show Error where
     show ReturnInMain = "ERROR ReturnInMain: cannot have a return statement in the main begin-end block"
@@ -53,3 +54,4 @@ instance Show Error where
     -- could be merged with the previous one
     show (CallingVariable posStr idVal) = "ERROR CallingVariable at " ++ posStr ++ ": identifier " ++ idVal ++ " is used as a function/procedure but it is a variable"
     show (NumOfArgsMissmatch posStr funOrProc name) = "ERROR NumOfArgsMissmatch at " ++ posStr ++ ": " ++ funOrProc ++ " " ++ name ++ " is called with a wrong number of arguments"
+    show (TypeMissmatchArgument posStr argExpr argTp expectedTp paramId paramPos) = "ERROR TypeMissmatchArgument at " ++ posStr ++ ": argument " ++ argExpr ++ " is of type " ++ argTp ++ " but it is passed to parameter " ++ paramId ++ " of type " ++ expectedTp ++ " at " ++ paramPos
