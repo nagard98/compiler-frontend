@@ -9,11 +9,6 @@ import Control.Monad.State.Strict
 import Debug.Trace
 import Data.Map
 
--- Each Begin-End block is annotated with one of this values from the function calling parseBEBlock
--- For example, this infomation is further passed to parseStatement, so we can check  
--- if a Return statement is inside a function (ok) or a procedure (error)
-data BlockType = GlobalBlk | FunctionBlk | ProcedureBlk | AnonymousBlk deriving (Eq, Show)
-
 launchStatSemAnalysis :: P env infType -> (Env, Errors, P Env Type)
 launchStatSemAnalysis tree = (env, errors finalState, parsedTree)
     where
@@ -28,7 +23,13 @@ parseTree defEnv (Prog pBlock dclBlock beBlock _) = do
     (globEnv1, annBlks) <- parseDclBlocks globEnv dBlks
         -- errors and env are propagated from declaration block into beginEnd Block!
         -- notice that globEnv is the env after parsing declaration blocks
-    (finalEnv, beBlks) <- parseBEBlock globEnv1 beBlock GlobalBlk
+    (finalEnv, beBlks, hasReturn) <- parseBEBlock globEnv1 beBlock
+
+    state <- get
+    if hasReturn  
+        then put $ state{errors = ("ERROR: You cannot have a return statement in the main begin-end block"):(errors state)}   
+        else put $ state{errors = errors state} 
+
     popUninit
     
     return (finalEnv, Prog pBlock annBlks beBlks globEnv)
@@ -117,26 +118,19 @@ parseDclFcBlockFirstPass env dcBlockFc@(DclBlockFcBlock (FuncBlock (TokIdent (po
 
 parseDclFcBlock :: Env -> DclBlock env infType -> SSAState (Env, DclBlock Env Type)
 parseDclFcBlock env (DclBlockFcBlock fB@(FuncBlock idTok@(TokIdent (pos, id)) params retType beb)) = do
-    tmpEnv <-  Env.insert ("return") (Return retType id pos) env
-    state <- get
-    -- check if function body contains a return statement
-    if hasReturnStmt beb 
-        then put $ state{errors = errors state} 
-        else put $ state{errors = errMsg:(errors state)}            
+    tmpEnv <-  Env.insert ("return") (Return retType id pos) env         
     
-    (finalEnv, annotatedBEB) <- parseBEBlock tmpEnv beb FunctionBlk
+    (finalEnv, annotatedBEB, hasAllReturns) <- parseBEBlock tmpEnv beb
+
+    state <- get
+    if hasAllReturns  
+        then put $ state{errors = errors state} 
+        else put $ state{errors = errMsg:(errors state)}   
+
     return (finalEnv, DclBlockFcBlock (FuncBlock idTok params retType annotatedBEB))
 
     where        
         errMsg = ("Missing return statement: body of function " ++ id ++ " at " ++ show pos ++ " does not contain a return statement")
-        hasReturnStmt :: BEBlock env infType -> Bool
-        hasReturnStmt (BegEndBlock stmts env) = do
-            case stmts of
-                [] ->  False
-                (x:xs) -> case x of
-                    (StmtReturn _) -> True -- return statement found
-                    _ -> hasReturnStmt (BegEndBlock xs env) -- check next statement
-
 
 -- add info about procedures to the environment. Same as functions but without return type
 parseDclPcBlockFirstPass :: Env -> DclBlock env infType -> SSAState (Env, DclBlock env infType)
@@ -150,7 +144,12 @@ parseDclPcBlockFirstPass env dclBlockPc@(DclBlockPcBlock (ProcBlock (TokIdent (p
 -- add info about procedures to the environment. Same as functions but without return type
 parseDclPcBlock :: Env -> DclBlock env infType -> SSAState (Env, DclBlock Env Type)
 parseDclPcBlock env (DclBlockPcBlock (ProcBlock idTok@(TokIdent (pos, id)) params beb)) = do
-    (fEnv, annBEB) <- parseBEBlock env beb ProcedureBlk
+    (fEnv, annBEB, hasReturn) <- parseBEBlock env beb
+    state <- get
+    if hasReturn  
+        then put $ state{errors = ("ERROR in procedure " ++ id ++ " at " ++ show pos ++ ": You cannot have a return statement in a procedure"):(errors state)}   
+        else put $ state{errors = errors state} 
+    
     return (fEnv, DclBlockPcBlock (ProcBlock idTok params annBEB))
 
 
@@ -184,13 +183,13 @@ parseIds ( idElem@(IdElement (TokIdent (pos, id))):ids) mod typ env isVar = do
 
 
 -- parse the begin-end block and check the statements for type errors
-parseBEBlock:: Env -> BEBlock env infType -> BlockType -> SSAState (Env, BEBlock Env Type)
-parseBEBlock env (BegEndBlock statements annEnv) blkType = do
+parseBEBlock:: Env -> BEBlock env infType -> SSAState (Env, BEBlock Env Type, Bool)
+parseBEBlock env (BegEndBlock statements annEnv)  = do
     pushNewUninit
     tmpEnv <- parseStatementsFirstPass env statements
-    (newEnv, newStatements) <- parseStatements tmpEnv statements blkType
+    (newEnv, newStatements, hasAllReturns) <- parseStatements tmpEnv statements 
     popUninit
-    return (newEnv, BegEndBlock newStatements newEnv)
+    return (newEnv, BegEndBlock newStatements newEnv, hasAllReturns)
         
 
 parseStatementsFirstPass :: Env -> [Stmt env infType] -> SSAState (Env)
@@ -202,100 +201,106 @@ parseStatementsFirstPass env (_:stmts) = parseStatementsFirstPass env stmts
 parseStatementsFirstPass env _ = return env
 
 
-parseStatements :: Env -> [Stmt env infType] -> BlockType -> SSAState (Env, [Stmt Env Type])
-parseStatements env [] blkType = return (env, [])
-parseStatements env allStmts blkType =  q env allStmts []
+parseStatements :: Env -> [Stmt env infType] -> SSAState (Env, [Stmt Env Type], Bool)
+parseStatements env [] = return (env, [], False)
+parseStatements env allStmts = q env allStmts [] False
         where
-            q::Env -> [Stmt env infType] -> [Stmt Env Type] -> SSAState (Env, [Stmt Env Type])
-            q env [] annStmts = return (env, annStmts)
-            q env (s:xs) annStmts = do
-                (env1, annStmt) <- parseStatement s env blkType
-                q env1 xs (annStmts++[annStmt])
+            q::Env -> [Stmt env infType] -> [Stmt Env Type] -> Bool -> SSAState (Env, [Stmt Env Type], Bool)
+            q env [] annStmts accReturn = return (env, annStmts, accReturn)
+            q env (s:xs) annStmts accReturn = do
+                (env1, annStmt, isReturn) <- parseStatement s env 
+                q env1 xs (annStmts++[annStmt]) (accReturn || isReturn)
 
 
-parseStatement :: Stmt stmtenv infType -> Env -> BlockType ->  SSAState (Env, Stmt Env Type)
-parseStatement stmt env blkType = case stmt of
+parseStatement :: Stmt stmtenv infType -> Env  ->  SSAState (Env, Stmt Env Type, Bool)
+parseStatement stmt env = case stmt of
             -- tipologie di statement: dichiarazione, blocco, assegnamento, chiamata funzione, if-else, iterazione, return
             -- Dichiarazione
             (StmtDecl dclblock) -> do
                 (env2, blocks) <- parseDclBlocks env [dclblock]
-                return (env2, (StmtDecl (head blocks)))
+                return (env2, (StmtDecl (head blocks)), False)
                     
             -- Blocco
             (StmtComp beblock) -> do
-                (env2, block) <- parseBEBlock env beblock blkType
-                return (env2, (StmtComp block))
+                (env2, block, hasAllReturns) <- parseBEBlock env beblock 
+                return (env2, (StmtComp block), hasAllReturns)
 
             -- Assegnamento
-            (StmtAssign expr1 expr2) -> parseAssignment expr1 expr2 env 
+            (StmtAssign expr1 expr2) -> do
+                (env2, parsedStmt) <- parseAssignment expr1 expr2 env 
+                return (env2, parsedStmt, False)
 
             -- Iterazione
-            (StmtIter iter) -> parseIter (StmtIter iter) env blkType
+            (StmtIter iter) -> parseIter (StmtIter iter) env 
 
             -- Return
-            (StmtReturn return)  -> parseReturn (StmtReturn return) env 
+            (StmtReturn rt)  -> do
+                (env2, parsedStmt) <- parseReturn (StmtReturn rt) env 
+                return (env2, parsedStmt, True)
 
             -- Select
-            (StmtSelect sel) -> parseSelection (StmtSelect sel) env blkType
+            (StmtSelect sel) -> parseSelection (StmtSelect sel) env 
 
             -- Chiamata funzione
-            (StmtCall call) -> parseStatementCall env call
+            (StmtCall call) -> do
+                (env2, parsedStmt) <- parseStatementCall env call
+                return (env2, parsedStmt, False)
 
 
-parseIter :: Stmt env infType -> Env -> BlockType -> SSAState (Env, Stmt Env Type)
+parseIter :: Stmt env infType -> Env -> SSAState (Env, Stmt Env Type, Bool)
 -- parsing of while-do statement
-parseIter (StmtIter (StmtWhileDo expr stmt)) env blkType = do
+parseIter (StmtIter (StmtWhileDo expr stmt)) env  = do
     (env1, parsedExpr, posEnds) <- parseExpression env expr
 
-    (newEnv, parsedStmt) <- parseStatement stmt env1 blkType
+    (newEnv, parsedStmt, isReturn) <- parseStatement stmt env1 
     let wrappedStmt = wrapInBeginEnd parsedStmt newEnv
 
     if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean || getTypeFromExpression parsedExpr == TypeBaseType BaseType_error
-        then return (newEnv, StmtIter (StmtWhileDo parsedExpr wrappedStmt))
+        then return (newEnv, StmtIter (StmtWhileDo parsedExpr wrappedStmt), isReturn)
         else do
             state <- get
             put $ state {errors = ("ERROR in range " ++ show posEnds  ++ ": condition " ++ showExpr parsedExpr ++ " of while-do statement is not of type Bool but it is of type " ++ show (getTypeFromExpression parsedExpr)):(errors state)}
-            return (newEnv, StmtIter (StmtWhileDo parsedExpr wrappedStmt))
+            return (newEnv, StmtIter (StmtWhileDo parsedExpr wrappedStmt), isReturn)
 
 -- parsing of repeat-until statement
-parseIter (StmtIter (StmtRepeat stmt expr)) env blkType = do
-    (env1, parsedStmt) <- parseStatement stmt env blkType
+parseIter (StmtIter (StmtRepeat stmt expr)) env  = do
+    (env1, parsedStmt, isReturn) <- parseStatement stmt env 
     let wrappedStmt = wrapInBeginEnd parsedStmt env1
     (newEnv, parsedExpr, posEnds) <- parseExpression env1 expr
 
     if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean || getTypeFromExpression parsedExpr == TypeBaseType BaseType_error
-        then return (newEnv, StmtIter (StmtRepeat wrappedStmt parsedExpr))
+        then return (newEnv, StmtIter (StmtRepeat wrappedStmt parsedExpr), isReturn)
         else do
             state <- get
             put $ state {errors = ("ERROR in range " ++ show posEnds ++ ": condition " ++ showExpr parsedExpr ++ " of repeat-until statement is not of type Bool but it is of type " ++ show (getTypeFromExpression parsedExpr)):(errors state)}
-            return (newEnv, StmtIter (StmtRepeat wrappedStmt parsedExpr))
+            return (newEnv, StmtIter (StmtRepeat wrappedStmt parsedExpr), isReturn)
 
-parseSelection :: Stmt env infType -> Env -> BlockType -> SSAState (Env, Stmt Env Type)
-parseSelection (StmtSelect (StmtIf expr stmt)) env blkType = do
+parseSelection :: Stmt env infType -> Env -> SSAState (Env, Stmt Env Type, Bool)
+parseSelection (StmtSelect (StmtIf expr stmt)) env  = do
     (env1, parsedExpr, posEnds) <- parseExpression env expr
-    (newEnv, parsedStmt) <- parseStatement stmt env1 blkType
+    (newEnv, parsedStmt, isReturn) <- parseStatement stmt env1 
     let wrappedStmt = wrapInBeginEnd parsedStmt newEnv
 
     if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean || getTypeFromExpression parsedExpr == TypeBaseType BaseType_error
-        then return (newEnv, StmtSelect (StmtIf parsedExpr wrappedStmt))
+        then return (newEnv, StmtSelect (StmtIf parsedExpr wrappedStmt), isReturn)
         else do
             state <- get
             put $ state {errors = ("ERROR in range " ++ show posEnds  ++ ": condition " ++ showExpr parsedExpr ++ " of if statement is not of type Bool but it is of type " ++ show (getTypeFromExpression parsedExpr)):(errors state)}
-            return (newEnv, StmtSelect (StmtIf parsedExpr wrappedStmt))
+            return (newEnv, StmtSelect (StmtIf parsedExpr wrappedStmt), isReturn)
 
-parseSelection (StmtSelect (StmtIfElse expr stmt1 stmt2)) env blkType = do
+parseSelection (StmtSelect (StmtIfElse expr stmt1 stmt2)) env  = do
     (env1, parsedExpr, posEnds) <- parseExpression env expr
-    (newEnv1, parsedStmt1) <- parseStatement stmt1 env1 blkType
+    (newEnv1, parsedStmt1, isReturn1) <- parseStatement stmt1 env1 
     let wrappedStmt1 = wrapInBeginEnd parsedStmt1 newEnv1
-    (newEnv2, parsedStmt2) <- parseStatement stmt2 newEnv1 blkType
+    (newEnv2, parsedStmt2, isReturn2) <- parseStatement stmt2 newEnv1 
     let wrappedStmt2 = wrapInBeginEnd parsedStmt2 newEnv2
 
     if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean || getTypeFromExpression parsedExpr == TypeBaseType BaseType_error
-        then return (newEnv2, StmtSelect (StmtIfElse parsedExpr wrappedStmt1 wrappedStmt2))
+        then return (newEnv2, StmtSelect (StmtIfElse parsedExpr wrappedStmt1 wrappedStmt2), isReturn1 && isReturn2)
         else do
             state <- get
             put $ state { errors = ("ERROR in range " ++ show posEnds  ++ ": condition " ++ showExpr parsedExpr ++ " of if-else statement is not of type Bool but it is of type " ++ show (getTypeFromExpression parsedExpr)):(errors state) }
-            return (newEnv2, StmtSelect (StmtIfElse parsedExpr wrappedStmt1 wrappedStmt2))
+            return (newEnv2, StmtSelect (StmtIfElse parsedExpr wrappedStmt1 wrappedStmt2), isReturn1 && isReturn2)
 
 
 -- If the provided statement is not insiede a begin-end block, wraps it in one
