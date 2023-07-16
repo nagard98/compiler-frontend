@@ -5,7 +5,7 @@ import qualified Data.Map as Map
 import AbsGrammar
 import HelperTAC
 import Control.Monad.State.Strict
-import Errs (Error)
+import Errs (Error (UninitializedVariable))
 
 
 -------------------------Environment----------------------------------------------------------------
@@ -220,11 +220,10 @@ popUninit = do
         makeUninitErrs [] = return ()
         makeUninitErrs ((id,(Variable _ pos@(x,y) _ _)):rest) = do
             state <- get
-            put $ state { errors = errMsg:(errors state)}
+            put $ state { errors = Errs.UninitializedVariable (show posEnds) id:errors state}
             makeUninitErrs rest
             where
                 posEnds = PosEnds { leftmost = pos, rightmost = (x, y + length id) }
-                errMsg = ("Error at " ++ show posEnds ++ ": Variable " ++ id ++ " has never been initialized") 
 
 
 isInRange :: Literal -> CompType -> Bool

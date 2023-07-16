@@ -29,7 +29,10 @@ data Error =
     CallingVariable String String | --posEnds idVal
     NumOfArgsMissmatch String String String | --posEnds fun/proc name
     TypeMissmatchArgument String String String String String String | --posEnds argExpr argTp expectedTp paramId paramPos
-    TypeMissmatchBinaryExpr String String String String String  --posEnds first/second operatorStr actualTp expectedTp
+    TypeMissmatchBinaryExpr String String String String String | --posEnds first/second operatorStr actualTp expectedTp
+    TypeMissmatchArrayIndex String String | -- posEnds exprTp
+    TypeMissmatchNotArray String String String |  -- posEnds expr exprTp
+    UninitializedVariable String String -- posEnds idVal
 
 instance Show Error where
     show ReturnInMain = "ERROR ReturnInMain: cannot have a return statement in the main begin-end block"
@@ -57,3 +60,6 @@ instance Show Error where
     show (NumOfArgsMissmatch posStr funOrProc name) = "ERROR NumOfArgsMissmatch at " ++ posStr ++ ": " ++ funOrProc ++ " " ++ name ++ " is called with a wrong number of arguments"
     show (TypeMissmatchArgument posStr argExpr argTp expectedTp paramId paramPos) = "ERROR TypeMissmatchArgument at " ++ posStr ++ ": argument " ++ argExpr ++ " is of type " ++ argTp ++ " but it is passed to parameter " ++ paramId ++ " of type " ++ expectedTp ++ " at " ++ paramPos
     show (TypeMissmatchBinaryExpr posStr firstOrSecond operatorStr actualTp expectedTp) = "ERROR TypeMissmatchBinaryExpr at " ++ posStr ++ ": " ++ firstOrSecond ++ " operand of operator " ++ operatorStr ++ " is of type " ++ actualTp ++ " but it should be of type " ++ expectedTp
+    show (TypeMissmatchArrayIndex posStr exprTp) = "ERROR TypeMissmatchArrayIndex at " ++ posStr ++ ": array index must be of numeric type but it is of type " ++ exprTp
+    show (TypeMissmatchNotArray posStr expr exprTp) = "ERROR TypeMissmatchNotArray at " ++ posStr ++ ": expression " ++ expr ++ " is treated as an array but it is of type " ++ exprTp
+    show (UninitializedVariable posStr idVal) = "ERROR UninitializedVariable at " ++ posStr ++ ": variable " ++ idVal ++ " has never been initialized"

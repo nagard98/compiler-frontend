@@ -1114,7 +1114,7 @@ parseBaseExpression env (ArrayElem bexpr iexpr) = do
 
         (TypeCompType (Array i1 i2 basetype), _) -> do
             state <- get
-            put $ state { errors = ("Error. Array index is not of numeric type but it is of type "++show (getTypeFromExpression parsediexpr)++"."):(errors state)}
+            put $ state { errors = Errs.TypeMissmatchArrayIndex (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}) (show (getTypeFromExpression parsediexpr)):(errors state)}
             return (
                 env3, 
                 (ArrayElem parsedbexpr parsediexpr), 
@@ -1124,7 +1124,7 @@ parseBaseExpression env (ArrayElem bexpr iexpr) = do
         
         (_, TypeBaseType BaseType_integer) -> do
             state <- get
-            put $ state { errors = ("Error. Expression " ++ showExpr parsedbexpr ++ " is treated as an array but it is of type " ++ show (getTypeFromExpression parsedbexpr) ++ "."):(errors state)}
+            put $ state { errors = Errs.TypeMissmatchNotArray (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}) (showExpr parsedbexpr) (show (getTypeFromExpression parsedbexpr)):(errors state)}
             return (
                 env3, 
                 (ArrayElem parsedbexpr parsediexpr), 
@@ -1134,7 +1134,9 @@ parseBaseExpression env (ArrayElem bexpr iexpr) = do
         
         _ -> do
             state <- get
-            put $ state { errors = ("Error. Expression " ++ showExpr parsedbexpr ++ " is treated as an array but it is of type" ++ show (getTypeFromExpression parsedbexpr) ++ "."):("Error. Array index is not of numeric type but it is of type "++show (getTypeFromExpression parsediexpr)++"."):(errors state)}
+            put $ state { errors = 
+                Errs.TypeMissmatchNotArray (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}) (showExpr parsedbexpr) (show (getTypeFromExpression parsedbexpr))
+                :Errs.TypeMissmatchArrayIndex (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}) (show (getTypeFromExpression parsediexpr)):(errors state)}
             return (
                 env3,
                 (ArrayElem parsedbexpr parsediexpr), 
