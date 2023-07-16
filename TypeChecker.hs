@@ -106,20 +106,21 @@ parseDclFcBlockFirstPass env dcBlockFc@(DclBlockFcBlock (FuncBlock (TokIdent (po
     -- add to env return type (needed for type checking of the return statement) and function info
     -- IMPORTANT NOTE: env must be the secondo argument of mergeEnvs, otherwise the new "return" key will not be updated
     -- this is because the underlying function union (t1, t2) of Data.Map prefers t1 when duplicated keys are encountered
-    tmpEnv <- Env.mergeEnvs (Env.fromList [(id, Function pos params retType fcAddr), ("return", Return retType id pos)]) env
+    tmpEnv <- Env.mergeEnvs (Env.fromList [(id, Function pos params retType fcAddr)]) env
     (tmpEnv1, parsedParams) <- parseParams params [] tmpEnv
     return (tmpEnv1, dcBlockFc)
 
 
 parseDclFcBlock :: Env -> DclBlock env infType -> SSAState (Env, DclBlock Env Type)
 parseDclFcBlock env (DclBlockFcBlock fB@(FuncBlock idTok@(TokIdent (pos, id)) params retType beb)) = do
+    tmpEnv <-  Env.insert ("return") (Return retType id pos) env
     state <- get
     -- check if function body contains a return statement
     if hasReturnStmt beb 
         then put $ state{errors = errors state} 
         else put $ state{errors = errMsg:(errors state)}            
     
-    (finalEnv, annotatedBEB) <- parseBEBlock env beb
+    (finalEnv, annotatedBEB) <- parseBEBlock tmpEnv beb
     return (finalEnv, DclBlockFcBlock (FuncBlock idTok params retType annotatedBEB))
 
     where        
