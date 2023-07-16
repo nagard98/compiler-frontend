@@ -8,6 +8,7 @@ import HelperTAC
 import Control.Monad.State.Strict
 import Debug.Trace
 import Data.Map
+import Errs
 
 launchStatSemAnalysis :: P env infType -> (Env, Errors, P Env Type)
 launchStatSemAnalysis tree = (env, errors finalState, parsedTree)
@@ -27,7 +28,7 @@ parseTree defEnv (Prog pBlock dclBlock beBlock _) = do
 
     state <- get
     if hasReturn  
-        then put $ state{errors = ("ERROR: You cannot have a return statement in the main begin-end block"):(errors state)}   
+        then put $ state{errors = Errs.ReturnInMain:(errors state)}   
         else put $ state{errors = errors state} 
 
     popUninit
@@ -125,13 +126,9 @@ parseDclFcBlock env (DclBlockFcBlock fB@(FuncBlock idTok@(TokIdent (pos, id)) pa
     state <- get
     if hasAllReturns  
         then put $ state{errors = errors state} 
-        else put $ state{errors = errMsg:(errors state)}   
+        else put $ state{errors = Errs.MissingReturnInFunction pos id:(errors state)}   
 
     return (finalEnv, DclBlockFcBlock (FuncBlock idTok params retType annotatedBEB))
-
-    where        
-        errMsg = ("Missing return statement: body of function " ++ id ++ " at " ++ show pos ++ " does not contain a return statement")
-
 -- add info about procedures to the environment. Same as functions but without return type
 parseDclPcBlockFirstPass :: Env -> DclBlock env infType -> SSAState (Env, DclBlock env infType)
 parseDclPcBlockFirstPass env dclBlockPc@(DclBlockPcBlock (ProcBlock (TokIdent (pos, id)) params beb)) = do
@@ -147,7 +144,8 @@ parseDclPcBlock env (DclBlockPcBlock (ProcBlock idTok@(TokIdent (pos, id)) param
     (fEnv, annBEB, hasReturn) <- parseBEBlock env beb
     state <- get
     if hasReturn  
-        then put $ state{errors = ("ERROR in procedure " ++ id ++ " at " ++ show pos ++ ": You cannot have a return statement in a procedure"):(errors state)}   
+        then put $ state{errors = Errs.UnexpectedReturnInProcedure pos id :(errors state)}   
+
         else put $ state{errors = errors state} 
     
     return (fEnv, DclBlockPcBlock (ProcBlock idTok params annBEB))
@@ -259,7 +257,11 @@ parseIter (StmtIter (StmtWhileDo expr stmt)) env  = do
         then return (newEnv, StmtIter (StmtWhileDo parsedExpr wrappedStmt), isReturn)
         else do
             state <- get
-            put $ state {errors = ("ERROR in range " ++ show posEnds  ++ ": condition " ++ showExpr parsedExpr ++ " of while-do statement is not of type Bool but it is of type " ++ show (getTypeFromExpression parsedExpr)):(errors state)}
+            put $ state {errors = Errs.TypeMissmatchIter 
+                                    (show posEnds) 
+                                    (showExpr parsedExpr) 
+                                    (show (getTypeFromExpression parsedExpr)):(errors state)}
+
             return (newEnv, StmtIter (StmtWhileDo parsedExpr wrappedStmt), isReturn)
 
 -- parsing of repeat-until statement
@@ -272,7 +274,10 @@ parseIter (StmtIter (StmtRepeat stmt expr)) env  = do
         then return (newEnv, StmtIter (StmtRepeat wrappedStmt parsedExpr), isReturn)
         else do
             state <- get
-            put $ state {errors = ("ERROR in range " ++ show posEnds ++ ": condition " ++ showExpr parsedExpr ++ " of repeat-until statement is not of type Bool but it is of type " ++ show (getTypeFromExpression parsedExpr)):(errors state)}
+            put $ state {errors = Errs.TypeMissmatchIter 
+                                    (show posEnds) 
+                                    (showExpr parsedExpr) 
+                                    (show (getTypeFromExpression parsedExpr)):(errors state)}
             return (newEnv, StmtIter (StmtRepeat wrappedStmt parsedExpr), isReturn)
 
 parseSelection :: Stmt env infType -> Env -> SSAState (Env, Stmt Env Type, Bool)
@@ -285,7 +290,10 @@ parseSelection (StmtSelect (StmtIf expr stmt)) env  = do
         then return (newEnv, StmtSelect (StmtIf parsedExpr wrappedStmt), isReturn)
         else do
             state <- get
-            put $ state {errors = ("ERROR in range " ++ show posEnds  ++ ": condition " ++ showExpr parsedExpr ++ " of if statement is not of type Bool but it is of type " ++ show (getTypeFromExpression parsedExpr)):(errors state)}
+            put $ state {errors = Errs.TypeMissmatchSelection 
+                                    (show posEnds) 
+                                    (showExpr parsedExpr) 
+                                    (show (getTypeFromExpression parsedExpr)):(errors state)}
             return (newEnv, StmtSelect (StmtIf parsedExpr wrappedStmt), isReturn)
 
 parseSelection (StmtSelect (StmtIfElse expr stmt1 stmt2)) env  = do
@@ -299,7 +307,10 @@ parseSelection (StmtSelect (StmtIfElse expr stmt1 stmt2)) env  = do
         then return (newEnv2, StmtSelect (StmtIfElse parsedExpr wrappedStmt1 wrappedStmt2), isReturn1 && isReturn2)
         else do
             state <- get
-            put $ state { errors = ("ERROR in range " ++ show posEnds  ++ ": condition " ++ showExpr parsedExpr ++ " of if-else statement is not of type Bool but it is of type " ++ show (getTypeFromExpression parsedExpr)):(errors state) }
+            put $ state { errors = Errs.TypeMissmatchSelection 
+                                    (show posEnds) 
+                                    (showExpr parsedExpr) 
+                                    (show (getTypeFromExpression parsedExpr)):(errors state) }
             return (newEnv2, StmtSelect (StmtIfElse parsedExpr wrappedStmt1 wrappedStmt2), isReturn1 && isReturn2)
 
 
@@ -320,9 +331,12 @@ parseReturn (StmtReturn (Ret expr)) env = do
             if sup expectedType (getTypeFromExpression parsedExpr) /= expectedType && getTypeFromExpression parsedExpr /= TypeBaseType BaseType_error
                 then do
                     state <- get
-                    put $ state { errors = (("ERROR in range " ++ show posEnds  ++ ": function " ++ funName ++ " at " ++ show funPos ++ 
-                        " expects a " ++ show expectedType ++ " to be returned " ++
-                        "but the expression following the return statement has type " ++ show (getTypeFromExpression parsedExpr) )):(errors state)}
+                    put $ state { errors =
+                        Errs.TypeMissmatchReturn 
+                                (show posEnds) 
+                                funName 
+                                (show expectedType) 
+                                (show (getTypeFromExpression parsedExpr)):(errors state)}
                     return ( newEnv, StmtReturn (Ret parsedExpr))
                 else
                     -- everything is ok or the error did not happen here, return the parsed expression 
@@ -332,7 +346,7 @@ parseReturn (StmtReturn (Ret expr)) env = do
         -- since the return type of the function is saved in the environment when the function definition is parsed
         Nothing -> do
             state <- get
-            put $ state { errors = ("Internal type checking error: can't find expected return type of current function in the environment while parsing the expression following the return at " ++ show posEnds):(errors state)}
+            put $ state { errors = Errs.ExpectedTypeNotFound (show posEnds):(errors state)}
             return (newEnv, StmtReturn (Ret parsedExpr)) 
             
 
@@ -376,7 +390,7 @@ parseAssignment expr1 expr2 env = case (expr1, expr2) of
                 (env2, parsedexpr1, posEnds1) <- parseExpression env expr1
                 (env3, parsedexpr2, posEnds2) <- parseExpression env2 expr2
                 state <- get
-                put $ state { errors = ("Error in range " ++ show posEnds1 ++ ": expression "++ showExpr expr1 ++" is not a valid l-value for the assignment"):(errors state)}
+                put $ state { errors = Errs.InvalidLValueAssignment (show posEnds1) (showExpr expr1):(errors state)}
                 return (env3, (StmtAssign parsedexpr1 parsedexpr2) )
 
 
@@ -406,7 +420,11 @@ parseArrayAssignment bExpr@(BaseExpr (ArrayElem bbexpr iiexpr) t) expr env posEn
 
                 _ -> do 
                     state <- get
-                    put $ state { errors = ("Error in range " ++ show posEnds ++ ". l-Expression "++showExpr bExpr++" is of type " ++ show t ++ " but it is assigned value of type "++show rtype ++"."):(errors state)}
+                    put $ state { errors = Errs.TypeMissmatchArrayAssignment 
+                                            (show posEnds) 
+                                            (showExpr bExpr) 
+                                            (show t) 
+                                            (show rtype):(errors state)}
                     return (env, StmtAssign bExpr (IntToReal expr)) 
 
 
@@ -452,15 +470,13 @@ parseLitAssignment tkId@(TokIdent (idPos, idVal)) literal env posEnds = case Env
                 -- In case of error it is added to the state
                 (_, _)  -> do
                         state <- get
-                        put $ state { errors = ("Error in range " ++ show posEnds ++ ". id "++ idVal ++ " is of type " ++ show envType ++ " but is assigned value of type " ++ show litType):(errors state)}
+                        put $ state { errors = Errs.TypeMissmatchLiteral (show posEnds) idVal (show envType) (show litType):(errors state)}
                         return (env, StmtAssign (BaseExpr (Identifier tkId) (TypeBaseType BaseType_error)) (ExprLiteral literal))
 
     
     Nothing -> do
         state <- get
-        put $ state { errors = ("Error in ragne " ++ show posEnds ++
-                ". Unknown identifier: " ++ idVal ++
-                " is used but has never been declared."):(errors state)}
+        put $ state { errors = Errs.UnknownIdentifier (show posEnds) idVal:(errors state)}
         return (env, StmtAssign (BaseExpr (Identifier tkId) (TypeBaseType BaseType_error)) (ExprLiteral literal))
 
     where
@@ -493,7 +509,7 @@ parseIdExprAssignment tkId@(TokIdent (idPos, idVal)) expr env posEnds = case Env
 
                 (_, _)  -> do
                     state <- get
-                    put $ state { errors = ("Error in range " ++ show posEnds ++ ". id "++ idVal ++ " is of type " ++ show envType ++ " but is assigned value of type " ++ show exprType):(errors state)}
+                    put $ state { errors = Errs.TypeMissmatchIdExprAssignment(show posEnds) idVal (show envType) (show exprType):(errors state)}
                     return (
                         env, 
                         StmtAssign (BaseExpr (Identifier tkId) envType) expr 
@@ -501,8 +517,7 @@ parseIdExprAssignment tkId@(TokIdent (idPos, idVal)) expr env posEnds = case Env
 
     Nothing -> do
         state <- get
-        put $ state { errors = ("Error in range " ++ show posEnds ++
-            ". Unknown identifier: " ++ idVal ++ " is used but has never been declared."):(errors state)}
+        put $ state { errors = Errs.UnknownIdentifier (show posEnds) idVal:(errors state)}
         return (
             env,
             StmtAssign (BaseExpr (Identifier tkId) (TypeBaseType BaseType_error)) expr
@@ -532,7 +547,11 @@ parseExprExprAssignment expr1 expr2 env posEnds =
         
             _ -> do
                 state <- get
-                put $ state { errors = ("Error in range " ++ show posEnds ++ ". l-Expression "++ showExpr expr1 ++ " is of type " ++ show (getTypeFromExpression expr1) ++ " but is assigned value of type " ++ show (getTypeFromExpression expr2)):(errors state)}
+                put $ state { errors = Errs.TypeMissmatchExprExprAssignment 
+                                        (show posEnds) 
+                                        (showExpr expr1) 
+                                        (show (getTypeFromExpression expr1))
+                                        (show (getTypeFromExpression expr2)):(errors state)}
                 return (env, (StmtAssign expr1 expr2))
 
 
@@ -554,7 +573,7 @@ parseExpression env (UnaryExpression Not exp t) = do
                 )
         else do
             state <- get
-            put $ state { errors = ("Error"++". Boolean negation 'not' applied to type " ++ show (getTypeFromExpression parsedexp) ++ " instead of boolean type."):(errors state)}
+            put $ state { errors = Errs.TypeMissmatchUnaryExpr (show posEnds) (show (getTypeFromExpression parsedexp)):(errors state)}
             return (
                 env2, 
                 (UnaryExpression Not parsedexp (TypeBaseType BaseType_error) ),
@@ -574,7 +593,7 @@ parseExpression env (UnaryExpression Negation exp t) = do
                 )
         else do
             state <- get
-            put $ state { errors = ("Error"++". Arithmetic unary minus '-' applied to type " ++ show (getTypeFromExpression parsedexp) ++ " instead of numeric type."):(errors state)}
+            put $ state { errors = Errs.TypeMissmatchArithmeticMinus (show posEnds) (show (getTypeFromExpression parsedexp)):(errors state)}
             return (
                 env2, 
                 (UnaryExpression Negation parsedexp (TypeBaseType BaseType_error) ),
@@ -627,7 +646,7 @@ parseExpression env (UnaryExpression Reference exp t) = do
         
         _ -> do
             state <- get
-            put $ state { errors = ("Error. Invalid reference '@' operation on type " ++ show (getTypeFromExpression parsedexp) ++ "."):(errors state)}
+            put $ state { errors = Errs.TypeMissimatchReference (show posEnds) (show (getTypeFromExpression parsedexp)):(errors state)}
             return (
                 env2, 
                 (UnaryExpression Reference parsedexp (TypeBaseType BaseType_error) ),
@@ -660,14 +679,14 @@ parseExpression env (IntToReal expr) = do
         
         TypeBaseType BaseType_real -> do
             state <- get
-            put $ state { errors = ("Warning: removed unneeded implicit type casting from Integer to Real"):(errors state)}
+            put $ state { errors = Errs.UnnecessaryCasting (show posEnds) "Integer" "Real":(errors state)}
             return (env2, parsedexpr, posEnds) -- expression is real already: remove type casting wrapper
         
         TypeBaseType BaseType_error -> return (env2, (IntToReal parsedexpr), posEnds) -- in case of errors that already happened, no new error messages are generated
 
         _ -> do
             state <- get
-            put $ state { errors = ("Error: type casting from Integer to Real applied to type " ++ show (getTypeFromExpression parsedexpr) ++ "."):(errors state)}
+            put $ state { errors = Errs.ImplicitCasting (show posEnds) "Integer" "Real":(errors state)}
             return ( env2, (IntToReal parsedexpr), posEnds )
 
 -- Char to String
@@ -679,13 +698,13 @@ parseExpression env (CharToString expr) = do
         
         TypeBaseType BaseType_string -> do
             state <- get
-            put $ state { errors = ("Warning: removed unneeded implicit type casting from Char to String"):(errors state)}
+            put $ state { errors = Errs.UnnecessaryCasting (show posEnds) "Char" "String":(errors state)}
             return (env2, parsedexpr, posEnds) -- expression is string already: remove type casting wrapper
         TypeBaseType BaseType_error -> return (env2, (CharToString parsedexpr), posEnds) -- in case of errors that already happened, no new error messages are generated
         
         _ -> do
             state <- get
-            put $ state { errors = ("Error: type casting from Char to String applied to type " ++ show (getTypeFromExpression parsedexpr) ++ "."):(errors state)}
+            put $ state { errors = Errs.ImplicitCasting (show posEnds) "Char" "String":(errors state)}
             return ( env2, (CharToString parsedexpr), posEnds )
 
 
@@ -719,7 +738,7 @@ parseCall env call@(CallArgs tkId@(TokIdent (tokpos@(x,y),tokid)) args ) = do
 
         Just (Constant pos t addr) -> do
             state <- get
-            put $ state { errors = ("Error at: " ++ show posEndsToken ++". Identifier " ++ tokid ++" is used as a function/procedure but it is a constant."):(errors state)}
+            put $ state { errors = Errs.CallingConstant (show posEndsToken) tokid:(errors state)}
             return (
                 env2, 
                 (CallArgs tkId parsedargs ), 
@@ -729,7 +748,7 @@ parseCall env call@(CallArgs tkId@(TokIdent (tokpos@(x,y),tokid)) args ) = do
         
         Just (Variable mod pos t addr) -> do
             state <- get
-            put $ state { errors = ("Error at: " ++ show posEndsToken ++". Identifier " ++ tokid ++" is used as a function/procedure but it is a variable."):(errors state)}
+            put $ state { errors = Errs.CallingVariable (show posEndsToken) tokid:(errors state)}
             return (
                 env2,
                 (CallArgs tkId parsedargs ),
@@ -739,7 +758,7 @@ parseCall env call@(CallArgs tkId@(TokIdent (tokpos@(x,y),tokid)) args ) = do
         
         Nothing -> do
             state <- get
-            put $ state { errors = ("Error at: " ++ show posEndsToken ++". Unknown identifier: " ++ tokid ++" is used but has never been declared."):(errors state)}
+            put $ state { errors = Errs.UnknownIdentifier (show posEndsToken) tokid:(errors state)}
             return (
                 env2,
                 (CallArgs tkId parsedargs ), 
@@ -768,7 +787,7 @@ parseFunction env (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) NoParams t pargs
 
 parseFunction env (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) (Params prms) t pargs posEnds = do
     state <- get
-    put $ state { errors = ("Error at " ++ show tokpos ++ " in function "++tokid++": mismatch in number of arguments"):(errors state)}
+    put $ state { errors = Errs.NumOfArgsMissmatch (show tokpos) "function" tokid:(errors state)}
     return (
         env, 
         (CallArgs tkId pargs ), 
@@ -777,7 +796,7 @@ parseFunction env (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) (Params prms) t 
 
 parseFunction env (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) NoParams t pargs posEnds = do
     state <- get
-    put $ state { errors = ("Error at " ++ show tokpos ++ " in function "++tokid++": mismatch in number of arguments"):(errors state)}
+    put $ state { errors = Errs.NumOfArgsMissmatch (show tokpos) "function" tokid:(errors state)}
     return (
         env, 
         (CallArgs tkId (pargs++args) ), 
@@ -805,7 +824,7 @@ parseProcedure env (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) NoParams pargs 
 
 parseProcedure env (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) (Params prms) pargs posEnds = do
     state <- get
-    put $ state { errors = ("Error at " ++ show tokpos ++ " in procedure "++tokid++": mismatch in number of arguments"):(errors state)}
+    put $ state { errors = Errs.NumOfArgsMissmatch (show tokpos) "procedure" tokid:(errors state)}
     return (
         env,
         (CallArgs tkId pargs ), 
@@ -814,7 +833,7 @@ parseProcedure env (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) (Params prms) p
 
 parseProcedure env (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) NoParams pargs posEnds = do
     state <- get
-    put $ state { errors = ("Error at " ++ show tokpos ++ " in procedure "++tokid++": mismatch in number of arguments" ):(errors state)}
+    put $ state { errors = Errs.NumOfArgsMissmatch (show tokpos) "procedure" tokid:(errors state)}
     return (
         env,
         (CallArgs tkId (pargs++args) ), 
@@ -1017,7 +1036,7 @@ parseBaseExpression env (Identifier tkId@(TokIdent (tokpos@(x,y),tokid)) ) =
         
         Nothing -> do
             state <- get
-            put $ state { errors = ("Error at " ++ show tokpos ++". Unknown identifier: " ++ tokid ++" is used but has never been declared."):(errors state)}
+            put $ state { errors = Errs.UnknownIdentifier (show tokpos) tokid:(errors state)}
             return (
                 env, 
                 (Identifier tkId), 

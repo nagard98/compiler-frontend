@@ -5,6 +5,7 @@ import qualified Data.Map as Map
 import AbsGrammar
 import HelperTAC
 import Control.Monad.State.Strict
+import Errs (Error)
 
 
 -------------------------Environment----------------------------------------------------------------
@@ -100,9 +101,9 @@ getTypeFromLiteral (LiteralChar _) = BaseType_char
 
 -------------Static Semantic Analysis Utils-----------------------------------------------
 
-type Errors = [String]
+type Errors = [Error]
 
-emptyErrors :: [String]
+emptyErrors :: [Error]
 emptyErrors = []
 
 data PosEnds = PosEnds {
