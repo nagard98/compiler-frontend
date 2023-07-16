@@ -554,7 +554,7 @@ parseExpression env (UnaryExpression Not exp t) = do
                 )
         else do
             state <- get
-            put $ state { errors = ("Error"++". Boolean negation 'not' applied to type " ++ show (getTypeFromExpression parsedexp) ++ " instead of boolean type."):(errors state)}
+            put $ state { errors = ("Error"++". Boolean negation 'not' applied expression of type " ++ show (getTypeFromExpression parsedexp) ++ " instead of boolean type."):(errors state)}
             return (
                 env2, 
                 (UnaryExpression Not parsedexp (TypeBaseType BaseType_error) ),
@@ -565,6 +565,7 @@ parseExpression env (UnaryExpression Not exp t) = do
 -- Arithmetic Unary Negation
 parseExpression env (UnaryExpression Negation exp t) = do
     (env2, parsedexp, posEnds) <- parseExpression env exp
+    --TODO: come viene gestito se il tipo errore? No dovrebbe poi essere restituito poi l'errore invece che il tipo integer
     if getTypeFromExpression parsedexp == TypeBaseType BaseType_integer || getTypeFromExpression parsedexp == TypeBaseType BaseType_real || getTypeFromExpression parsedexp == TypeBaseType BaseType_error 
         then
             return (
@@ -604,35 +605,53 @@ parseExpression env (BinaryExpression EqGreatT exp1 exp2 t) = parseBinaryRelatio
 -- Dereference
 parseExpression env (UnaryExpression Dereference exp t)  = do 
     (env2, parsedexp, posEnds) <- parseExpression env exp
-    return (
-        env2, 
-        (UnaryExpression Dereference parsedexp (TypeCompType (Pointer (getTypeFromExpression parsedexp))) ),
-        posEnds
-        )
---    case getTypeFromExpression parsedexp of
---        TypeBaseType basetype -> return (env2, errs2, (UnaryExpression Dereference parsedexp (TypeCompType (Pointer basetype)) ))
---        _ -> return (env2, ("Error. Dereference operation on type "++ show (getTypeFromExpression parsedexp) ++" is not allowed because it is not a base type."):errs2, (UnaryExpression Dereference parsedexp (TypeBaseType BaseType_error) ))
-        
+
+    --TODO: aggiornare posEnds, allunga a destra di 1 colonna per l'operatore ^
+
+    if checkLExpr parsedexp
+        then
+            case getTypeFromExpression parsedexp of
+                (TypeBaseType BaseType_error) -> 
+                    return (env2, (UnaryExpression Dereference parsedexp (TypeBaseType BaseType_error)), posEnds )
+
+                (TypeCompType (Pointer pointedType) ) -> 
+                    return (env2, (UnaryExpression Dereference parsedexp pointedType), posEnds )
+
+                _ -> do
+                    state <- get
+                    --TODO: nonostante questo errore, viene segnato errore anche nella chiamata della funzione dove viene usata l'espressione
+                    put $ state { errors = ("Error at "++ show posEnds ++": Expression "++ showExpr exp ++" should be of type pointer, but instead is of type "++show (getTypeFromExpression parsedexp)):(errors state)}
+                    return (env2, (UnaryExpression Dereference parsedexp (TypeBaseType BaseType_error)), posEnds )
+             
+        else do
+            state <- get
+            --TODO: nonostante questo errore, viene segnato errore anche nella chiamata della funzione dove viene usata l'espressione
+            put $ state { errors = ("Error at "++ show posEnds ++": Invalid dereference '^' operation. "++ showExpr exp ++" is not a valid l-expression."):(errors state)}
+            return (env2, (UnaryExpression Dereference parsedexp (TypeBaseType BaseType_error)), posEnds )
+
 
 -- Reference
 parseExpression env (UnaryExpression Reference exp t) = do
     (env2, parsedexp, posEnds) <- parseExpression env exp
-    case getTypeFromExpression parsedexp of
-        
-        TypeCompType (Pointer t) ->
-             return (env2, (UnaryExpression Reference parsedexp t), posEnds )
+    traceM $ "\n"++ show (getTypeFromExpression parsedexp)++"  "++ showExpr exp ++"\n"
+    
+    --TODO: aggiornare posEnds, allunga a sinistra di 1 colonna per l'operatore @
 
-        TypeBaseType BaseType_error ->
-             return (env2, (UnaryExpression Reference parsedexp (TypeBaseType BaseType_error)), posEnds )
-        
-        _ -> do
-            state <- get
-            put $ state { errors = ("Error. Invalid reference '@' operation on type " ++ show (getTypeFromExpression parsedexp) ++ "."):(errors state)}
-            return (
-                env2, 
-                (UnaryExpression Reference parsedexp (TypeBaseType BaseType_error) ),
-                posEnds
-                )
+    if getTypeFromExpression parsedexp == TypeBaseType BaseType_error
+        then 
+            return (env2, (UnaryExpression Reference parsedexp (TypeBaseType BaseType_error)), posEnds )
+        else 
+            if checkLExpr parsedexp
+                then return (env2, (UnaryExpression Reference parsedexp (TypeCompType (Pointer (getTypeFromExpression parsedexp)))), posEnds )
+                else do
+                    state <- get
+                    --TODO: nonostante questo errore, viene segnato errore anche nella chiamata della funzione dove viene usata l'espressione
+                    put $ state { errors = ("Error at "++ show posEnds ++": Invalid reference '@' operation. "++ showExpr exp ++" is not a valid l-expression."):(errors state)}
+                    return (
+                        env2, 
+                        (UnaryExpression Reference parsedexp (TypeBaseType BaseType_error) ),
+                        posEnds
+                        )
     
 
 -- Literals (base case of recursions)
@@ -844,7 +863,7 @@ compareArguments env p (expr:args) (Param m ((IdElement (TokIdent (parpos@(x,y),
         if not (checkLExpr expr) 
             then do
                 state <- get
-                put $ state { errors = ("Error at "++ show p ++ ": parameter " ++ parid ++ " is called by value as specified at " ++ show parPosEnds ++", but argument " ++ showExpr expr ++ " is not a valid l-value."):(errors state)}                
+                put $ state { errors = ("Error at "++ show p ++ ": parameter " ++ parid ++ " is passed by reference as specified at " ++ show parPosEnds ++", but argument " ++ showExpr expr ++ " is not a valid l-value."):(errors state)}                
                 compareArguments env p args (Param m toks t) (pargs++[expr])
             else if not (argExprType == t)
                     then do
@@ -883,12 +902,16 @@ compareArguments env p (expr:args) (Param m ((IdElement (TokIdent (parpos@(x,y),
     where
         argExprType = getTypeFromExpression expr
         parPosEnds = PosEnds{ leftmost = parpos, rightmost = (x, y + length parid)}
-        checkLExpr :: EXPR Type -> Bool
-        checkLExpr (BaseExpr (Identifier _) _) = True
-        checkLExpr (UnaryExpression Dereference _ _) = True
-        checkLExpr (UnaryExpression Reference _ _) = True
-        checkLExpr (BaseExpr (ArrayElem _ _) _) = True
-        checkLExpr _ = False
+
+checkLExpr :: EXPR Type -> Bool
+checkLExpr (BaseExpr (Identifier _) _) = True
+checkLExpr (UnaryExpression Dereference _ _) = True
+--Reference non produce un l-value
+--TODO: forse in realtà è giusto, devo
+--checkLExpr (UnaryExpression Reference _ _) = True
+checkLExpr (BaseExpr (ArrayElem _ _) _) = True
+checkLExpr _ = False
+
 
 parseBinaryBooleanExpression :: Env -> BinaryOperator -> EXPR infType -> EXPR infType -> SSAState (Env, EXPR Type, PosEnds)
 parseBinaryBooleanExpression env op exp1 exp2 = do

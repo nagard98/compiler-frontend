@@ -1,9 +1,12 @@
 program TACTest;
 
-var b : integer;
-var c : char;
+{var b : ^integer;
+var a:integer;
+
+procedure p (ref ptr :^integer);
+begin end;
 
 begin
-    c := 'k';
-    b := 4 + c * 33;
+    
+    a:= 5 + 'a' + true; 
 end.
