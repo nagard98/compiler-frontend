@@ -708,13 +708,13 @@ parseCall env call@(CallArgs tkId@(TokIdent (tokpos@(x,y),tokid)) args ) = do
     
     case Env.lookup tokid env of
         Just (Function pos parameters t _) -> do
-            --TODO: implementare ritorno posEnds da parseFunction
-            (env, clType, tp) <- parseFunction env2 (CallArgs tkId parsedargs) parameters t [] posEndsToken{rightmost = rightmost posEndsArgs}
+            --TODO: implementare ritorno posEnds da parseFunctionCall
+            (env, clType, tp) <- parseFunctionCall env2 (CallArgs tkId parsedargs) parameters t [] posEndsToken{rightmost = rightmost posEndsArgs}
             return (env, clType, tp, posEndsToken)
         
         Just (Procedure pos parameters _) -> do
-            --TODO: implementare ritorno posEnds da parseProcedure
-            (env, clType, tp) <- parseProcedure env2 (CallArgs tkId parsedargs) parameters [] posEndsToken{rightmost = rightmost posEndsArgs}
+            --TODO: implementare ritorno posEnds da parseProcedureCall
+            (env, clType, tp) <- parseProcedureCall env2 (CallArgs tkId parsedargs) parameters [] posEndsToken{rightmost = rightmost posEndsArgs}
             return (env, clType, tp, posEndsToken)
 
         Just (Constant pos t addr) -> do
@@ -762,11 +762,11 @@ parseArguments env (arg:args) res posEnds = do
 
 -- Last parameter is list of parsed expressions (call arguments) that have been type casted if needed
 -- Parameters: env, errors, call, params, parsedargs --TODO: dire nel messaggio di errore di mismatch quanti parametri sono previsti?
-parseFunction :: Env -> Call Type -> Prms -> Type -> [EXPR Type] -> PosEnds -> SSAState (Env, Call Type, Type)
-parseFunction env (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) NoParams t pargs posEnds = 
+parseFunctionCall :: Env -> Call Type -> Prms -> Type -> [EXPR Type] -> PosEnds -> SSAState (Env, Call Type, Type)
+parseFunctionCall env (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) NoParams t pargs posEnds = 
     return (env, (CallArgs tkId pargs ), t )
 
-parseFunction env (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) (Params prms) t pargs posEnds = do
+parseFunctionCall env (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) (Params prms) t pargs posEnds = do
     state <- get
     put $ state { errors = ("Error at " ++ show tokpos ++ " in function "++tokid++": mismatch in number of arguments"):(errors state)}
     return (
@@ -775,7 +775,7 @@ parseFunction env (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) (Params prms) t 
         (TypeBaseType BaseType_error) 
         )
 
-parseFunction env (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) NoParams t pargs posEnds = do
+parseFunctionCall env (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) NoParams t pargs posEnds = do
     state <- get
     put $ state { errors = ("Error at " ++ show tokpos ++ " in function "++tokid++": mismatch in number of arguments"):(errors state)}
     return (
@@ -784,26 +784,26 @@ parseFunction env (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) NoParams t par
         (TypeBaseType BaseType_error) 
         )
 
-parseFunction env (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) (Params (prm:prms) ) t pargs posEnds = do
+parseFunctionCall env (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) (Params (prm:prms) ) t pargs posEnds = do
     (env2, args2, pargs2) <- compareArguments env posEnds args prm pargs
     
     newparams <- case prms of
                     [] -> return NoParams
                     _ -> return (Params prms)
 
-    parseFunction env2 (CallArgs tkId args2 ) newparams t pargs2 posEnds
+    parseFunctionCall env2 (CallArgs tkId args2 ) newparams t pargs2 posEnds
       
         
 
-parseProcedure :: Env -> Call Type -> Prms -> [EXPR Type] -> PosEnds -> SSAState (Env, Call Type, Type)
-parseProcedure env (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) NoParams pargs posEnds = 
+parseProcedureCall :: Env -> Call Type -> Prms -> [EXPR Type] -> PosEnds -> SSAState (Env, Call Type, Type)
+parseProcedureCall env (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) NoParams pargs posEnds = 
     return (
         env, 
         (CallArgs tkId pargs ), 
         (TypeBaseType BaseType_void)
         )
 
-parseProcedure env (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) (Params prms) pargs posEnds = do
+parseProcedureCall env (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) (Params prms) pargs posEnds = do
     state <- get
     put $ state { errors = ("Error at " ++ show tokpos ++ " in procedure "++tokid++": mismatch in number of arguments"):(errors state)}
     return (
@@ -812,7 +812,7 @@ parseProcedure env (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) (Params prms) p
         (TypeBaseType BaseType_error) 
         )
 
-parseProcedure env (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) NoParams pargs posEnds = do
+parseProcedureCall env (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) NoParams pargs posEnds = do
     state <- get
     put $ state { errors = ("Error at " ++ show tokpos ++ " in procedure "++tokid++": mismatch in number of arguments" ):(errors state)}
     return (
@@ -821,13 +821,13 @@ parseProcedure env (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) NoParams parg
         (TypeBaseType BaseType_error) 
         )
 
-parseProcedure env (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) (Params (prm:prms) ) pargs posEnds = do
+parseProcedureCall env (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) (Params (prm:prms) ) pargs posEnds = do
     (env2, args2, pargs2) <- compareArguments env posEnds args prm pargs
     newparams <- case prms of
                 [] -> return NoParams
                 _ -> return $ Params prms
 
-    parseProcedure env2 (CallArgs tkId args2 ) newparams pargs2 posEnds
+    parseProcedureCall env2 (CallArgs tkId args2 ) newparams pargs2 posEnds
 
 
 
