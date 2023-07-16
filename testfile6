@@ -8,5 +8,5 @@ begin end;
 
 begin
     
-    a:= 5 + 'a' + true; 
+    a:= 6 or true and 5; 
 end.

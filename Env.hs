@@ -124,21 +124,22 @@ data SSAStateStruct = SSAStateStruct {
 
 
 -- Returns annotated type for expressions
-getTypeFromExpression :: EXPR Type -> Type
-getTypeFromExpression (UnaryExpression op exp t) = t
-getTypeFromExpression (BinaryExpression op exp1 exp2 t) = t
-getTypeFromExpression (ExprLiteral literal) = (TypeBaseType (getTypeFromLiteral literal) )
-getTypeFromExpression (ExprCall call t) = t
-getTypeFromExpression (BaseExpr bexp t) = t
-getTypeFromExpression (IntToReal _) = TypeBaseType BaseType_real
-getTypeFromExpression (CharToString _) = TypeBaseType BaseType_string
+getTypeFromExpression :: EXPR Type -> SSAState Type
+getTypeFromExpression (UnaryExpression op exp t) = return t
+getTypeFromExpression (BinaryExpression op exp1 exp2 t) = return t
+getTypeFromExpression (ExprLiteral literal) = return (TypeBaseType (getTypeFromLiteral literal) )
+getTypeFromExpression (ExprCall call t) = return t
+getTypeFromExpression (BaseExpr bexp t) = return t
+getTypeFromExpression (IntToReal _) = return $ TypeBaseType BaseType_real
+getTypeFromExpression (CharToString _) = return $ TypeBaseType BaseType_string
 
-getTypeFromBaseExpression:: BEXPR Type -> Env -> Type
-getTypeFromBaseExpression (Identifier (TokIdent (tokpos, tokid)) ) env = case Env.lookup tokid env of
-    Just (Variable _ _ envType _) -> envType
-    Just (Constant _ envType _) -> envType
-    Just _ -> TypeBaseType BaseType_error
-    Nothing -> TypeBaseType BaseType_error
+getTypeFromBaseExpression:: BEXPR Type -> Env -> SSAState Type
+getTypeFromBaseExpression (Identifier (TokIdent (tokpos, tokid)) ) env = 
+    case Env.lookup tokid env of
+        Just (Variable _ _ envType _) -> return envType
+        Just (Constant _ envType _) -> return envType
+        Just _ -> return $ TypeBaseType BaseType_error
+        Nothing -> return $ TypeBaseType BaseType_error
 getTypeFromBaseExpression (ArrayElem bexpr iexpr) env = getTypeFromExpression bexpr
 
 -- Type compatibility for operations
@@ -151,6 +152,10 @@ sup t1 t2
     | t1 == (TypeBaseType BaseType_string) && t2 == (TypeBaseType BaseType_char) = (TypeBaseType BaseType_string)
     | otherwise = (TypeBaseType BaseType_error)
 
+isError :: Type -> Type -> Bool
+isError (TypeBaseType BaseType_error) _ = True
+isError _ (TypeBaseType BaseType_error) = True
+isError _ _ = False
 
 getLitPosEnds :: Literal -> PosEnds
 getLitPosEnds (LiteralInteger (TokInteger (pos@(x,y), val))) = PosEnds {leftmost=pos, rightmost = (x, y + (length val))}
