@@ -878,7 +878,13 @@ compareArguments env p (expr:args) (Param m ((IdElement (TokIdent (parpos@(x,y),
                 
                 _ -> do
                     state <- get
-                    put $ state { errors = ("Error at "++ show p ++": the argument "++ showExpr expr ++" is of type " ++ show argExprType ++ " but it should be of type " ++ show t ++" as specified by parameter "++ parid ++ " at "++ show parPosEnds):(errors state)}
+                    put $ state { errors = Errs.TypeMissmatchArgument 
+                                                (show p) 
+                                                (showExpr expr) 
+                                                (show argExprType) 
+                                                (show t) 
+                                                parid 
+                                                (show parPosEnds):(errors state)}
                     compareArguments env p args (Param m toks t) (pargs++[expr])
     where
         argExprType = getTypeFromExpression expr
