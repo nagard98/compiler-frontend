@@ -9,6 +9,10 @@ import Control.Monad.State.Strict
 import Debug.Trace
 import Data.Map
 
+-- Each Begin-End block is annotated with one of this values from the function calling parseBEBlock
+-- For example, this infomation is further passed to parseStatement, so we can check  
+-- if a Return statement is inside a function (ok) or a procedure (error)
+data BlockType = GlobalBlk | FunctionBlk | ProcedureBlk | AnonymousBlk deriving (Eq, Show)
 
 launchStatSemAnalysis :: P env infType -> (Env, Errors, P Env Type)
 launchStatSemAnalysis tree = (env, errors finalState, parsedTree)
@@ -24,7 +28,7 @@ parseTree defEnv (Prog pBlock dclBlock beBlock _) = do
     (globEnv1, annBlks) <- parseDclBlocks globEnv dBlks
         -- errors and env are propagated from declaration block into beginEnd Block!
         -- notice that globEnv is the env after parsing declaration blocks
-    (finalEnv, beBlks) <- parseBEBlock globEnv1 beBlock
+    (finalEnv, beBlks) <- parseBEBlock globEnv1 beBlock GlobalBlk
     popUninit
     
     return (finalEnv, Prog pBlock annBlks beBlks globEnv)
@@ -120,7 +124,7 @@ parseDclFcBlock env (DclBlockFcBlock fB@(FuncBlock idTok@(TokIdent (pos, id)) pa
         then put $ state{errors = errors state} 
         else put $ state{errors = errMsg:(errors state)}            
     
-    (finalEnv, annotatedBEB) <- parseBEBlock tmpEnv beb
+    (finalEnv, annotatedBEB) <- parseBEBlock tmpEnv beb FunctionBlk
     return (finalEnv, DclBlockFcBlock (FuncBlock idTok params retType annotatedBEB))
 
     where        
@@ -146,7 +150,7 @@ parseDclPcBlockFirstPass env dclBlockPc@(DclBlockPcBlock (ProcBlock (TokIdent (p
 -- add info about procedures to the environment. Same as functions but without return type
 parseDclPcBlock :: Env -> DclBlock env infType -> SSAState (Env, DclBlock Env Type)
 parseDclPcBlock env (DclBlockPcBlock (ProcBlock idTok@(TokIdent (pos, id)) params beb)) = do
-    (fEnv, annBEB) <- parseBEBlock env beb
+    (fEnv, annBEB) <- parseBEBlock env beb ProcedureBlk
     return (fEnv, DclBlockPcBlock (ProcBlock idTok params annBEB))
 
 
@@ -180,11 +184,11 @@ parseIds ( idElem@(IdElement (TokIdent (pos, id))):ids) mod typ env isVar = do
 
 
 -- parse the begin-end block and check the statements for type errors
-parseBEBlock:: Env -> BEBlock env infType -> SSAState (Env, BEBlock Env Type)
-parseBEBlock env (BegEndBlock statements annEnv) = do
+parseBEBlock:: Env -> BEBlock env infType -> BlockType -> SSAState (Env, BEBlock Env Type)
+parseBEBlock env (BegEndBlock statements annEnv) blkType = do
     pushNewUninit
     tmpEnv <- parseStatementsFirstPass env statements
-    (newEnv, newStatements) <- parseStatements tmpEnv statements
+    (newEnv, newStatements) <- parseStatements tmpEnv statements blkType
     popUninit
     return (newEnv, BegEndBlock newStatements newEnv)
         
@@ -198,19 +202,19 @@ parseStatementsFirstPass env (_:stmts) = parseStatementsFirstPass env stmts
 parseStatementsFirstPass env _ = return env
 
 
-parseStatements :: Env -> [Stmt env infType] -> SSAState (Env, [Stmt Env Type])
-parseStatements env [] = return (env, [])
-parseStatements env allStmts =  q env allStmts []
+parseStatements :: Env -> [Stmt env infType] -> BlockType -> SSAState (Env, [Stmt Env Type])
+parseStatements env [] blkType = return (env, [])
+parseStatements env allStmts blkType =  q env allStmts []
         where
             q::Env -> [Stmt env infType] -> [Stmt Env Type] -> SSAState (Env, [Stmt Env Type])
             q env [] annStmts = return (env, annStmts)
             q env (s:xs) annStmts = do
-                (env1, annStmt) <- parseStatement s env
+                (env1, annStmt) <- parseStatement s env blkType
                 q env1 xs (annStmts++[annStmt])
 
 
-parseStatement :: Stmt stmtenv infType -> Env -> SSAState (Env, Stmt Env Type)
-parseStatement stmt env = case stmt of
+parseStatement :: Stmt stmtenv infType -> Env -> BlockType ->  SSAState (Env, Stmt Env Type)
+parseStatement stmt env blkType = case stmt of
             -- tipologie di statement: dichiarazione, blocco, assegnamento, chiamata funzione, if-else, iterazione, return
             -- Dichiarazione
             (StmtDecl dclblock) -> do
@@ -219,31 +223,31 @@ parseStatement stmt env = case stmt of
                     
             -- Blocco
             (StmtComp beblock) -> do
-                (env2, block) <- parseBEBlock env beblock
+                (env2, block) <- parseBEBlock env beblock blkType
                 return (env2, (StmtComp block))
 
             -- Assegnamento
             (StmtAssign expr1 expr2) -> parseAssignment expr1 expr2 env 
 
             -- Iterazione
-            (StmtIter iter) -> parseIter (StmtIter iter) env 
+            (StmtIter iter) -> parseIter (StmtIter iter) env blkType
 
             -- Return
             (StmtReturn return)  -> parseReturn (StmtReturn return) env 
 
             -- Select
-            (StmtSelect sel) -> parseSelection (StmtSelect sel) env 
+            (StmtSelect sel) -> parseSelection (StmtSelect sel) env blkType
 
             -- Chiamata funzione
             (StmtCall call) -> parseStatementCall env call
 
 
-parseIter :: Stmt env infType -> Env -> SSAState (Env, Stmt Env Type)
+parseIter :: Stmt env infType -> Env -> BlockType -> SSAState (Env, Stmt Env Type)
 -- parsing of while-do statement
-parseIter (StmtIter (StmtWhileDo expr stmt)) env = do
+parseIter (StmtIter (StmtWhileDo expr stmt)) env blkType = do
     (env1, parsedExpr, posEnds) <- parseExpression env expr
 
-    (newEnv, parsedStmt) <- parseStatement stmt env1
+    (newEnv, parsedStmt) <- parseStatement stmt env1 blkType
     let wrappedStmt = wrapInBeginEnd parsedStmt newEnv
 
     if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean || getTypeFromExpression parsedExpr == TypeBaseType BaseType_error
@@ -254,8 +258,8 @@ parseIter (StmtIter (StmtWhileDo expr stmt)) env = do
             return (newEnv, StmtIter (StmtWhileDo parsedExpr wrappedStmt))
 
 -- parsing of repeat-until statement
-parseIter (StmtIter (StmtRepeat stmt expr)) env = do
-    (env1, parsedStmt) <- parseStatement stmt env
+parseIter (StmtIter (StmtRepeat stmt expr)) env blkType = do
+    (env1, parsedStmt) <- parseStatement stmt env blkType
     let wrappedStmt = wrapInBeginEnd parsedStmt env1
     (newEnv, parsedExpr, posEnds) <- parseExpression env1 expr
 
@@ -266,10 +270,10 @@ parseIter (StmtIter (StmtRepeat stmt expr)) env = do
             put $ state {errors = ("ERROR in range " ++ show posEnds ++ ": condition " ++ showExpr parsedExpr ++ " of repeat-until statement is not of type Bool but it is of type " ++ show (getTypeFromExpression parsedExpr)):(errors state)}
             return (newEnv, StmtIter (StmtRepeat wrappedStmt parsedExpr))
 
-parseSelection :: Stmt env infType -> Env -> SSAState (Env, Stmt Env Type)
-parseSelection (StmtSelect (StmtIf expr stmt)) env = do
+parseSelection :: Stmt env infType -> Env -> BlockType -> SSAState (Env, Stmt Env Type)
+parseSelection (StmtSelect (StmtIf expr stmt)) env blkType = do
     (env1, parsedExpr, posEnds) <- parseExpression env expr
-    (newEnv, parsedStmt) <- parseStatement stmt env1
+    (newEnv, parsedStmt) <- parseStatement stmt env1 blkType
     let wrappedStmt = wrapInBeginEnd parsedStmt newEnv
 
     if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean || getTypeFromExpression parsedExpr == TypeBaseType BaseType_error
@@ -279,11 +283,11 @@ parseSelection (StmtSelect (StmtIf expr stmt)) env = do
             put $ state {errors = ("ERROR in range " ++ show posEnds  ++ ": condition " ++ showExpr parsedExpr ++ " of if statement is not of type Bool but it is of type " ++ show (getTypeFromExpression parsedExpr)):(errors state)}
             return (newEnv, StmtSelect (StmtIf parsedExpr wrappedStmt))
 
-parseSelection (StmtSelect (StmtIfElse expr stmt1 stmt2)) env = do
+parseSelection (StmtSelect (StmtIfElse expr stmt1 stmt2)) env blkType = do
     (env1, parsedExpr, posEnds) <- parseExpression env expr
-    (newEnv1, parsedStmt1) <- parseStatement stmt1 env1
+    (newEnv1, parsedStmt1) <- parseStatement stmt1 env1 blkType
     let wrappedStmt1 = wrapInBeginEnd parsedStmt1 newEnv1
-    (newEnv2, parsedStmt2) <- parseStatement stmt2 newEnv1
+    (newEnv2, parsedStmt2) <- parseStatement stmt2 newEnv1 blkType
     let wrappedStmt2 = wrapInBeginEnd parsedStmt2 newEnv2
 
     if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean || getTypeFromExpression parsedExpr == TypeBaseType BaseType_error
