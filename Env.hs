@@ -212,8 +212,8 @@ popUninit :: SSAState ()
 popUninit = do
     state <- get
     (locUninit, rest) <- pop $ unInitVars state
-    newErrs <- makeUninitErrs (Map.toList locUninit)
     put $ state { unInitVars = rest }
+    makeUninitErrs (Map.toList locUninit)
     where
         makeUninitErrs :: [(String, EnvData)] -> SSAState ()
         makeUninitErrs [] = return ()
