@@ -160,6 +160,21 @@ getLitPosEnds (LiteralBoolean (TokBoolean (pos@(x,y), val))) = PosEnds {leftmost
 getLitPosEnds (LiteralDouble (TokDouble (pos@(x,y), val))) = PosEnds {leftmost=pos, rightmost = (x, y + (length val))}
 
 
+getLitValue :: Literal -> String
+getLitValue (LiteralInteger tok) = getTokValue (TokI tok)
+getLitValue (LiteralChar tok) = getTokValue (TokC tok)
+getLitValue (LiteralString tok) = getTokValue (TokS tok)
+getLitValue (LiteralBoolean tok) = getTokValue (TokB tok)
+getLitValue (LiteralDouble tok) = getTokValue (TokD tok)
+
+getTokValue :: TokWrap -> String
+getTokValue (TokId (TokIdent (_,val))) = val
+getTokValue (TokI (TokInteger (_,val))) = val
+getTokValue (TokD (TokDouble (_,val))) = val
+getTokValue (TokS (TokString (_,val))) = val
+getTokValue (TokC (TokChar (_,val))) = val
+getTokValue (TokB (TokBoolean (_,val))) = val
+
 
 insertVar :: String -> EnvData -> SSAState ()
 insertVar id entry = do
@@ -210,5 +225,13 @@ popUninit = do
                 posEnds = PosEnds { leftmost = pos, rightmost = (x, y + length id) }
                 errMsg = ("Error at " ++ show posEnds ++ ": Variable " ++ id ++ " has never been initialized") 
 
+
+isInRange :: Literal -> CompType -> Bool
+isInRange lit@(LiteralInteger _) (Array l_tok r_tok _) =
+    (indx >= l_end) && (indx <= r_end)
+    where
+        indx = read (getLitValue lit) :: Int
+        l_end = read (getTokValue (TokI l_tok)) :: Int
+        r_end = read (getTokValue (TokI r_tok)) :: Int
 
 ------------------------------------------------------------------------------------------

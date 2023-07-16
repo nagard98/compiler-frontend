@@ -16,6 +16,8 @@ import Data.Array (Array)
 
 type Position = (Int, Int)
 
+data TokWrap = TokId TokIdent | TokC TokChar | TokI TokInteger | TokB TokBoolean | TokS TokString | TokD TokDouble
+
 -- New types that store token position
 newtype TokIdent = TokIdent (Position, String)
   deriving (C.Eq, C.Ord, C.Show, C.Read)
