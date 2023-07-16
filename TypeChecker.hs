@@ -899,7 +899,12 @@ parseBinaryBooleanExpression env op exp1 exp2 = do
     if getTypeFromExpression parsedexp1 /= TypeBaseType BaseType_boolean && getTypeFromExpression parsedexp1 /= TypeBaseType BaseType_error
         then do
             state <- get
-            put $ state { errors = ("Error. " ++ "First argument of "++ getStringFromOperator op ++" operator is of type " ++ show (getTypeFromExpression parsedexp1) ++ " instead of boolean."):(errors state)}
+            put $ state { errors = Errs.TypeMissmatchBinaryExpr 
+                                    (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
+                                    "first"
+                                    (getStringFromOperator op)
+                                    (show (getTypeFromExpression parsedexp1)) 
+                                    "boolean":(errors state)}
             return (
                 env3, 
                 (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
@@ -909,7 +914,12 @@ parseBinaryBooleanExpression env op exp1 exp2 = do
         else if getTypeFromExpression parsedexp2 /= TypeBaseType BaseType_boolean && getTypeFromExpression parsedexp2 /= TypeBaseType BaseType_error
             then do
                 state <- get
-                put $ state { errors = ("Error. " ++ "Second argument of "++ getStringFromOperator op ++" operator is of type " ++ show (getTypeFromExpression parsedexp2) ++ " instead of boolean."):(errors state)}
+                put $ state { errors = Errs.TypeMissmatchBinaryExpr 
+                                    (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
+                                    "second"
+                                    (getStringFromOperator op)
+                                    (show (getTypeFromExpression parsedexp2)) 
+                                    "boolean":(errors state)}
                 return (
                     env3, 
                     (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
@@ -937,7 +947,12 @@ parseBinaryArithmeticExpression env op exp1 exp2 = do
     if getTypeFromExpression parsedexp1 /= TypeBaseType BaseType_integer && getTypeFromExpression parsedexp1 /= TypeBaseType BaseType_real && getTypeFromExpression parsedexp1 /= TypeBaseType BaseType_error
         then do
             state <- get
-            put $ state { errors = ("Error at " ++ show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}  ++ ": First argument of "++ getStringFromOperator op ++ " operator is of type " ++ show (getTypeFromExpression parsedexp1) ++ " instead of numeric (integer or real)."):(errors state)}
+            put $ state { errors = Errs.TypeMissmatchBinaryExpr 
+                                    (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
+                                    "first"
+                                    (getStringFromOperator op) 
+                                    (show (getTypeFromExpression parsedexp1)) 
+                                    "numeric (integer or real)":(errors state)}
             return (
                 env3,  
                 (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
@@ -947,7 +962,12 @@ parseBinaryArithmeticExpression env op exp1 exp2 = do
         else if getTypeFromExpression parsedexp2 /= TypeBaseType BaseType_integer && getTypeFromExpression parsedexp2 /= TypeBaseType BaseType_real && getTypeFromExpression parsedexp2 /= TypeBaseType BaseType_error
             then do 
                 state <- get
-                put $ state { errors = ("Error. " ++ "Second argument of "++getStringFromOperator op++" operator is of type " ++ show (getTypeFromExpression parsedexp2) ++ " instead of numeric (integer or real)."):(errors state)}
+                put $ state { errors = Errs.TypeMissmatchBinaryExpr 
+                                    (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
+                                    "second"
+                                    (getStringFromOperator op)
+                                    (show (getTypeFromExpression parsedexp2)) 
+                                    "numeric (integer or real)":(errors state)}
                 return (
                     env3, 
                     (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
@@ -988,7 +1008,13 @@ parseBinaryRelationExpression env op exp1 exp2 = do
     if getTypeFromExpression parsedexp1 /= TypeBaseType BaseType_integer && getTypeFromExpression parsedexp1 /= TypeBaseType BaseType_real && getTypeFromExpression parsedexp1 /= TypeBaseType BaseType_error 
         then do
             state <- get
-            put $ state { errors = ("Error. " ++ "First argument of "++ getStringFromOperator op ++ "operator is of type " ++ show (getTypeFromExpression parsedexp1) ++ " instead of numeric (integer or real)."):(errors state)}
+
+            put $ state { errors = Errs.TypeMissmatchBinaryExpr 
+                                    (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
+                                    "first"
+                                    (getStringFromOperator op)
+                                    (show (getTypeFromExpression parsedexp1)) 
+                                    "numeric (integer or real)":(errors state)}
             return (
                 env3,  
                 (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
@@ -998,7 +1024,12 @@ parseBinaryRelationExpression env op exp1 exp2 = do
         else if getTypeFromExpression parsedexp2 /= TypeBaseType BaseType_integer && getTypeFromExpression parsedexp2 /= TypeBaseType BaseType_real && getTypeFromExpression parsedexp2 /= TypeBaseType BaseType_error 
             then do
                 state <- get
-                put $ state { errors = ("Error. " ++ "Second argument of "++getStringFromOperator op++" operator is of type " ++ show (getTypeFromExpression parsedexp2) ++ " instead of numeric (integer or real)."):(errors state)}
+                put $ state { errors = Errs.TypeMissmatchBinaryExpr 
+                                    (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
+                                    "second"
+                                    (getStringFromOperator op)
+                                    (show (getTypeFromExpression parsedexp2)) 
+                                    "numeric (integer or real)":(errors state)}
                 return (
                     env3,
                     (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
