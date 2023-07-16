@@ -838,33 +838,57 @@ compareArguments env p [] (Param _ [] t) pargs = return (env, [] , pargs)
 compareArguments env p args (Param _ [] t) pargs = return (env, args, pargs)
 compareArguments env p [] (Param _ toks t) pargs = return (env, [], pargs)
 
-compareArguments env p (expr:args) (Param m ((IdElement (TokIdent (parpos@(x,y),parid))):toks) t) pargs = do
+compareArguments env p (expr:args) (Param m ((IdElement (TokIdent (parpos@(x,y),parid))):toks) t) pargs
+    -- call by reference
+    | m == Modality_ref =
+        if not (checkLExpr expr) 
+            then do
+                state <- get
+                put $ state { errors = ("Error at "++ show p ++ ": parameter " ++ parid ++ " is called by value as specified at " ++ show parPosEnds ++", but argument " ++ showExpr expr ++ " is not a valid l-value."):(errors state)}                
+                compareArguments env p args (Param m toks t) (pargs++[expr])
+            else if not (argExprType == t)
+                    then do
+                        state <- get
+                        put $ state { errors = 
+("Error at "++ show p ++": the argument "++ showExpr expr ++" is of type " ++ show argExprType ++ " but it should be of type " ++ show t ++" as specified by parameter "++ parid ++ " passed by reference at "++ show parPosEnds):(errors state)}                
+                        compareArguments env p args (Param m toks t) (pargs++[expr])
+                                
+                    else
+                        compareArguments env p args (Param m toks t) (pargs++[expr])
+            
+    -- call by value
+    | otherwise = do
 
-    -- confronto tra parametri, diversi casi: 1) int to real, 2) real to int, 3) incompatibile --TODO: type casting CharToString?
-    if argExprType == t
-        then
-            compareArguments env p args (Param m toks t) (pargs++[expr])
-        else
-            case (argExprType, t) of
-                
-                (TypeBaseType BaseType_integer, TypeBaseType BaseType_real) -> 
-                    compareArguments env p args (Param m toks t) (pargs++[(IntToReal expr)])
-                
-                (TypeBaseType BaseType_char, TypeBaseType BaseType_string) -> 
-                    compareArguments env p args (Param m toks t) (pargs++[(CharToString expr)])
+        -- confronto tra parametri, diversi casi: 1) int to real, 2) real to int, 3) incompatibile --TODO: type casting CharToString?
+        if argExprType == t
+            then
+                compareArguments env p args (Param m toks t) (pargs++[expr])
+            else
+                case (argExprType, t) of
+                    
+                    (TypeBaseType BaseType_integer, TypeBaseType BaseType_real) -> 
+                        compareArguments env p args (Param m toks t) (pargs++[(IntToReal expr)])
+                    
+                    (TypeBaseType BaseType_char, TypeBaseType BaseType_string) -> 
+                        compareArguments env p args (Param m toks t) (pargs++[(CharToString expr)])
 
-                -- error in expression of parameter of function/procedure call, no new error messages are generated
-                (TypeBaseType BaseType_error, _) -> 
-                    compareArguments env p args (Param m toks t) (pargs++[expr])
-                
-                _ -> do
-                    state <- get
-                    put $ state { errors = ("Error at "++ show p ++": the argument "++ showExpr expr ++" is of type " ++ show argExprType ++ " but it should be of type " ++ show t ++" as specified by parameter "++ parid ++ " at "++ show parPosEnds):(errors state)}
-                    compareArguments env p args (Param m toks t) (pargs++[expr])
+                    -- error in expression of parameter of function/procedure call, no new error messages are generated
+                    (TypeBaseType BaseType_error, _) -> 
+                        compareArguments env p args (Param m toks t) (pargs++[expr])
+                    
+                    _ -> do
+                        state <- get
+                        put $ state { errors = ("Error at "++ show p ++": the argument "++ showExpr expr ++" is of type " ++ show argExprType ++ " but it should be of type " ++ show t ++" as specified by parameter "++ parid ++ " at "++ show parPosEnds):(errors state)}
+                        compareArguments env p args (Param m toks t) (pargs++[expr])
     where
         argExprType = getTypeFromExpression expr
         parPosEnds = PosEnds{ leftmost = parpos, rightmost = (x, y + length parid)}
-        
+        checkLExpr :: EXPR Type -> Bool
+        checkLExpr (BaseExpr (Identifier _) _) = True
+        checkLExpr (UnaryExpression Dereference _ _) = True
+        checkLExpr (UnaryExpression Reference _ _) = True
+        checkLExpr (BaseExpr (ArrayElem _ _) _) = True
+        checkLExpr _ = False
 
 parseBinaryBooleanExpression :: Env -> BinaryOperator -> EXPR infType -> EXPR infType -> SSAState (Env, EXPR Type, PosEnds)
 parseBinaryBooleanExpression env op exp1 exp2 = do

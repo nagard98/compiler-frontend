@@ -5,8 +5,11 @@ var a: array[1..5]of integer;
 var b: ^real;
 var c: real;
 var d: boolean;
+var i: integer;
 function sum(x,y: real): real;
 begin return x+y end;
+function incr(ref x: real): real;
+begin return x+1 end;
 begin
   {@b := a[3];
   {@b := sum(@b,a[3],true); {test chiamata funzione}
@@ -14,9 +17,10 @@ begin
   {aa[3] := a;
   {sum(1,true);
 
-  {@b := not true;
-  
-  d := (@a)[1]>1;
+
+  {Test call by reference
+  c := incr(i);
+     
     
 {*
   {Test loop
