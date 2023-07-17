@@ -954,7 +954,7 @@ parseBinaryBooleanExpression env op exp1 exp2 = do
             else case (typeExpr1, typeExpr2) of
                 (TypeBaseType BaseType_boolean, _) -> do
                     state <- get
-                    put $ state { errors = Errs.TypeMissmatchBooleanOperatorOne (show exprPosEnds) (getStringFromOperator op) "right" (show exp2) (show typeExpr2):(errors state)}
+                    put $ state { errors = Errs.TypeMissmatchBooleanOperatorOne (show exprPosEnds) (getStringFromOperator op) "right" (showExpr exp2) (show typeExpr2):(errors state)}
                     return (
                         env3, 
                         (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
