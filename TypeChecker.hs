@@ -244,19 +244,42 @@ parseStatement stmt env = case stmt of
                 (env2, parsedStmt) <- parseStatementCall env call
                 return (env2, parsedStmt, False)
 
+            -- Break
+            StmtBreak -> do
+                state <- get
+                case Env.lookup "break" env of
+                    -- break inside loop, this is ok
+                    Just InsideLoop -> return (env, StmtBreak, False)
+                    _ -> do -- error otherwise 
+                        put $ state {errors = Errs.BreakOutsideLoop:(errors state)}
+                        return (env, StmtBreak, False)
+            
+            -- Continue
+            StmtContinue -> do
+                state <- get
+                case Env.lookup "continue" env of
+                    -- continue inside loop, this is ok
+                    Just InsideLoop -> return (env, StmtContinue, False)
+                    _ -> do -- error otherwise 
+                        put $ state {errors = Errs.ContinueOutsideLoop:(errors state)}
+                        return (env, StmtContinue, False)
+
 
 parseIter :: Stmt env infType -> Env -> SSAState (Env, Stmt Env Type, Bool)
 -- parsing of while-do statement
 parseIter (StmtIter (StmtWhileDo expr stmt)) env  = do
     (env1, parsedExpr, posEnds) <- parseExpression env expr
 
-    (newEnv, parsedStmt, isReturn) <- parseStatement stmt env1 
+    env2 <- Env.insert "break" InsideLoop env1
+    env3 <- Env.insert "continue" InsideLoop env2
+
+    (newEnv, parsedStmt, isReturn) <- parseStatement stmt env3
     let wrappedStmt = wrapInBeginEnd parsedStmt newEnv
 
     typeExpr <- getTypeFromExpression parsedExpr
 
     if typeExpr == TypeBaseType BaseType_boolean || typeExpr == TypeBaseType BaseType_error
-        then return (newEnv, StmtIter (StmtWhileDo parsedExpr wrappedStmt), isReturn)
+        then return (env, StmtIter (StmtWhileDo parsedExpr wrappedStmt), isReturn)
         else do
             state <- get
             exprTp <- getTypeFromExpression parsedExpr
@@ -265,18 +288,22 @@ parseIter (StmtIter (StmtWhileDo expr stmt)) env  = do
                                     (showExpr parsedExpr) 
                                     (show exprTp):(errors state)}
 
-            return (newEnv, StmtIter (StmtWhileDo parsedExpr wrappedStmt), isReturn)
+            return (env, StmtIter (StmtWhileDo parsedExpr wrappedStmt), isReturn)
 
 -- parsing of repeat-until statement
 parseIter (StmtIter (StmtRepeat stmt expr)) env  = do
-    (env1, parsedStmt, isReturn) <- parseStatement stmt env 
-    let wrappedStmt = wrapInBeginEnd parsedStmt env1
-    (newEnv, parsedExpr, posEnds) <- parseExpression env1 expr
+
+    env1 <- Env.insert "break" InsideLoop env
+    env2 <- Env.insert "continue" InsideLoop env1
+
+    (env3, parsedStmt, isReturn) <- parseStatement stmt env2 
+    let wrappedStmt = wrapInBeginEnd parsedStmt env3
+    (newEnv, parsedExpr, posEnds) <- parseExpression env3 expr
 
     typeExpr <- getTypeFromExpression parsedExpr
 
     if typeExpr == TypeBaseType BaseType_boolean || typeExpr == TypeBaseType BaseType_error
-        then return (newEnv, StmtIter (StmtRepeat wrappedStmt parsedExpr), isReturn)
+        then return (env, StmtIter (StmtRepeat wrappedStmt parsedExpr), isReturn)
         else do
             state <- get
             exprTp <- getTypeFromExpression parsedExpr
@@ -284,7 +311,7 @@ parseIter (StmtIter (StmtRepeat stmt expr)) env  = do
                                     (show posEnds) 
                                     (showExpr parsedExpr) 
                                     (show exprTp):(errors state)}
-            return (newEnv, StmtIter (StmtRepeat wrappedStmt parsedExpr), isReturn)
+            return (env, StmtIter (StmtRepeat wrappedStmt parsedExpr), isReturn)
 
 parseSelection :: Stmt env infType -> Env -> SSAState (Env, Stmt Env Type, Bool)
 parseSelection (StmtSelect (StmtIf expr stmt)) env  = do

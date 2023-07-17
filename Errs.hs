@@ -41,7 +41,9 @@ data Error =
     TypeMissmatchBooleanOperatorBoth  String String String String String String | -- posEnds operatorStr rightExpr rightTp leftExpr leftTp
     TypeErrorConditionSelectionExpression String String String| --posEnds exprcond condtype
     TypeMismatchSelectionExpression String String String String String --posEnds expr1 expr2 type1 type2
-    
+    BreakOutsideLoop | -- TODO: add pos info
+    ContinueOutsideLoop -- TODO: add pos info
+
 instance Show Error where
     show ReturnInMain = "ERROR ReturnInMain: cannot have a return statement in the main begin-end block"
     show (MissingReturnInFunction pos name) = "ERROR MissingReturnInFunction at " ++ show pos ++ ": " ++ name ++ " does not have a return statement or not all the paths return a value" 
@@ -75,7 +77,9 @@ instance Show Error where
     show (TypeMissmatchReferenceArg  posEnds argExpr argTp expectedTp parid parPosEnds) = "ERROR TypeMissmatchReferenceArg at " ++ posEnds ++ ": the argument " ++ argExpr ++ " is of type " ++ argTp ++ " but it should be of type " ++ expectedTp ++ " as specified by parameter " ++ parid ++ " passed by reference at " ++ parPosEnds
     show (TypeMissmatchPointer posEnds expr actualTp) = "ERROR TypeMissmatchPointer at " ++ posEnds ++ ": expression " ++ expr ++ " should be of type pointer but it is of type " ++ actualTp
     show (InvalidLExpressionDereference posEnds expr) = "ERROR InvalidLExpressionDereference at " ++ posEnds ++ ": expression " ++ expr ++ " is not a valid l-expression for the dereference '^' operator"
-    show (TypeMissmatchBooleanOperatorOne posEnds operatorStr leftOrRight exprStr exprType) = "Error TypeMissmatchBooleanOperatorOne at " ++ posEnds ++ ": cannot apply boolean operator " ++ operatorStr ++ " because " ++ leftOrRight ++ " expression " ++ exprStr ++ " is of type " ++ exprType ++ "instead of boolean"
-    show (TypeMissmatchBooleanOperatorBoth posEnds operatorStr rightExpr rightTp leftExpr leftTp) = "Error TypeMissmatchBooleanOperatorBoth at " ++ posEnds ++ ": cannot apply boolean operator " ++ operatorStr ++ " because right expression " ++ rightExpr ++ " is of type " ++ rightTp ++ " and left expression " ++ leftExpr ++ " is of type " ++ leftTp ++ " , but both should be boolean"
+    show (TypeMissmatchBooleanOperatorOne posEnds operatorStr leftOrRight exprStr exprType) = "ERROR TypeMissmatchBooleanOperatorOne at " ++ posEnds ++ ": cannot apply boolean operator " ++ operatorStr ++ " because " ++ leftOrRight ++ " expression " ++ exprStr ++ " is of type " ++ exprType ++ "instead of boolean"
+    show (TypeMissmatchBooleanOperatorBoth posEnds operatorStr rightExpr rightTp leftExpr leftTp) = "ERROR TypeMissmatchBooleanOperatorBoth at " ++ posEnds ++ ": cannot apply boolean operator " ++ operatorStr ++ " because right expression " ++ rightExpr ++ " is of type " ++ rightTp ++ " and left expression " ++ leftExpr ++ " is of type " ++ leftTp ++ " , but both should be boolean"
     show (TypeErrorConditionSelectionExpression posEnds exprcond condtype) = "ERROR TypeErrorConditionSelectionExpression at "++ posEnds ++": condition "++exprcond++" of expression selection is of type "++ condtype ++ " but it should be Boolean"
-    show (TypeMismatchSelectionExpression posEnds expr1 expr2 type1 type2) = "ERROR TypeMismatchSelectionExpression at "++posEnds++": the types of the two branches of expression selection are not matching, as the expressions "++ expr1 ++ " and " ++ expr2 ++ " are respectively of types " ++ type1 ++ " and " ++ type2 --TODO:
+    show (TypeMismatchSelectionExpression posEnds expr1 expr2 type1 type2) = "ERROR TypeMismatchSelectionExpression at "++posEnds++": the types of the two branches of expression selection are not matching, as the expressions "++ expr1 ++ " and " ++ expr2 ++ " are respectively of types " ++ type1 ++ " and " ++ type2
+    show BreakOutsideLoop = "ERROR BreakOutsideLoop at (TODO:implement pos for break stmt): break statemets are allowed only inside while-do and repeat-until loops"
+    show ContinueOutsideLoop = "ERROR ContinueOutsideLoop at (TODO:implement pos for break stmt): continue statemets are allowed only inside while-do and repeat-until loops"
