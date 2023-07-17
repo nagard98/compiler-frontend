@@ -1,9 +1,9 @@
 {In this file we want to test a basic mathematical expressions}
 
 program HelloMath;
-var a: array[1..5]of integer; 
-var b: ^real;
-var c: real;
+{var a: array[1..2]of integer; 
+{var b: ^real;
+{var c: real;
 var d: boolean;
 var i: integer;
 function sum(x,y: real): real;
@@ -17,10 +17,16 @@ begin
   {aa[3] := a;
   {sum(1,true);
 
+{  a[1] := 1;
+{  a[2] := 2;
+{  b := @c;
+{  c := 3.2;
+  d := true;
+  i := 1;
 
   {Test call by reference
-  c := incr(i);
-     
+  {c := incr(i);
+  i := true ? 1 : true;  
     
 {*
   {Test loop

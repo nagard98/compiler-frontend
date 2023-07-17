@@ -25,6 +25,7 @@ data EnvData =    Variable Modality Position Type Addr
                 | Procedure Position Prms Addr
                 | Constant Position Type Addr
                 | Return Type String Position -- (expected return type from current function, function name, function position)
+                | InsideLoop -- used to check if break/continue are inside a loop
 
 -- data Parameter = Parameter TokIdent Modality Type deriving Show
 
@@ -39,11 +40,13 @@ instance Show EnvData where
     show (Function p prms tp _) = "{function, " ++ show p ++ ", " ++ show prms ++ ", " ++ show tp ++ "}"
     show (Procedure p prms _) = "{procedure, " ++ show p ++ ", " ++ show prms ++  "}"
     show (Return t _ _) = "{exected return type: " ++ show t  ++ "}" 
+    show InsideLoop = "inside loop"
     -- TODO: this line can be reached if show function is not implemented for all type of params
     -- at the moment, it is not implemented for pointers. This line can be removed when all types can be printed
     show _ = "CANT_SHOW. IMPLEMENT ME!"
 
 -- Initial environment with default procedures
+defaultEnv :: Map.Map String EnvData
 defaultEnv = foldl1 Map.union [ Map.singleton "writeInt" (Procedure (0,0) (Params [Param Modality_val [IdElement (TokIdent ((0,0),"val"))] (TypeBaseType BaseType_integer)]) (ProgVar "writeInt") ),
                                   Map.singleton "writeReal" (Procedure (0,0) (Params [Param Modality_val [IdElement (TokIdent ((0,0),"val"))] (TypeBaseType BaseType_real)]) (ProgVar "writeReal") ),
                                   Map.singleton "writeChar" (Procedure (0,0) (Params [Param Modality_val [IdElement (TokIdent ((0,0),"val"))] (TypeBaseType BaseType_char)]) (ProgVar "writeChar") ),
@@ -130,6 +133,7 @@ getTypeFromExpression (BinaryExpression op exp1 exp2 t) = return t
 getTypeFromExpression (ExprLiteral literal) = return (TypeBaseType (getTypeFromLiteral literal) )
 getTypeFromExpression (ExprCall call t) = return t
 getTypeFromExpression (BaseExpr bexp t) = return t
+getTypeFromExpression (SelExpr expcond exp1 exp2 t) = return t
 getTypeFromExpression (IntToReal _) = return $ TypeBaseType BaseType_real
 
 getTypeFromBaseExpression:: BEXPR Type -> Env -> SSAState Type
