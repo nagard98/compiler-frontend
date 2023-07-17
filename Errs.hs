@@ -40,7 +40,7 @@ data Error =
     TypeMissmatchBooleanOperatorOne String String String String String | -- posEnds operatorStr leftOrRight exprStr exprType
     TypeMissmatchBooleanOperatorBoth  String String String String String String | -- posEnds operatorStr rightExpr rightTp leftExpr leftTp
     TypeErrorConditionSelectionExpression String String String| --posEnds exprcond condtype
-    TypeMismatchSelectionExpression String String String String String --posEnds expr1 expr2 type1 type2
+    TypeMismatchSelectionExpression String String String String String | --posEnds expr1 expr2 type1 type2
     BreakOutsideLoop | -- TODO: add pos info
     ContinueOutsideLoop -- TODO: add pos info
 
