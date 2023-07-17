@@ -283,7 +283,7 @@ parseIter (StmtIter (StmtWhileDo expr stmt)) env  = do
         else do
             state <- get
             exprTp <- getTypeFromExpression parsedExpr
-            put $ state {errors = Errs.TypeMissmatchIter 
+            put $ state {errors = Errs.TypeMismatchIter 
                                     (show posEnds) 
                                     (showExpr parsedExpr) 
                                     (show exprTp):(errors state)}
@@ -307,7 +307,7 @@ parseIter (StmtIter (StmtRepeat stmt expr)) env  = do
         else do
             state <- get
             exprTp <- getTypeFromExpression parsedExpr
-            put $ state {errors = Errs.TypeMissmatchIter 
+            put $ state {errors = Errs.TypeMismatchIter 
                                     (show posEnds) 
                                     (showExpr parsedExpr) 
                                     (show exprTp):(errors state)}
@@ -326,7 +326,7 @@ parseSelection (StmtSelect (StmtIf expr stmt)) env  = do
         else do
             state <- get
             exprTp <- getTypeFromExpression parsedExpr
-            put $ state {errors = Errs.TypeMissmatchSelection 
+            put $ state {errors = Errs.TypeMismatchSelection 
                                     (show posEnds) 
                                     (showExpr parsedExpr) 
                                     (show exprTp):(errors state)}
@@ -347,7 +347,7 @@ parseSelection (StmtSelect (StmtIfElse expr stmt1 stmt2)) env  = do
         else do
             state <- get
             exprTp <- getTypeFromExpression parsedExpr
-            put $ state { errors = Errs.TypeMissmatchSelection 
+            put $ state { errors = Errs.TypeMismatchSelection 
                                     (show posEnds) 
                                     (showExpr parsedExpr) 
                                     (show exprTp):(errors state) }
@@ -374,7 +374,7 @@ parseReturn (StmtReturn (Ret expr)) env = do
                     state <- get
                     exprTp <- getTypeFromExpression parsedExpr
                     put $ state { errors =
-                        Errs.TypeMissmatchReturn 
+                        Errs.TypeMismatchReturn 
                                 (show posEnds) 
                                 funName 
                                 (show expectedType) 
@@ -463,7 +463,7 @@ parseArrayAssignment bExpr@(BaseExpr (ArrayElem bbexpr iiexpr) t) expr env posEn
 
                 _ -> do 
                     state <- get
-                    put $ state { errors = Errs.TypeMissmatchArrayAssignment 
+                    put $ state { errors = Errs.TypeMismatchArrayAssignment 
                                             (show posEnds) 
                                             (showExpr bExpr) 
                                             (show t) 
@@ -508,7 +508,7 @@ parseLitAssignment tkId@(TokIdent (idPos, idVal)) literal env posEnds = case Env
                 -- In case of error it is added to the state
                 (_, _)  -> do
                         state <- get
-                        put $ state { errors = Errs.TypeMissmatchLiteral (show posEnds) idVal (show litType) (show envType):(errors state)}
+                        put $ state { errors = Errs.TypeMismatchLiteral (show posEnds) idVal (show litType) (show envType):(errors state)}
                         return (env, StmtAssign (BaseExpr (Identifier tkId) (TypeBaseType BaseType_error)) (ExprLiteral literal))
 
     
@@ -547,7 +547,7 @@ parseIdExprAssignment tkId@(TokIdent (idPos, idVal)) expr env posEnds = do
 
                     (_, _)  -> do
                         state <- get
-                        put $ state { errors = Errs.TypeMissmatchIdExprAssignment(show posEnds) idVal (show envType) (show exprType):(errors state)}
+                        put $ state { errors = Errs.TypeMismatchIdExprAssignment(show posEnds) idVal (show envType) (show exprType):(errors state)}
                         return (
                             env, 
                             StmtAssign (BaseExpr (Identifier tkId) envType) expr 
@@ -586,7 +586,7 @@ parseExprExprAssignment expr1 expr2 env posEnds = do
                 state <- get
                 exprTp1 <- getTypeFromExpression expr1
                 exprTp2 <- getTypeFromExpression expr2
-                put $ state { errors = Errs.TypeMissmatchExprExprAssignment 
+                put $ state { errors = Errs.TypeMismatchExprExprAssignment 
                                         (show posEnds) 
                                         (showExpr expr1) 
                                         (show expr1)
@@ -615,7 +615,7 @@ parseExpression env (UnaryExpression Not exp t) = do
         else do
             state <- get
             exprTp <- getTypeFromExpression parsedexp
-            put $ state { errors = Errs.TypeMissmatchUnaryExpr (show posEnds) (show exprTp):(errors state)}
+            put $ state { errors = Errs.TypeMismatchUnaryExpr (show posEnds) (show exprTp):(errors state)}
             return (
                 env2, 
                 (UnaryExpression Not parsedexp (TypeBaseType BaseType_error) ),
@@ -639,7 +639,7 @@ parseExpression env (UnaryExpression Negation exp t) = do
         else do
             state <- get
             exprTp <- getTypeFromExpression parsedexp
-            put $ state { errors = Errs.TypeMissmatchArithmeticMinus (show posEnds) (show exprTp):(errors state)}
+            put $ state { errors = Errs.TypeMismatchArithmeticMinus (show posEnds) (show exprTp):(errors state)}
             return (
                 env2, 
                 (UnaryExpression Negation parsedexp (TypeBaseType BaseType_error) ),
@@ -685,7 +685,7 @@ parseExpression env (UnaryExpression Dereference exp t)  = do
                     state <- get
                     exprTp <- getTypeFromExpression parsedexp
                     --TODO: nonostante questo errore, viene segnato errore anche nella chiamata della funzione dove viene usata l'espressione
-                    put $ state { errors = Errs.TypeMissmatchPointer (show posEnds) (showExpr exp) (show exprTp):(errors state)}
+                    put $ state { errors = Errs.TypeMismatchPointer (show posEnds) (showExpr exp) (show exprTp):(errors state)}
                     return (env2, (UnaryExpression Dereference parsedexp (TypeBaseType BaseType_error)), posEnds )
              
         else do
@@ -713,7 +713,7 @@ parseExpression env (UnaryExpression Reference exp t) = do
                     state <- get
                     exprTp <- getTypeFromExpression parsedexp
                     --TODO: nonostante questo errore, viene segnato errore anche nella chiamata della funzione dove viene usata l'espressione
-                    put $ state { errors = Errs.TypeMissimatchReference (show posEnds) (show exprTp):(errors state)}
+                    put $ state { errors = Errs.TypeMismatchReference (show posEnds) (show exprTp):(errors state)}
                     return (
                         env2, 
                         (UnaryExpression Reference parsedexp (TypeBaseType BaseType_error) ),
@@ -865,7 +865,7 @@ parseFunctionCall env (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) NoParams t p
 
 parseFunctionCall env (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) (Params prms) t pargs posEnds = do
     state <- get
-    put $ state { errors = Errs.NumOfArgsMissmatch (show tokpos) "function" tokid:(errors state)}
+    put $ state { errors = Errs.NumOfArgsMismatch (show tokpos) "function" tokid:(errors state)}
     return (
         env, 
         (CallArgs tkId pargs ), 
@@ -874,7 +874,7 @@ parseFunctionCall env (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) (Params prms
 
 parseFunctionCall env (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) NoParams t pargs posEnds = do
     state <- get
-    put $ state { errors = Errs.NumOfArgsMissmatch (show tokpos) "function" tokid:(errors state)}
+    put $ state { errors = Errs.NumOfArgsMismatch (show tokpos) "function" tokid:(errors state)}
     return (
         env, 
         (CallArgs tkId (pargs++args) ), 
@@ -902,7 +902,7 @@ parseProcedureCall env (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) NoParams pa
 
 parseProcedureCall env (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) (Params prms) pargs posEnds = do
     state <- get
-    put $ state { errors = Errs.NumOfArgsMissmatch (show tokpos) "procedure" tokid:(errors state)}
+    put $ state { errors = Errs.NumOfArgsMismatch (show tokpos) "procedure" tokid:(errors state)}
     return (
         env,
         (CallArgs tkId pargs ), 
@@ -911,7 +911,7 @@ parseProcedureCall env (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) (Params prm
 
 parseProcedureCall env (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) NoParams pargs posEnds = do
     state <- get
-    put $ state { errors = Errs.NumOfArgsMissmatch (show tokpos) "procedure" tokid:(errors state)}
+    put $ state { errors = Errs.NumOfArgsMismatch (show tokpos) "procedure" tokid:(errors state)}
     return (
         env,
         (CallArgs tkId (pargs++args) ), 
@@ -949,7 +949,7 @@ compareArguments env p (expr:args) (Param m ((IdElement (TokIdent (parpos@(x,y),
             else if not (argExprType == t)
                     then do
                         state <- get
-                        put $ state { errors = Errs.TypeMissmatchReferenceArg (show p) (showExpr expr) (show argExprType) (show t) parid (show parPosEnds):(errors state)}                
+                        put $ state { errors = Errs.TypeMismatchReferenceArg (show p) (showExpr expr) (show argExprType) (show t) parid (show parPosEnds):(errors state)}                
                         compareArguments env p args (Param m toks t) (pargs++[expr])
                                 
                     else
@@ -975,7 +975,7 @@ compareArguments env p (expr:args) (Param m ((IdElement (TokIdent (parpos@(x,y),
                     
                     _ -> do
                         state <- get
-                        put $ state { errors = Errs.TypeMissmatchArgument 
+                        put $ state { errors = Errs.TypeMismatchArgument 
                                                     (show p) 
                                                     (showExpr expr) 
                                                     (show argExprType) 
@@ -1019,7 +1019,7 @@ parseBinaryBooleanExpression env op exp1 exp2 = do
             else case (typeExpr1, typeExpr2) of
                 (TypeBaseType BaseType_boolean, _) -> do
                     state <- get
-                    put $ state { errors = Errs.TypeMissmatchBooleanOperatorOne (show exprPosEnds) (getStringFromOperator op) "right" (showExpr exp2) (show typeExpr2):(errors state)}
+                    put $ state { errors = Errs.TypeMismatchBooleanOperatorOne (show exprPosEnds) (getStringFromOperator op) "right" (showExpr exp2) (show typeExpr2):(errors state)}
                     return (
                         env3, 
                         (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
@@ -1030,7 +1030,7 @@ parseBinaryBooleanExpression env op exp1 exp2 = do
 
                 (_, TypeBaseType BaseType_boolean) -> do
                     state <- get
-                    put $ state { errors = Errs.TypeMissmatchBooleanOperatorOne (show exprPosEnds) (getStringFromOperator op) "left" (showExpr exp1) (show typeExpr1):(errors state)}
+                    put $ state { errors = Errs.TypeMismatchBooleanOperatorOne (show exprPosEnds) (getStringFromOperator op) "left" (showExpr exp1) (show typeExpr1):(errors state)}
                     return (
                         env3, 
                         (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
@@ -1041,7 +1041,7 @@ parseBinaryBooleanExpression env op exp1 exp2 = do
 
                 (_, _) -> do
                     state <- get
-                    put $ state { errors = Errs.TypeMissmatchBooleanOperatorBoth (show exprPosEnds) (getStringFromOperator op) (showExpr exp2) (show typeExpr2) (showExpr exp1) (show typeExpr1):(errors state)}
+                    put $ state { errors = Errs.TypeMismatchBooleanOperatorBoth (show exprPosEnds) (getStringFromOperator op) (showExpr exp2) (show typeExpr2) (showExpr exp1) (show typeExpr1):(errors state)}
                     return (
                         env3, 
                         (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
@@ -1070,7 +1070,7 @@ parseBinaryArithmeticExpression env op exp1 exp2 = do
         then do
             state <- get
             exprTp <- getTypeFromExpression parsedexp1
-            put $ state { errors = Errs.TypeMissmatchBinaryExpr 
+            put $ state { errors = Errs.TypeMismatchBinaryExpr 
                                     (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                                     "first"
                                     (getStringFromOperator op) 
@@ -1086,7 +1086,7 @@ parseBinaryArithmeticExpression env op exp1 exp2 = do
             then do 
                 state <- get
                 exprTp <- getTypeFromExpression parsedexp2
-                put $ state { errors = Errs.TypeMissmatchBinaryExpr 
+                put $ state { errors = Errs.TypeMismatchBinaryExpr 
                                     (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                                     "second"
                                     (getStringFromOperator op)
@@ -1142,7 +1142,7 @@ parseBinaryRelationExpression env op exp1 exp2 = do
         then do
             state <- get
             exprTp <- getTypeFromExpression parsedexp1
-            put $ state { errors = Errs.TypeMissmatchBinaryExpr 
+            put $ state { errors = Errs.TypeMismatchBinaryExpr 
                                     (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                                     "first"
                                     (getStringFromOperator op)
@@ -1158,7 +1158,7 @@ parseBinaryRelationExpression env op exp1 exp2 = do
             then do
                 state <- get
                 exprTp <- getTypeFromExpression parsedexp2
-                put $ state { errors = Errs.TypeMissmatchBinaryExpr 
+                put $ state { errors = Errs.TypeMismatchBinaryExpr 
                                     (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                                     "second"
                                     (getStringFromOperator op)
@@ -1251,7 +1251,7 @@ parseBaseExpression env (ArrayElem bexpr iexpr) = do
         (TypeCompType (Array i1 i2 basetype), _) -> do
             state <- get
             exprTp <- getTypeFromExpression parsediexpr
-            put $ state { errors = Errs.TypeMissmatchArrayIndex (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}) (show exprTp):(errors state)}
+            put $ state { errors = Errs.TypeMismatchArrayIndex (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}) (show exprTp):(errors state)}
             return (
                 env3, 
                 (ArrayElem parsedbexpr parsediexpr), 
@@ -1262,7 +1262,7 @@ parseBaseExpression env (ArrayElem bexpr iexpr) = do
         (_, TypeBaseType BaseType_integer) -> do
             state <- get
             exprTp <- getTypeFromExpression parsedbexpr
-            put $ state { errors = Errs.TypeMissmatchNotArray (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}) (showExpr parsedbexpr) (show exprTp):(errors state)}
+            put $ state { errors = Errs.TypeMismatchNotArray (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}) (showExpr parsedbexpr) (show exprTp):(errors state)}
             return (
                 env3, 
                 (ArrayElem parsedbexpr parsediexpr), 
@@ -1275,8 +1275,8 @@ parseBaseExpression env (ArrayElem bexpr iexpr) = do
             exprTp1 <- getTypeFromExpression parsedbexpr
             exprTp2 <- getTypeFromExpression parsediexpr
             put $ state { errors = 
-                Errs.TypeMissmatchNotArray (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}) (showExpr parsedbexpr) (show exprTp1)
-                :Errs.TypeMissmatchArrayIndex (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}) (show exprTp2):(errors state)}
+                Errs.TypeMismatchNotArray (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}) (showExpr parsedbexpr) (show exprTp1)
+                :Errs.TypeMismatchArrayIndex (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}) (show exprTp2):(errors state)}
             return (
                 env3,
                 (ArrayElem parsedbexpr parsediexpr), 
