@@ -38,8 +38,10 @@ data Error =
     TypeMissmatchPointer String String String  | -- posEnds expr actualTp
     InvalidLExpressionDereference String String | -- posEnds expr
     TypeMissmatchBooleanOperatorOne String String String String String | -- posEnds operatorStr leftOrRight exprStr exprType
-    TypeMissmatchBooleanOperatorBoth  String String String String String String -- posEnds operatorStr rightExpr rightTp leftExpr leftTp
-    
+    TypeMissmatchBooleanOperatorBoth  String String String String String String | -- posEnds operatorStr rightExpr rightTp leftExpr leftTp
+    BreakOutsideLoop | -- TODO: add pos info
+    ContinueOutsideLoop -- TODO: add pos info
+
 instance Show Error where
     show ReturnInMain = "ERROR ReturnInMain: cannot have a return statement in the main begin-end block"
     show (MissingReturnInFunction pos name) = "ERROR MissingReturnInFunction at " ++ show pos ++ ": " ++ name ++ " does not have a return statement or not all the paths return a value" 
@@ -73,5 +75,7 @@ instance Show Error where
     show (TypeMissmatchReferenceArg  posEnds argExpr argTp expectedTp parid parPosEnds) = "ERROR TypeMissmatchReferenceArg at " ++ posEnds ++ ": the argument " ++ argExpr ++ " is of type " ++ argTp ++ " but it should be of type " ++ expectedTp ++ " as specified by parameter " ++ parid ++ " passed by reference at " ++ parPosEnds
     show (TypeMissmatchPointer posEnds expr actualTp) = "ERROR TypeMissmatchPointer at " ++ posEnds ++ ": expression " ++ expr ++ " should be of type pointer but it is of type " ++ actualTp
     show (InvalidLExpressionDereference posEnds expr) = "ERROR InvalidLExpressionDereference at " ++ posEnds ++ ": expression " ++ expr ++ " is not a valid l-expression for the dereference '^' operator"
-    show (TypeMissmatchBooleanOperatorOne posEnds operatorStr leftOrRight exprStr exprType) = "Error TypeMissmatchBooleanOperatorOne at " ++ posEnds ++ ": cannot apply boolean operator " ++ operatorStr ++ " because " ++ leftOrRight ++ " expression " ++ exprStr ++ " is of type " ++ exprType ++ "instead of boolean"
-    show (TypeMissmatchBooleanOperatorBoth posEnds operatorStr rightExpr rightTp leftExpr leftTp) = "Error TypeMissmatchBooleanOperatorBoth at " ++ posEnds ++ ": cannot apply boolean operator " ++ operatorStr ++ " because right expression " ++ rightExpr ++ " is of type " ++ rightTp ++ " and left expression " ++ leftExpr ++ " is of type " ++ leftTp ++ " , but both should be boolean"
+    show (TypeMissmatchBooleanOperatorOne posEnds operatorStr leftOrRight exprStr exprType) = "ERROR TypeMissmatchBooleanOperatorOne at " ++ posEnds ++ ": cannot apply boolean operator " ++ operatorStr ++ " because " ++ leftOrRight ++ " expression " ++ exprStr ++ " is of type " ++ exprType ++ "instead of boolean"
+    show (TypeMissmatchBooleanOperatorBoth posEnds operatorStr rightExpr rightTp leftExpr leftTp) = "ERROR TypeMissmatchBooleanOperatorBoth at " ++ posEnds ++ ": cannot apply boolean operator " ++ operatorStr ++ " because right expression " ++ rightExpr ++ " is of type " ++ rightTp ++ " and left expression " ++ leftExpr ++ " is of type " ++ leftTp ++ " , but both should be boolean"
+    show BreakOutsideLoop = "ERROR BreakOutsideLoop at (TODO:implement pos for break stmt): break statemets are allowed only inside loops"
+    show ContinueOutsideLoop = "ERROR ContinueOutsideLoop at (TODO:implement pos for break stmt): continue statemets are allowed only inside loops"

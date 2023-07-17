@@ -244,13 +244,36 @@ parseStatement stmt env = case stmt of
                 (env2, parsedStmt) <- parseStatementCall env call
                 return (env2, parsedStmt, False)
 
+            -- Break
+            StmtBreak -> do
+                state <- get
+                case Env.lookup "break" env of
+                    -- break inside loop, this is ok
+                    Just InsideLoop -> return (env, StmtBreak, False)
+                    _ -> do -- error otherwise 
+                        put $ state {errors = Errs.BreakOutsideLoop:(errors state)}
+                        return (env, StmtBreak, False)
+            
+            -- Continue
+            StmtContinue -> do
+                state <- get
+                case Env.lookup "continue" env of
+                    -- continue inside loop, this is ok
+                    Just InsideLoop -> return (env, StmtContinue, False)
+                    _ -> do -- error otherwise 
+                        put $ state {errors = Errs.ContinueOutsideLoop:(errors state)}
+                        return (env, StmtContinue, False)
+
 
 parseIter :: Stmt env infType -> Env -> SSAState (Env, Stmt Env Type, Bool)
 -- parsing of while-do statement
 parseIter (StmtIter (StmtWhileDo expr stmt)) env  = do
     (env1, parsedExpr, posEnds) <- parseExpression env expr
 
-    (newEnv, parsedStmt, isReturn) <- parseStatement stmt env1 
+    env2 <- Env.insert "break" InsideLoop env1
+    env3 <- Env.insert "continue" InsideLoop env2
+
+    (newEnv, parsedStmt, isReturn) <- parseStatement stmt env3
     let wrappedStmt = wrapInBeginEnd parsedStmt newEnv
 
     typeExpr <- getTypeFromExpression parsedExpr

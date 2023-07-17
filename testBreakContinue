@@ -1,0 +1,16 @@
+program TestLoop;
+
+var a:integer;
+
+begin
+    a := 0;
+    while a < 100 do
+    begin
+        a := a + 1;
+        if a > 10 then
+            break
+        else continue;
+    end;
+
+    break;
+end.
