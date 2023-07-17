@@ -253,7 +253,7 @@ genStmtIter _ _ =  error "TODO: gestire errore genStmtIter"
 genGuard :: AbsGrammar.EXPR AbsGrammar.Type -> TACLabel -> TACLabel -> Env -> StateTAC ()
 genGuard guard trueLab falseLab env = case guard of
 
-    (AbsGrammar.BinaryExpression opr b1@expr1 b2@expr2 _) -> case opr of
+    (AbsGrammar.BinaryExpression opr b1@expr1 b2@expr2 tp) -> case opr of
 
         AbsGrammar.And -> do
             b1False <- case falseLab of
@@ -292,10 +292,10 @@ genGuard guard trueLab falseLab env = case guard of
 
                     case (trueLab, falseLab) of
                         (Fall, Fall) -> return ()
-                        (_, Fall) -> addInstr (TACCndJmp e1Addr (binToTACOp opr) e2Addr trueLab)
-                        (Fall, _) -> addInstr (TACCndJmp e1Addr (notRel opr) e2Addr falseLab)
+                        (_, Fall) -> addInstr (TACCndJmp e1Addr (binToTACOp opr (gramTypeToTACType tp)) e2Addr trueLab)
+                        (Fall, _) -> addInstr (TACCndJmp e1Addr (notRel opr (gramTypeToTACType tp)) e2Addr falseLab)
                         _ -> do
-                            addInstr (TACCndJmp e1Addr (binToTACOp opr) e2Addr trueLab)
+                            addInstr (TACCndJmp e1Addr (binToTACOp opr (gramTypeToTACType tp)) e2Addr trueLab)
                             addInstr (TACUncdJmp falseLab)
                             
                 else error "TODO: genGuard -> operatore non è ne logico ne relazionale"
@@ -340,9 +340,7 @@ genExpr expr genL env =
         (AbsGrammar.ExprLiteral _) -> genLitExpr expr genL env
         (AbsGrammar.ExprCall _ _) -> genExprCall expr genL env
         (AbsGrammar.BaseExpr _ _) -> genBaseExpr expr genL env
-        (AbsGrammar.IntToReal exp) -> do
-            --traceM "TODO: genExpr -> implementa IntToReal"
-            genExpr exp genL env
+        (AbsGrammar.IntToReal exp) -> genCastIntToRealExpr expr genL env
         (AbsGrammar.CharToString exp) -> do
             --traceM "TODO: genExpr -> implementa IntToReal"
             genExpr exp genL env
@@ -379,9 +377,9 @@ genUnrExpr (AbsGrammar.UnaryExpression op exp1 tp) genL env = do
 
         case rVal of
             (Addr addr) -> do
-                addr <- castIfNecessary addr exprType tp;
+                --addr <- castIfNecessary addr exprType tp;
 
-                addInstr (TACUnAss tmpAddr (unrToTACOp op) addr);
+                addInstr (TACUnAss tmpAddr (unrToTACOp op (gramTypeToTACType tp)) addr);
                 return $ Addr tmpAddr;
 
             _ -> error "TODO: genUnrExpr (Neg, Not) -> implementare altri casi case "
@@ -390,7 +388,7 @@ genUnrExpr _ _ _ = error "TODO: gestire errore genUnrExpr"
 
 -- TODO: valutare come usare tp(fare cast) ed env
 genBinExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Bool -> Env -> StateTAC XAddr
-genBinExpr (AbsGrammar.BinaryExpression op exp1 exp2 infType) genL env = do
+genBinExpr (AbsGrammar.BinaryExpression op exp1 exp2 tp) genL env = do
     if genL
         then error "TODO: E non è l-expr"
         else do
@@ -402,21 +400,16 @@ genBinExpr (AbsGrammar.BinaryExpression op exp1 exp2 infType) genL env = do
 
             case (rVal1, rVal2) of
                 (Addr tmpAddr1, Addr tmpAddr2) -> do
-                    tmpAddr1 <- castIfNecessary tmpAddr1 expr1Type infType;
-                    tmpAddr2 <- castIfNecessary tmpAddr2 expr2Type infType;
-
-                    addInstr (TACBinAss tmpAddr tmpAddr1 (binToTACOp op) tmpAddr2);
+                    addInstr (TACBinAss tmpAddr tmpAddr1 (binToTACOp op (gramTypeToTACType tp)) tmpAddr2);
                     return $ Addr tmpAddr
 
                 (Addr tmpAddr1, ArrayAddr base2 offset2) -> do
-                    tmpAddr1 <- castIfNecessary tmpAddr1 expr1Type infType;
 
                     tmpAddr <- newTmpAddr
                     addInstr (TACIndxLd tmpAddr base2 offset2)
-                    tmpAddr <- castIfNecessary tmpAddr expr2Type infType;
 
                     tmpRes <- newTmpAddr
-                    addInstr (TACBinAss tmpRes tmpAddr1 (binToTACOp op) tmpAddr);
+                    addInstr (TACBinAss tmpRes tmpAddr1 (binToTACOp op (gramTypeToTACType tp)) tmpAddr);
                     return $ Addr tmpRes
 
                 _ -> error "TODO: genBinExpr -> gestisci altri casi case come da slide "
@@ -424,7 +417,7 @@ genBinExpr (AbsGrammar.BinaryExpression op exp1 exp2 infType) genL env = do
 genBinExpr _ _ _ = error "TODO: gestire errore genBinExpr"
 
 
-castIfNecessary :: Addr -> AbsGrammar.Type -> AbsGrammar.Type -> StateTAC Addr
+{- castIfNecessary :: Addr -> AbsGrammar.Type -> AbsGrammar.Type -> StateTAC Addr
 castIfNecessary exprAddr exprType castType = do
     if exprType == castType 
         then return exprAddr;
@@ -433,7 +426,7 @@ castIfNecessary exprAddr exprType castType = do
             addInstr (TACUnAss tmpAddr (TACCast castType) exprAddr)
             return tmpAddr;
 
-
+ -}
 getExprType :: AbsGrammar.EXPR AbsGrammar.Type -> StateTAC AbsGrammar.Type
 getExprType expr = case expr of
     AbsGrammar.UnaryExpression _ _ tp -> return tp;
@@ -502,7 +495,7 @@ genArrayExpr (AbsGrammar.BaseExpr (AbsGrammar.ArrayElem arrExpr indexExpr) tp) g
             sizeAddr <- case sizeXAddr of
                 (Addr a) -> return a
                 _ -> error "TODO: genArrayExpr -> getisci errore creazione address literal"
-            addInstr (TACBinAss offsetAddr indAddr TACMul sizeAddr)
+            addInstr (TACBinAss offsetAddr indAddr TACMulInt sizeAddr)
             if genL
                 then return $ ArrayAddr fldAddr offsetAddr 
                 else do
@@ -516,9 +509,9 @@ genArrayExpr (AbsGrammar.BaseExpr (AbsGrammar.ArrayElem arrExpr indexExpr) tp) g
                 (Addr a) -> return a
                 _ -> error "TODO: genArrayExpr -> getisci errore creazione address literal"
             tmpOffset <- newTmpAddr
-            addInstr (TACBinAss tmpOffset indAddr TACMul sizeAddr)
+            addInstr (TACBinAss tmpOffset indAddr TACMulInt sizeAddr)
             offset <- newTmpAddr
-            addInstr (TACBinAss offset tmpOffset TACAdd offAddr)
+            addInstr (TACBinAss offset tmpOffset TACAddInt offAddr)
             if genL
                 then return $ ArrayAddr bsAddr offset
                 else do
@@ -559,6 +552,16 @@ genArrayExpr (AbsGrammar.ArrayElem arr@(AbsGrammar.ArrayElem _ _) indexExpr) gen
     return ( ArrayAddr baseAddr offset, tp)
 -}
 
+genCastIntToRealExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Bool -> Env -> StateTAC XAddr
+genCastIntToRealExpr (AbsGrammar.IntToReal expr) genL env = do
+    tmpXAddr <- genExpr expr genL env
+    tmpAddr <- newTmpAddr
+
+    case tmpXAddr of
+        (Addr addr) -> do
+            addInstr (TACUnAss tmpAddr TACCastIntToReal addr)
+            return (Addr tmpAddr)
+        _ -> error "TODO: genCastIntToReal"
 
 
 addInstr :: TACInst -> StateTAC ()

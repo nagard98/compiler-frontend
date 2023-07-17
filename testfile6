@@ -1,12 +1,17 @@
 program TACTest;
 
 {var b : ^integer;
+{TODO: mi dice che a non è mai stato inizializzato
+{var a:array[1..2] of integer;
+var c:real;
 var a:integer;
 
 procedure p (ref ptr :^integer);
 begin end;
 
 begin
-    
-    a:= 5 + 'a' + true; 
+    a := 5;
+    {a[2] := 5;
+    c := a;
+    {b:=@a;
 end.

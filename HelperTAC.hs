@@ -11,15 +11,17 @@ type Stack a =  [a]
 
 newtype TACQuadSeq = TACQuadSeq (DS.Seq TACQuad)
 
-data TACLiteral = TACString String | TACInt Int | TACReal Float | TACChar Char | TACBool Bool
+data TACLiteral = TACIntLit Int | TACRealLit Float | TACCharLit Char | TACBoolLit Bool | TACMemAddrLit  
     deriving (Eq, Ord)
 
+data TACType = TACIntType | TACFloatType | TACCharType | TACBoolType | TACMemAddrType 
+
 makeTACLit :: AbsGrammar.Literal -> TACLiteral
-makeTACLit (AbsGrammar.LiteralInteger (TokInteger (_, val))) = TACInt (read val :: Int)
-makeTACLit (AbsGrammar.LiteralChar (TokChar (_, val))) = TACChar (read val :: Char)
-makeTACLit (AbsGrammar.LiteralBoolean (TokBoolean (_, val))) = TACBool (read val :: Bool)
-makeTACLit (AbsGrammar.LiteralDouble (TokDouble (_, val))) = TACReal (read val :: Float)
-makeTACLit (AbsGrammar.LiteralString (TokString (_, val))) = TACString (read val :: String)
+makeTACLit (AbsGrammar.LiteralInteger (TokInteger (_, val))) = TACIntLit (read val :: Int)
+makeTACLit (AbsGrammar.LiteralChar (TokChar (_, val))) = TACCharLit (read val :: Char)
+makeTACLit (AbsGrammar.LiteralBoolean (TokBoolean (_, val))) = TACBoolLit (read val :: Bool)
+makeTACLit (AbsGrammar.LiteralDouble (TokDouble (_, val))) = TACRealLit (read val :: Float)
+--makeTACLit (AbsGrammar.LiteralString (TokString (_, val))) = TACString (read val :: String)
 
 
 appendQuad :: TACQuadSeq -> TACQuad -> TACQuadSeq
@@ -119,8 +121,8 @@ instrToQuad (TACAssDeref res op) labels = return (TACQuad labels (Just TACDeref)
 instrToQuad (TACAssRef res op) labels = return (TACQuad labels (Just TACRef) (Just op) Nothing (Just res))
 instrToQuad (TACDerefAss res op) labels = return (TACQuad labels (Just TACDeref) Nothing (Just op) (Just res))
 instrToQuad (TACParam prm) labels = return (TACQuad labels (Just TACPrm) Nothing Nothing (Just prm))
-instrToQuad (TACPCall pName nPrm) labels = return (TACQuad labels (Just TACPCl) (Just pName) (Just $ TacLit(TACInt nPrm)) Nothing)
-instrToQuad (TACFCall res fName nPrm) labels = return (TACQuad labels (Just TACFCl) (Just fName) (Just $ TacLit(TACInt nPrm)) (Just res))
+instrToQuad (TACPCall pName nPrm) labels = return (TACQuad labels (Just TACPCl) (Just pName) (Just $ TacLit(TACIntLit nPrm)) Nothing)
+instrToQuad (TACFCall res fName nPrm) labels = return (TACQuad labels (Just TACFCl) (Just fName) (Just $ TacLit(TACIntLit nPrm)) (Just res))
 instrToQuad (TACReturn res) labels = return (TACQuad labels (Just TACRt) Nothing Nothing (Just res))
 instrToQuad TACReturnVoid labels = return (TACQuad labels (Just TACRt) Nothing Nothing Nothing)
 
@@ -129,19 +131,33 @@ newLabelRef :: LabelRef
 newLabelRef = DM.empty
 
 data TACOp =
-          TACAdd
-        | TACSub
-        | TACDiv
-        | TACMul
-        | TACMod
+          TACAddInt
+        | TACAddFloat
+        | TACSubInt
+        | TACSubFloat
+        | TACDivInt
+        | TACDivFloat
+        | TACMulInt
+        | TACMulFloat
+        | TACModInt
         | TACOr
         | TACAnd
-        | TACEq
-        | TACNotEq
-        | TACLessT
-        | TACGreatT
-        | TACEqLessT
-        | TACEqGreatT
+        | TACEqBool
+        | TACEqChar
+        | TACEqInt
+        | TACEqFloat
+        | TACNotEqBool
+        | TACNotEqChar
+        | TACNotEqInt
+        | TACNotEqFloat
+        | TACLessTInt
+        | TACLessTFloat
+        | TACGreatTInt
+        | TACGreatTFloat
+        | TACEqLessTInt
+        | TACEqLessTFloat
+        | TACEqGreatTInt
+        | TACEqGreatTFloat
 
         | TACIdxL
         | TACIdxS
@@ -152,36 +168,67 @@ data TACOp =
         | TACRt
         -- | TACRtVd
 
-        | TACJmpEq
-        | TACJmpNotEq
-        | TACJmpLessT
-        | TACJmpGreatT
-        | TACJmpEqLessT
-        | TACJmpEqGreatT
+        | TACJmpEqInt
+        | TACJmpEqFloat
+        | TACJmpEqChar
+        | TACJmpEqBool
+        | TACJmpNotEqInt
+        | TACJmpNotEqFloat
+        | TACJmpNotEqChar
+        | TACJmpNotEqBool
+        | TACJmpLessTInt
+        | TACJmpLessTFloat
+        | TACJmpGreatTInt
+        | TACJmpGreatTFloat
+        | TACJmpEqLessTInt
+        | TACJmpEqLessTFloat
+        | TACJmpEqGreatTInt
+        | TACJmpEqGreatTFloat
         | TACJmp
 
         | TACNot
-        | TACNeg
+        | TACNegInt
+        | TACNegFloat
         | TACRef
         | TACDeref
         -- TODO: usare un tipo specifico per TAC
-        | TACCast AbsGrammar.Type
+        | TACCastIntToReal
 
 toJmpOp :: TACOp -> TACOp
-toJmpOp TACEq = TACJmpEq
-toJmpOp TACNotEq = TACJmpNotEq
-toJmpOp TACLessT = TACJmpLessT
-toJmpOp TACGreatT = TACJmpGreatT
-toJmpOp TACEqLessT = TACJmpEqLessT
-toJmpOp TACEqGreatT = TACJmpEqGreatT
+toJmpOp TACEqInt = TACJmpEqInt
+toJmpOp TACEqFloat = TACJmpEqFloat
+toJmpOp TACEqChar = TACJmpEqChar
+toJmpOp TACEqBool = TACJmpEqBool
+toJmpOp TACNotEqInt = TACJmpNotEqInt
+toJmpOp TACNotEqFloat = TACJmpNotEqFloat
+toJmpOp TACNotEqChar = TACJmpNotEqChar
+toJmpOp TACNotEqBool = TACJmpNotEqBool
+toJmpOp TACLessTInt = TACJmpLessTInt
+toJmpOp TACLessTFloat = TACJmpLessTFloat
+toJmpOp TACGreatTInt = TACJmpGreatTInt
+toJmpOp TACGreatTFloat = TACJmpGreatTFloat
+toJmpOp TACEqLessTInt = TACJmpEqLessTInt
+toJmpOp TACEqLessTFloat = TACJmpEqLessTFloat
+toJmpOp TACEqGreatTInt = TACJmpEqGreatTInt
+toJmpOp TACEqGreatTFloat = TACJmpEqGreatTFloat
 
 isCndJmpOp :: TACOp -> Bool
-isCndJmpOp TACJmpEq = True
-isCndJmpOp TACJmpNotEq = True
-isCndJmpOp TACJmpLessT = True
-isCndJmpOp TACJmpGreatT = True
-isCndJmpOp TACJmpEqLessT = True
-isCndJmpOp TACJmpEqGreatT = True
+isCndJmpOp TACJmpEqInt = True
+isCndJmpOp TACJmpEqFloat = True
+isCndJmpOp TACJmpEqChar = True
+isCndJmpOp TACJmpEqBool = True
+isCndJmpOp TACJmpNotEqInt = True
+isCndJmpOp TACJmpNotEqFloat = True
+isCndJmpOp TACJmpNotEqChar = True
+isCndJmpOp TACJmpNotEqBool = True
+isCndJmpOp TACJmpLessTInt = True
+isCndJmpOp TACJmpLessTFloat = True
+isCndJmpOp TACJmpGreatTInt = True
+isCndJmpOp TACJmpGreatTFloat = True
+isCndJmpOp TACJmpEqLessTInt = True
+isCndJmpOp TACJmpEqLessTFloat = True
+isCndJmpOp TACJmpEqGreatTInt = True
+isCndJmpOp TACJmpEqGreatTFloat = True
 isCndJmpOp _ = False
 
 data TACInst =
@@ -201,8 +248,6 @@ data TACInst =
     | TACFCall Addr Addr Int
     | TACReturnVoid
     | TACReturn Addr
-   -- | TACLabelledInstr TACLabel TACInst
-   -- | LabelNext TACLabel
 
 newTmpAddr :: StateTAC Addr
 newTmpAddr = do
@@ -221,45 +266,80 @@ newLabel = do
     put $ state {labCount = labCount state + 1};
     return (StmtLab (ProgVar ("L" ++ show (labCount state))) )
 
-binToTACOp :: AbsGrammar.BinaryOperator -> TACOp
-binToTACOp opr = case opr of
-    AbsGrammar.Add -> TACAdd
-    AbsGrammar.Sub -> TACSub
-    AbsGrammar.Div -> TACDiv
-    AbsGrammar.Mul -> TACMul
-    AbsGrammar.Mod -> TACMod
-    AbsGrammar.Or -> TACOr
-    AbsGrammar.And -> TACAnd
-    AbsGrammar.Eq -> TACEq
-    AbsGrammar.NotEq -> TACNotEq
-    AbsGrammar.LessT -> TACLessT
-    AbsGrammar.GreatT -> TACGreatT
-    AbsGrammar.EqLessT -> TACEqLessT
-    AbsGrammar.EqGreatT -> TACEqGreatT
+binToTACOp :: AbsGrammar.BinaryOperator -> TACType -> TACOp
+binToTACOp opr tacTp = case (opr, tacTp) of
+    (AbsGrammar.Add , TACIntType) -> TACAddInt
+    (AbsGrammar.Add , TACFloatType) -> TACAddFloat
+    (AbsGrammar.Sub, TACIntType) -> TACSubInt
+    (AbsGrammar.Sub, TACFloatType) -> TACSubFloat
+    (AbsGrammar.Div, TACIntType) -> TACDivInt
+    (AbsGrammar.Div, TACFloatType) -> TACDivFloat
+    (AbsGrammar.Mul, TACIntType) -> TACMulInt
+    (AbsGrammar.Mul, TACFloatType) -> TACMulFloat
+    (AbsGrammar.Mod, TACIntType) -> TACModInt
+    (AbsGrammar.Or, _) -> TACOr
+    (AbsGrammar.And, _) -> TACAnd
+    (AbsGrammar.Eq, TACIntType) -> TACEqInt
+    (AbsGrammar.Eq, TACFloatType) -> TACEqFloat
+    (AbsGrammar.Eq, TACCharType) -> TACEqChar
+    (AbsGrammar.Eq, TACBoolType) -> TACEqBool
+    (AbsGrammar.NotEq, TACIntType) -> TACNotEqInt
+    (AbsGrammar.NotEq, TACFloatType) -> TACNotEqFloat
+    (AbsGrammar.NotEq, TACCharType) -> TACNotEqChar
+    (AbsGrammar.NotEq, TACBoolType) -> TACNotEqBool
+    (AbsGrammar.LessT, TACIntType) -> TACLessTInt
+    (AbsGrammar.LessT, TACFloatType) -> TACLessTFloat    
+    (AbsGrammar.GreatT, TACIntType) -> TACGreatTInt
+    (AbsGrammar.GreatT, TACFloatType) -> TACGreatTFloat
+    (AbsGrammar.EqLessT, TACIntType) -> TACEqLessTInt
+    (AbsGrammar.EqLessT, TACFloatType) -> TACEqLessTFloat
+    (AbsGrammar.EqGreatT, TACIntType) -> TACEqGreatTInt
+    (AbsGrammar.EqGreatT, TACFloatType) -> TACEqGreatTFloat
 
-unrToTACOp :: AbsGrammar.UnaryOperator -> TACOp
-unrToTACOp opr = case opr of
-    AbsGrammar.Not -> TACNot
-    AbsGrammar.Negation -> TACNeg
-    AbsGrammar.Reference -> TACRef
-    AbsGrammar.Dereference -> TACDeref
+unrToTACOp :: AbsGrammar.UnaryOperator -> TACType -> TACOp
+unrToTACOp opr tacTp = case (opr, tacTp) of
+    (AbsGrammar.Not, _) -> TACNot
+    (AbsGrammar.Negation, TACFloatType) -> TACNegFloat
+    (AbsGrammar.Negation, TACIntType) -> TACNegInt
+    (AbsGrammar.Reference, _) -> TACRef
+    (AbsGrammar.Dereference, _) -> TACDeref
 
 
-notRel :: AbsGrammar.BinaryOperator -> TACOp
-notRel opr = case opr of
-    AbsGrammar.Eq -> TACNotEq
-    AbsGrammar.NotEq -> TACEq
-    AbsGrammar.LessT -> TACEqGreatT
-    AbsGrammar.GreatT -> TACEqLessT
-    AbsGrammar.EqLessT -> TACGreatT
-    AbsGrammar.EqGreatT -> TACLessT
+notRel :: AbsGrammar.BinaryOperator -> TACType -> TACOp
+notRel opr tacTp = case (opr,tacTp) of
+    (AbsGrammar.Eq, TACIntType) -> TACNotEqInt
+    (AbsGrammar.Eq, TACFloatType) -> TACNotEqFloat
+    (AbsGrammar.Eq, TACCharType) -> TACNotEqChar
+    (AbsGrammar.Eq, TACBoolType) -> TACNotEqBool
+    (AbsGrammar.NotEq, TACIntType) -> TACEqInt
+    (AbsGrammar.NotEq, TACFloatType) -> TACEqFloat
+    (AbsGrammar.NotEq, TACCharType) -> TACEqChar
+    (AbsGrammar.NotEq, TACBoolType) -> TACEqBool
+    (AbsGrammar.EqLessT, TACIntType) -> TACGreatTInt
+    (AbsGrammar.EqLessT, TACFloatType) -> TACGreatTFloat
+    (AbsGrammar.EqGreatT, TACIntType) -> TACLessTInt
+    (AbsGrammar.EqGreatT, TACFloatType) -> TACLessTFloat
+    (AbsGrammar.GreatT, TACIntType) -> TACEqLessTInt
+    (AbsGrammar.GreatT, TACFloatType) -> TACEqLessTFloat
+    (AbsGrammar.LessT, TACIntType) -> TACEqGreatTInt
+    (AbsGrammar.LessT, TACFloatType) -> TACEqGreatTFloat
+    
+
+gramTypeToTACType :: AbsGrammar.Type -> TACType
+gramTypeToTACType (AbsGrammar.TypeBaseType AbsGrammar.BaseType_boolean) = TACBoolType
+gramTypeToTACType (AbsGrammar.TypeBaseType AbsGrammar.BaseType_char) = TACCharType
+gramTypeToTACType (AbsGrammar.TypeBaseType AbsGrammar.BaseType_integer) = TACIntType
+gramTypeToTACType (AbsGrammar.TypeBaseType AbsGrammar.BaseType_real) = TACFloatType
+gramTypeToTACType (AbsGrammar.TypeBaseType AbsGrammar.BaseType_string) = TACMemAddrType
+gramTypeToTACType (AbsGrammar.TypeCompType _) = TACMemAddrType
+gramTypeToTACType _ = error "TODO: gramTypeToTACType: internal error"
 
 
 getVarDefaultVal :: AbsGrammar.Type -> Addr
 getVarDefaultVal tp = case tp of
-    AbsGrammar.TypeBaseType AbsGrammar.BaseType_integer -> TacLit (TACInt 0)
-    AbsGrammar.TypeBaseType AbsGrammar.BaseType_real -> TacLit (TACReal 0.0)
-    _ -> TacLit (TACInt 0)
+    AbsGrammar.TypeBaseType AbsGrammar.BaseType_integer -> TacLit (TACIntLit 0)
+    AbsGrammar.TypeBaseType AbsGrammar.BaseType_real -> TacLit (TACRealLit 0.0)
+    _ -> TacLit (TACIntLit 0)
 
 
 convertIntToExpr :: Int -> AbsGrammar.EXPR AbsGrammar.Type

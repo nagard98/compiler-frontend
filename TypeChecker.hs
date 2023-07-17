@@ -253,7 +253,9 @@ parseIter (StmtIter (StmtWhileDo expr stmt)) env  = do
     (newEnv, parsedStmt, isReturn) <- parseStatement stmt env1 
     let wrappedStmt = wrapInBeginEnd parsedStmt newEnv
 
-    if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean || getTypeFromExpression parsedExpr == TypeBaseType BaseType_error
+    typeExpr <- getTypeFromExpression parsedExpr
+
+    if typeExpr == TypeBaseType BaseType_boolean || typeExpr == TypeBaseType BaseType_error
         then return (newEnv, StmtIter (StmtWhileDo parsedExpr wrappedStmt), isReturn)
         else do
             state <- get
@@ -270,7 +272,9 @@ parseIter (StmtIter (StmtRepeat stmt expr)) env  = do
     let wrappedStmt = wrapInBeginEnd parsedStmt env1
     (newEnv, parsedExpr, posEnds) <- parseExpression env1 expr
 
-    if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean || getTypeFromExpression parsedExpr == TypeBaseType BaseType_error
+    typeExpr <- getTypeFromExpression parsedExpr
+
+    if typeExpr == TypeBaseType BaseType_boolean || typeExpr == TypeBaseType BaseType_error
         then return (newEnv, StmtIter (StmtRepeat wrappedStmt parsedExpr), isReturn)
         else do
             state <- get
@@ -286,7 +290,9 @@ parseSelection (StmtSelect (StmtIf expr stmt)) env  = do
     (newEnv, parsedStmt, isReturn) <- parseStatement stmt env1 
     let wrappedStmt = wrapInBeginEnd parsedStmt newEnv
 
-    if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean || getTypeFromExpression parsedExpr == TypeBaseType BaseType_error
+    typeExpr <- getTypeFromExpression parsedExpr
+
+    if typeExpr == TypeBaseType BaseType_boolean || typeExpr == TypeBaseType BaseType_error
         then return (newEnv, StmtSelect (StmtIf parsedExpr wrappedStmt), isReturn)
         else do
             state <- get
@@ -298,12 +304,15 @@ parseSelection (StmtSelect (StmtIf expr stmt)) env  = do
 
 parseSelection (StmtSelect (StmtIfElse expr stmt1 stmt2)) env  = do
     (env1, parsedExpr, posEnds) <- parseExpression env expr
+
     (newEnv1, parsedStmt1, isReturn1) <- parseStatement stmt1 env1 
     let wrappedStmt1 = wrapInBeginEnd parsedStmt1 newEnv1
     (newEnv2, parsedStmt2, isReturn2) <- parseStatement stmt2 newEnv1 
     let wrappedStmt2 = wrapInBeginEnd parsedStmt2 newEnv2
 
-    if getTypeFromExpression parsedExpr == TypeBaseType BaseType_boolean || getTypeFromExpression parsedExpr == TypeBaseType BaseType_error
+    typeExpr <- getTypeFromExpression parsedExpr
+
+    if typeExpr == TypeBaseType BaseType_boolean || typeExpr == TypeBaseType BaseType_error
         then return (newEnv2, StmtSelect (StmtIfElse parsedExpr wrappedStmt1 wrappedStmt2), isReturn1 && isReturn2)
         else do
             state <- get
@@ -324,11 +333,12 @@ wrapInBeginEnd stmt stmEnv = StmtComp (BegEndBlock [stmt] stmEnv)
 parseReturn :: Stmt env infType -> Env -> SSAState (Env, Stmt Env Type)
 parseReturn (StmtReturn (Ret expr)) env = do
     (newEnv, parsedExpr, posEnds) <- parseExpression env expr
-    
+    typeExpr <- getTypeFromExpression parsedExpr
+
     case Env.lookup "return" env of 
     
         Just (Return expectedType funName funPos) ->
-            if sup expectedType (getTypeFromExpression parsedExpr) /= expectedType && getTypeFromExpression parsedExpr /= TypeBaseType BaseType_error
+            if sup expectedType (typeExpr) /= expectedType && typeExpr /= TypeBaseType BaseType_error
                 then do
                     state <- get
                     put $ state { errors =
@@ -397,6 +407,9 @@ parseAssignment expr1 expr2 env = case (expr1, expr2) of
 -- Checks if r-expression matches typing with an l-expression that is an element of an array
 parseArrayAssignment:: EXPR Type -> EXPR Type -> Env -> PosEnds -> SSAState (Env, Stmt Env Type)
 parseArrayAssignment bExpr@(BaseExpr (ArrayElem bbexpr iiexpr) t) expr env posEnds = do
+    -- Tipo del valore che si vuole assegnare
+    rtype <- getTypeFromExpression expr
+
     if t == rtype
         then return (env, (StmtAssign bExpr expr))
         else 
@@ -427,10 +440,6 @@ parseArrayAssignment bExpr@(BaseExpr (ArrayElem bbexpr iiexpr) t) expr env posEn
                                             (show rtype):(errors state)}
                     return (env, StmtAssign bExpr (IntToReal expr)) 
 
-
-    where
-        -- Tipo del valore che si vuole assegnare
-        rtype = getTypeFromExpression expr
 
 --TODO: a cosa serviva questa parte? scrivetemelo su whatsapp
 -- generic expression that is not a base expression
@@ -485,54 +494,58 @@ parseLitAssignment tkId@(TokIdent (idPos, idVal)) literal env posEnds = case Env
 
 -- Given identifier and expression (already parsed with inferred type!) assigns type to token of identifier
 parseIdExprAssignment :: TokIdent -> EXPR Type -> Env -> PosEnds -> SSAState (Env, Stmt Env Type)
-parseIdExprAssignment tkId@(TokIdent (idPos, idVal)) expr env posEnds = case Env.lookup idVal env of
-    Just (Variable mod envPos envType addr) ->
-        if envType == exprType
-            
-            then return (
+parseIdExprAssignment tkId@(TokIdent (idPos, idVal)) expr env posEnds = do
+    exprType <- getTypeFromExpression expr
+    
+    case Env.lookup idVal env of
+        Just (Variable mod envPos envType addr) ->
+            if envType == exprType
+                
+                then return (
+                    env,
+                    StmtAssign (BaseExpr (Identifier tkId) envType) expr -- annoto literal con il tipo corretto
+                    )
+                
+                else case (envType, exprType ) of
+                    -- 3 cases: 1) casting int->real, 2) casting char->string, 3) incompatible types
+                    (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) -> 
+                        return (env, StmtAssign (BaseExpr (Identifier tkId) envType) (IntToReal expr) )
+                    (TypeBaseType BaseType_string, TypeBaseType BaseType_char) -> 
+                        return (env, StmtAssign (BaseExpr (Identifier tkId) envType) (CharToString expr) )
+
+                    -- cases in which an error was previously generated: no new error messages, pass the error forwards
+                    (TypeBaseType BaseType_error, _) -> 
+                        return (env, StmtAssign (BaseExpr (Identifier tkId) (TypeBaseType BaseType_error)) expr )
+                    (_, TypeBaseType BaseType_error) -> 
+                        return (env, StmtAssign (BaseExpr (Identifier tkId) (TypeBaseType BaseType_error)) expr )
+
+                    (_, _)  -> do
+                        state <- get
+                        put $ state { errors = Errs.TypeMissmatchIdExprAssignment(show posEnds) idVal (show envType) (show exprType):(errors state)}
+                        return (
+                            env, 
+                            StmtAssign (BaseExpr (Identifier tkId) envType) expr 
+                            )
+
+        Nothing -> do
+            state <- get
+            put $ state { errors = Errs.UnknownIdentifier (show posEnds) idVal:(errors state)}
+            return (
                 env,
-                StmtAssign (BaseExpr (Identifier tkId) envType) expr -- annoto literal con il tipo corretto
+                StmtAssign (BaseExpr (Identifier tkId) (TypeBaseType BaseType_error)) expr
                 )
-            
-            else case (envType, exprType ) of
-                -- 3 cases: 1) casting int->real, 2) casting char->string, 3) incompatible types
-                (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) -> 
-                    return (env, StmtAssign (BaseExpr (Identifier tkId) envType) (IntToReal expr) )
-                (TypeBaseType BaseType_string, TypeBaseType BaseType_char) -> 
-                    return (env, StmtAssign (BaseExpr (Identifier tkId) envType) (CharToString expr) )
 
-                -- cases in which an error was previously generated: no new error messages, pass the error forwards
-                (TypeBaseType BaseType_error, _) -> 
-                    return (env, StmtAssign (BaseExpr (Identifier tkId) (TypeBaseType BaseType_error)) expr )
-                (_, TypeBaseType BaseType_error) -> 
-                    return (env, StmtAssign (BaseExpr (Identifier tkId) (TypeBaseType BaseType_error)) expr )
-
-                (_, _)  -> do
-                    state <- get
-                    put $ state { errors = Errs.TypeMissmatchIdExprAssignment(show posEnds) idVal (show envType) (show exprType):(errors state)}
-                    return (
-                        env, 
-                        StmtAssign (BaseExpr (Identifier tkId) envType) expr 
-                        )
-
-    Nothing -> do
-        state <- get
-        put $ state { errors = Errs.UnknownIdentifier (show posEnds) idVal:(errors state)}
-        return (
-            env,
-            StmtAssign (BaseExpr (Identifier tkId) (TypeBaseType BaseType_error)) expr
-            )
-
-    where
-        exprType = getTypeFromExpression expr
 
 
 parseExprExprAssignment :: EXPR Type -> EXPR Type -> Env -> PosEnds -> SSAState (Env, Stmt Env Type)
-parseExprExprAssignment expr1 expr2 env posEnds = 
+parseExprExprAssignment expr1 expr2 env posEnds = do
+    typeExpr1 <- getTypeFromExpression expr1
+    typeExpr2 <- getTypeFromExpression expr2
+
     -- TODO: includere posizione e stringa dell'espressione sinistra nel messaggio di errore
-    if getTypeFromExpression expr1 == getTypeFromExpression expr2
+    if typeExpr1 == typeExpr2
         then return (env, (StmtAssign expr1 expr2) )
-        else case (getTypeFromExpression expr1, getTypeFromExpression expr2) of
+        else case (typeExpr1, typeExpr2) of
             
             (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) -> 
                 return (env, (StmtAssign expr1 (IntToReal expr2)))
@@ -564,11 +577,13 @@ parseExpression :: Env -> EXPR infType -> SSAState (Env, EXPR Type, PosEnds)
 -- Boolean Unary Negation
 parseExpression env (UnaryExpression Not exp t) = do
     (env2, parsedexp, posEnds) <- parseExpression env exp
-    if getTypeFromExpression parsedexp == TypeBaseType BaseType_boolean || getTypeFromExpression parsedexp == TypeBaseType BaseType_error 
+    typeExpr <- getTypeFromExpression parsedexp
+
+    if typeExpr == TypeBaseType BaseType_boolean || typeExpr == TypeBaseType BaseType_error 
         then -- no new errors are generated
             return (
                 env2,  
-                (UnaryExpression Not parsedexp (sup (getTypeFromExpression parsedexp) (TypeBaseType BaseType_boolean)) ),
+                (UnaryExpression Not parsedexp (sup (typeExpr) (TypeBaseType BaseType_boolean)) ),
                 posEnds
                 )
         else do
@@ -584,12 +599,14 @@ parseExpression env (UnaryExpression Not exp t) = do
 -- Arithmetic Unary Negation
 parseExpression env (UnaryExpression Negation exp t) = do
     (env2, parsedexp, posEnds) <- parseExpression env exp
+    typeExpr <- getTypeFromExpression parsedexp
+
     --TODO: come viene gestito se il tipo errore? No dovrebbe poi essere restituito poi l'errore invece che il tipo integer
-    if getTypeFromExpression parsedexp == TypeBaseType BaseType_integer || getTypeFromExpression parsedexp == TypeBaseType BaseType_real || getTypeFromExpression parsedexp == TypeBaseType BaseType_error 
+    if typeExpr == TypeBaseType BaseType_integer || typeExpr == TypeBaseType BaseType_real || typeExpr == TypeBaseType BaseType_error 
         then
             return (
                 env2,
-                (UnaryExpression Negation parsedexp (sup (getTypeFromExpression parsedexp) (TypeBaseType BaseType_integer)) ),
+                (UnaryExpression Negation parsedexp (sup (typeExpr) (TypeBaseType BaseType_integer)) ),
                 posEnds
                 )
         else do
@@ -624,12 +641,12 @@ parseExpression env (BinaryExpression EqGreatT exp1 exp2 t) = parseBinaryRelatio
 -- Dereference
 parseExpression env (UnaryExpression Dereference exp t)  = do 
     (env2, parsedexp, posEnds) <- parseExpression env exp
-
+    typeExpr <- getTypeFromExpression parsedexp
     --TODO: aggiornare posEnds, allunga a destra di 1 colonna per l'operatore ^
 
     if checkLExpr parsedexp
         then
-            case getTypeFromExpression parsedexp of
+            case typeExpr of
                 (TypeBaseType BaseType_error) -> 
                     return (env2, (UnaryExpression Dereference parsedexp (TypeBaseType BaseType_error)), posEnds )
 
@@ -652,16 +669,17 @@ parseExpression env (UnaryExpression Dereference exp t)  = do
 -- Reference
 parseExpression env (UnaryExpression Reference exp t) = do
     (env2, parsedexp, posEnds) <- parseExpression env exp
-    traceM $ "\n"++ show (getTypeFromExpression parsedexp)++"  "++ showExpr exp ++"\n"
+    typeExpr <- getTypeFromExpression parsedexp
+    traceM $ "\n"++ show (typeExpr)++"  "++ showExpr exp ++"\n"
     
     --TODO: aggiornare posEnds, allunga a sinistra di 1 colonna per l'operatore @
 
-    if getTypeFromExpression parsedexp == TypeBaseType BaseType_error
+    if typeExpr == TypeBaseType BaseType_error
         then 
             return (env2, (UnaryExpression Reference parsedexp (TypeBaseType BaseType_error)), posEnds )
         else 
             if checkLExpr parsedexp
-                then return (env2, (UnaryExpression Reference parsedexp (TypeCompType (Pointer (getTypeFromExpression parsedexp)))), posEnds )
+                then return (env2, (UnaryExpression Reference parsedexp (TypeCompType (Pointer (typeExpr)))), posEnds )
                 else do
                     state <- get
                     --TODO: nonostante questo errore, viene segnato errore anche nella chiamata della funzione dove viene usata l'espressione
@@ -692,7 +710,9 @@ parseExpression env (BaseExpr bexpr t) = do
 -- Integer to Real
 parseExpression env (IntToReal expr) = do
     (env2, parsedexpr, posEnds) <- parseExpression env expr
-    case getTypeFromExpression parsedexpr of
+    typeExpr <- getTypeFromExpression parsedexpr
+
+    case typeExpr of
         
         TypeBaseType BaseType_integer -> return (env2, (IntToReal parsedexpr), posEnds)
         
@@ -711,7 +731,9 @@ parseExpression env (IntToReal expr) = do
 -- Char to String
 parseExpression env (CharToString expr) = do
     (env2, parsedexpr, posEnds) <- parseExpression env expr
-    case getTypeFromExpression parsedexpr of
+    typeExpr <- getTypeFromExpression parsedexpr
+
+    case typeExpr of
         
         TypeBaseType BaseType_char -> return (env2, (CharToString parsedexpr), posEnds)
         
@@ -877,8 +899,11 @@ compareArguments env p args (Param _ [] t) pargs = return (env, args, pargs)
 compareArguments env p [] (Param _ toks t) pargs = return (env, [], pargs)
 
 compareArguments env p (expr:args) (Param m ((IdElement (TokIdent (parpos@(x,y),parid))):toks) t) pargs
+    
     -- call by reference
-    | m == Modality_ref =
+    | m == Modality_ref = do
+        argExprType <- getTypeFromExpression expr
+
         if not (checkLExpr expr) 
             then do
                 state <- get
@@ -895,6 +920,7 @@ compareArguments env p (expr:args) (Param m ((IdElement (TokIdent (parpos@(x,y),
             
     -- call by value
     | otherwise = do
+        argExprType <- getTypeFromExpression expr
 
         -- confronto tra parametri, diversi casi: 1) int to real, 2) real to int, 3) incompatibile --TODO: type casting CharToString?
         if argExprType == t
@@ -924,14 +950,14 @@ compareArguments env p (expr:args) (Param m ((IdElement (TokIdent (parpos@(x,y),
                                                     (show parPosEnds):(errors state)}
                         compareArguments env p args (Param m toks t) (pargs++[expr])
     where
-        argExprType = getTypeFromExpression expr
         parPosEnds = PosEnds{ leftmost = parpos, rightmost = (x, y + length parid)}
+
 
 checkLExpr :: EXPR Type -> Bool
 checkLExpr (BaseExpr (Identifier _) _) = True
 checkLExpr (UnaryExpression Dereference _ _) = True
 --Reference non produce un l-value
---TODO: forse in realtà è giusto, devo
+--TODO: forse in realtà è giusto, devo capire meglio
 --checkLExpr (UnaryExpression Reference _ _) = True
 checkLExpr (BaseExpr (ArrayElem _ _) _) = True
 checkLExpr _ = False
@@ -941,41 +967,55 @@ parseBinaryBooleanExpression :: Env -> BinaryOperator -> EXPR infType -> EXPR in
 parseBinaryBooleanExpression env op exp1 exp2 = do
     (env2, parsedexp1, posEndsL) <- parseExpression env exp1
     (env3, parsedexp2, posEndsR) <- parseExpression env2 exp2
-    
-    if getTypeFromExpression parsedexp1 /= TypeBaseType BaseType_boolean && getTypeFromExpression parsedexp1 /= TypeBaseType BaseType_error
-        then do
-            state <- get
-            put $ state { errors = Errs.TypeMissmatchBinaryExpr 
-                                    (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
-                                    "first"
-                                    (getStringFromOperator op)
-                                    (show (getTypeFromExpression parsedexp1)) 
-                                    "boolean":(errors state)}
-            return (
+    typeExpr1 <- getTypeFromExpression parsedexp1
+    typeExpr2 <- getTypeFromExpression parsedexp2
+
+    if isError typeExpr1 typeExpr2
+        then return (
                 env3, 
-                (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
-                PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}
-                )
+                (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ), 
+                PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
         
-        else if getTypeFromExpression parsedexp2 /= TypeBaseType BaseType_boolean && getTypeFromExpression parsedexp2 /= TypeBaseType BaseType_error
-            then do
-                state <- get
-                put $ state { errors = Errs.TypeMissmatchBinaryExpr 
-                                    (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
-                                    "second"
-                                    (getStringFromOperator op)
-                                    (show (getTypeFromExpression parsedexp2)) 
-                                    "boolean":(errors state)}
-                return (
+        else if sup typeExpr1 typeExpr2 == TypeBaseType BaseType_boolean
+            then return (
                     env3, 
-                    (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
-                    PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}
-                    )
-            -- if one of the expressions is of type Error, no new messages are produced
-            else return (
-                    env3, 
-                    (BinaryExpression op parsedexp1 parsedexp2 (sup (getTypeFromExpression parsedexp1) (getTypeFromExpression parsedexp2)) ), 
+                    (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_boolean) ), 
                     PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
+            
+            else case (typeExpr1, typeExpr2) of
+                (TypeBaseType BaseType_boolean, _) -> do
+                    state <- get
+                    put $ state { errors = Errs.TypeMissmatchBooleanOperatorOne (show exprPosEnds) (getStringFromOperator op) "right" (show exp2) (show typeExpr2):(errors state)}
+                    return (
+                        env3, 
+                        (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
+                        exprPosEnds
+                        )
+                        where
+                            exprPosEnds = PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}
+
+                (_, TypeBaseType BaseType_boolean) -> do
+                    state <- get
+                    put $ state { errors = Errs.TypeMissmatchBooleanOperatorOne (show exprPosEnds) (getStringFromOperator op) "left" (showExpr exp1) (show typeExpr1):(errors state)}
+                    return (
+                        env3, 
+                        (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
+                        exprPosEnds
+                        )
+                        where
+                            exprPosEnds = PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}
+
+                (_, _) -> do
+                    state <- get
+                    put $ state { errors = Errs.TypeMissmatchBooleanOperatorBoth (show exprPosEnds) (getStringFromOperator op) (showExpr exp2) (show typeExpr2) (showExpr exp1) (show typeExpr1):(errors state)}
+                    return (
+                        env3, 
+                        (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
+                        exprPosEnds
+                        )
+                        where
+                            exprPosEnds = PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}
+           
     where
         -- string form of operator for printing error messages
         getStringFromOperator :: BinaryOperator -> [Char]
@@ -988,9 +1028,11 @@ parseBinaryArithmeticExpression :: Env -> BinaryOperator -> EXPR infType -> EXPR
 parseBinaryArithmeticExpression env op exp1 exp2 = do
     (env2, parsedexp1, posEndsL) <- parseExpression env exp1
     (env3, parsedexp2, posEndsR) <- parseExpression env2 exp2
+    typeExpr1 <- getTypeFromExpression parsedexp1
+    typeExpr2 <- getTypeFromExpression parsedexp2
     
     -- 3 cases: 1) first element not numeric, 2) second argument not numeric, 3) no errors
-    if getTypeFromExpression parsedexp1 /= TypeBaseType BaseType_integer && getTypeFromExpression parsedexp1 /= TypeBaseType BaseType_real && getTypeFromExpression parsedexp1 /= TypeBaseType BaseType_error
+    if typeExpr1 /= TypeBaseType BaseType_integer && typeExpr1 /= TypeBaseType BaseType_real && typeExpr1 /= TypeBaseType BaseType_error
         then do
             state <- get
             put $ state { errors = Errs.TypeMissmatchBinaryExpr 
@@ -1005,7 +1047,7 @@ parseBinaryArithmeticExpression env op exp1 exp2 = do
                 PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}
                 )
         --TODO: se ho un'espressione del tipo "true+false" viene segnalato come errato soltanto il primo argomento e non il secondo
-        else if getTypeFromExpression parsedexp2 /= TypeBaseType BaseType_integer && getTypeFromExpression parsedexp2 /= TypeBaseType BaseType_real && getTypeFromExpression parsedexp2 /= TypeBaseType BaseType_error
+        else if typeExpr2 /= TypeBaseType BaseType_integer && typeExpr2 /= TypeBaseType BaseType_real && typeExpr2 /= TypeBaseType BaseType_error
             then do 
                 state <- get
                 put $ state { errors = Errs.TypeMissmatchBinaryExpr 
@@ -1021,15 +1063,19 @@ parseBinaryArithmeticExpression env op exp1 exp2 = do
                     )
             
             -- 3 casi: 1) primo int secondo real, 2) primo real secondo int, 3) no type casting
-            else case (getTypeFromExpression parsedexp1, getTypeFromExpression parsedexp2) of
+            else case (typeExpr1, typeExpr2) of
                     
-                    (TypeBaseType BaseType_integer, TypeBaseType BaseType_real) -> 
-                        return (env3, (BinaryExpression op (IntToReal parsedexp1) parsedexp2 (getType op parsedexp1 parsedexp2) ), PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
+                    (TypeBaseType BaseType_integer, TypeBaseType BaseType_real) -> do
+                        tp <- getType op parsedexp1 parsedexp2
+                        return (env3, (BinaryExpression op (IntToReal parsedexp1) parsedexp2 tp), PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                     
-                    (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) -> 
-                        return (env3, (BinaryExpression op parsedexp1 (IntToReal parsedexp2) (getType op parsedexp1 parsedexp2) ), PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
+                    (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) -> do
+                        tp <- getType op parsedexp1 parsedexp2
+                        return (env3, (BinaryExpression op parsedexp1 (IntToReal parsedexp2) tp ), PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                    
-                    _ -> return (env3, (BinaryExpression op parsedexp1 parsedexp2 (getType op parsedexp1 parsedexp2) ), PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})                   
+                    _ -> do
+                        tp <- getType op parsedexp1 parsedexp2
+                        return (env3, (BinaryExpression op parsedexp1 parsedexp2 tp ), PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})                   
     where
         -- string form of operator for printing error messages
         getStringFromOperator :: BinaryOperator -> [Char]
@@ -1040,18 +1086,23 @@ parseBinaryArithmeticExpression env op exp1 exp2 = do
         getStringFromOperator Mod = "'mod'"
         getStringFromOperator _ = ""
         -- division has always result of real type --   TODO: mantenere questa distinzione?
-        getType :: BinaryOperator -> EXPR Type -> EXPR Type -> Type
-        getType Div _ _ = TypeBaseType BaseType_real
-        getType _ parsedexp1 parsedexp2 = (sup (getTypeFromExpression parsedexp1) (getTypeFromExpression parsedexp2) )
+        getType :: BinaryOperator -> EXPR Type -> EXPR Type -> SSAState Type
+        getType Div _ _ = return $ TypeBaseType BaseType_real
+        getType _ parsedexp1 parsedexp2 = do
+            typeExpr1 <- getTypeFromExpression parsedexp1
+            typeExpr2 <- getTypeFromExpression parsedexp2
+            return (sup typeExpr1 typeExpr2 )
 
 
 parseBinaryRelationExpression :: Env -> BinaryOperator -> EXPR infType -> EXPR infType -> SSAState (Env, EXPR Type, PosEnds)
 parseBinaryRelationExpression env op exp1 exp2 = do
     (env2, parsedexp1, posEndsL) <- parseExpression env  exp1
     (env3, parsedexp2, posEndsR) <- parseExpression env2 exp2
+    typeExpr1 <- getTypeFromExpression parsedexp1
+    typeExpr2 <- getTypeFromExpression parsedexp2
     
     -- 3 cases: 1) first element not numeric, 2) second argument not numeric, 3) no errors
-    if getTypeFromExpression parsedexp1 /= TypeBaseType BaseType_integer && getTypeFromExpression parsedexp1 /= TypeBaseType BaseType_real && getTypeFromExpression parsedexp1 /= TypeBaseType BaseType_error 
+    if typeExpr1 /= TypeBaseType BaseType_integer && typeExpr1 /= TypeBaseType BaseType_real && typeExpr1 /= TypeBaseType BaseType_error 
         then do
             state <- get
 
@@ -1067,7 +1118,7 @@ parseBinaryRelationExpression env op exp1 exp2 = do
                 PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}
                 )
 
-        else if getTypeFromExpression parsedexp2 /= TypeBaseType BaseType_integer && getTypeFromExpression parsedexp2 /= TypeBaseType BaseType_real && getTypeFromExpression parsedexp2 /= TypeBaseType BaseType_error 
+        else if typeExpr2 /= TypeBaseType BaseType_integer && typeExpr2 /= TypeBaseType BaseType_real && typeExpr2 /= TypeBaseType BaseType_error 
             then do
                 state <- get
                 put $ state { errors = Errs.TypeMissmatchBinaryExpr 
@@ -1083,7 +1134,7 @@ parseBinaryRelationExpression env op exp1 exp2 = do
                     )
             
              -- result is of boolean type unless one of the expressions contains an error
-            else if getTypeFromExpression parsedexp1 == TypeBaseType BaseType_error || getTypeFromExpression parsedexp2 == TypeBaseType BaseType_error
+            else if typeExpr1 == TypeBaseType BaseType_error || typeExpr2 == TypeBaseType BaseType_error
                 then return (
                         env3,  
                         (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
@@ -1134,8 +1185,10 @@ parseBaseExpression env (ArrayElem bexpr iexpr) = do
     --TODO: con parsediexpr sarebbe necessario verifiicare se l'indice rientra entro i limiti dell'array
     (env2, parsediexpr, posEndsR) <- parseExpression env iexpr -- parsing of index for type checking (and casting if needed)
     (env3, parsedbexpr, posEndsL) <- parseExpression env2 bexpr -- parsing of base expression to get its type: if it is an array type, return type of element of that array; otherwise it is an error
+    typeBExpr <- getTypeFromExpression parsedbexpr
+    typeIExpr <- getTypeFromExpression parsediexpr
 
-    case (getTypeFromExpression parsedbexpr, getTypeFromExpression parsediexpr) of -- TODO: refactoring possibile di questa parte di codice? --TODO: posizione nei messaggi di errore
+    case (typeBExpr, typeIExpr) of -- TODO: refactoring possibile di questa parte di codice? --TODO: posizione nei messaggi di errore
         
         -- 4 cases: 1) array and integer; 2) array and error; 3) error and integer; 4) error and error (distinction necessary to generate appropriate error messages)
         -- + 2 cases of Error types: do not print any new error messages
