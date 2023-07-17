@@ -130,6 +130,7 @@ getTypeFromExpression (BinaryExpression op exp1 exp2 t) = return t
 getTypeFromExpression (ExprLiteral literal) = return (TypeBaseType (getTypeFromLiteral literal) )
 getTypeFromExpression (ExprCall call t) = return t
 getTypeFromExpression (BaseExpr bexp t) = return t
+getTypeFromExpression (SelExpr expcond exp1 exp2 t) = return t
 getTypeFromExpression (IntToReal _) = return $ TypeBaseType BaseType_real
 
 getTypeFromBaseExpression:: BEXPR Type -> Env -> SSAState Type

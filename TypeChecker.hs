@@ -731,6 +731,33 @@ parseExpression env (IntToReal expr) = do
             put $ state { errors = Errs.ImplicitCasting (show posEnds) "Integer" "Real":(errors state)}
             return ( env2, (IntToReal parsedexpr), posEnds )
 
+parseExpression env (SelExpr cond expr1 expr2 t) = do
+    (env2, parsedcond, posEndsC) <- parseExpression env cond
+    (env3, parsedexpr1, posEnds1) <- parseExpression env2 expr1
+    (env4, parsedexpr2, posEnds2) <- parseExpression env3 expr2
+    typecond <- getTypeFromExpression parsedcond
+    typeexpr1 <- getTypeFromExpression parsedexpr1
+    typeexpr2 <- getTypeFromExpression parsedexpr2
+    if typecond /= TypeBaseType BaseType_boolean && typecond /= TypeBaseType BaseType_error
+    then do
+        state <- get
+        put $ state { errors = Errs.TypeErrorConditionSelectionExpression (show (getNewPosEnds posEndsC posEnds2)) (showExpr parsedcond) (show typecond):(errors state)}
+        return (env4, (SelExpr parsedcond parsedexpr1 parsedexpr2 (TypeBaseType BaseType_error)), (getNewPosEnds posEndsC posEnds2))
+    else 
+        case (typeexpr1, typeexpr2) of
+            (TypeBaseType BaseType_error, _) -> return (env4, (SelExpr parsedcond parsedexpr1 parsedexpr2 (TypeBaseType BaseType_error)), (getNewPosEnds posEndsC posEnds2))
+            (_, TypeBaseType BaseType_error) -> return (env4, (SelExpr parsedcond parsedexpr1 parsedexpr2 (TypeBaseType BaseType_error)), (getNewPosEnds posEndsC posEnds2))
+            (typeexpr1, typeexpr2) -> if typeexpr1 == typeexpr2 
+                                        then
+                                            return (env4, (SelExpr parsedcond parsedexpr1 parsedexpr2 typeexpr1), (getNewPosEnds posEndsC posEnds2))  
+                                        else do
+                                            state <- get
+                                            put $ state { errors = Errs.TypeMismatchSelectionExpression (show (getNewPosEnds posEndsC posEnds2)) (showExpr parsedexpr1) (showExpr parsedexpr2) (show typeexpr1) (show typeexpr2):(errors state)}
+                                            return (env4, (SelExpr parsedcond parsedexpr1 parsedexpr2 (TypeBaseType BaseType_error)), (getNewPosEnds posEndsC posEnds2))           
+    where
+        getNewPosEnds :: PosEnds -> PosEnds -> PosEnds
+        getNewPosEnds PosEnds{leftmost=l1,rightmost=r1} PosEnds{leftmost=l2,rightmost=r2} = PosEnds{leftmost=l1,rightmost=r2}
+
 
 -- parseExpression env errs expr = return (env, errs, (ExprLiteral (LiteralInteger (TokInteger ((0,0), "10")))) ) -- temporaneamente ogni espressione non specificata diventa il numero 10 (ora ridondante)
 
