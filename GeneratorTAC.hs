@@ -341,9 +341,9 @@ genExpr expr genL env =
         (AbsGrammar.ExprCall _ _) -> genExprCall expr genL env
         (AbsGrammar.BaseExpr _ _) -> genBaseExpr expr genL env
         (AbsGrammar.IntToReal exp) -> genCastIntToRealExpr expr genL env
-        (AbsGrammar.CharToString exp) -> do
+--        (AbsGrammar.CharToString exp) -> do
             --traceM "TODO: genExpr -> implementa IntToReal"
-            genExpr exp genL env
+--            genExpr exp genL env
 
 -- TODO: valutare come usare tp(fare cast) ed env
 genUnrExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Bool -> Env -> StateTAC XAddr

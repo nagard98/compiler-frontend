@@ -131,7 +131,6 @@ getTypeFromExpression (ExprLiteral literal) = return (TypeBaseType (getTypeFromL
 getTypeFromExpression (ExprCall call t) = return t
 getTypeFromExpression (BaseExpr bexp t) = return t
 getTypeFromExpression (IntToReal _) = return $ TypeBaseType BaseType_real
-getTypeFromExpression (CharToString _) = return $ TypeBaseType BaseType_string
 
 getTypeFromBaseExpression:: BEXPR Type -> Env -> SSAState Type
 getTypeFromBaseExpression (Identifier (TokIdent (tokpos, tokid)) ) env = 

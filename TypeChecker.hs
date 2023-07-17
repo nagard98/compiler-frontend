@@ -413,13 +413,11 @@ parseArrayAssignment bExpr@(BaseExpr (ArrayElem bbexpr iiexpr) t) expr env posEn
     if t == rtype
         then return (env, (StmtAssign bExpr expr))
         else 
-            -- 3 cases: a) int to real, b) char to string, c) incompatible types -> error
+            -- 2 cases: a) int to real, b) incompatible types -> error
             case (t, rtype) of
                 
                 (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) -> 
-                    return (env, (StmtAssign bExpr (IntToReal expr) ) )                   
-                (TypeBaseType BaseType_string, TypeBaseType BaseType_char) -> 
-                    return (env, (StmtAssign bExpr (CharToString expr) ) )  
+                    return (env, (StmtAssign bExpr (IntToReal expr) ) )
                 
                 -- cases in which an error was previously generated: no new error messages
                 (TypeBaseType BaseType_error, _) -> 
@@ -466,9 +464,8 @@ parseLitAssignment tkId@(TokIdent (idPos, idVal)) literal env posEnds = case Env
                 StmtAssign (BaseExpr (Identifier tkId) envType) (ExprLiteral literal)
                 )
             else case (envType, litType ) of
-                -- 3 cases: casting int->real, char->string or incompatible types
+                -- 2 cases: casting int->real or incompatible types
                 (TypeBaseType BaseType_real, BaseType_integer) -> return (env, StmtAssign (BaseExpr (Identifier tkId) envType) (IntToReal (ExprLiteral literal)) )
-                (TypeBaseType BaseType_string, BaseType_char) -> return (env, StmtAssign (BaseExpr (Identifier tkId) envType) (CharToString (ExprLiteral literal)) )
 
                 -- cases in which an error was previously generated: no new error messages, pass the error forwards
                 (TypeBaseType BaseType_error, _) -> 
@@ -507,12 +504,9 @@ parseIdExprAssignment tkId@(TokIdent (idPos, idVal)) expr env posEnds = do
                     )
                 
                 else case (envType, exprType ) of
-                    -- 3 cases: 1) casting int->real, 2) casting char->string, 3) incompatible types
+                    -- 2 cases: 1) casting int->real, 2) incompatible types
                     (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) -> 
                         return (env, StmtAssign (BaseExpr (Identifier tkId) envType) (IntToReal expr) )
-                    (TypeBaseType BaseType_string, TypeBaseType BaseType_char) -> 
-                        return (env, StmtAssign (BaseExpr (Identifier tkId) envType) (CharToString expr) )
-
                     -- cases in which an error was previously generated: no new error messages, pass the error forwards
                     (TypeBaseType BaseType_error, _) -> 
                         return (env, StmtAssign (BaseExpr (Identifier tkId) (TypeBaseType BaseType_error)) expr )
@@ -549,8 +543,6 @@ parseExprExprAssignment expr1 expr2 env posEnds = do
             
             (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) -> 
                 return (env, (StmtAssign expr1 (IntToReal expr2)))
-            (TypeBaseType BaseType_string, TypeBaseType BaseType_char) -> 
-                return (env, (StmtAssign expr1 (CharToString expr2)))
 
             -- cases in which an error was previously generated: no new error messages, pass the error forwards
             (TypeBaseType BaseType_error, _) -> 
@@ -728,26 +720,6 @@ parseExpression env (IntToReal expr) = do
             put $ state { errors = Errs.ImplicitCasting (show posEnds) "Integer" "Real":(errors state)}
             return ( env2, (IntToReal parsedexpr), posEnds )
 
--- Char to String
-parseExpression env (CharToString expr) = do
-    (env2, parsedexpr, posEnds) <- parseExpression env expr
-    typeExpr <- getTypeFromExpression parsedexpr
-
-    case typeExpr of
-        
-        TypeBaseType BaseType_char -> return (env2, (CharToString parsedexpr), posEnds)
-        
-        TypeBaseType BaseType_string -> do
-            state <- get
-            put $ state { errors = Errs.UnnecessaryCasting (show posEnds) "Char" "String":(errors state)}
-            return (env2, parsedexpr, posEnds) -- expression is string already: remove type casting wrapper
-        TypeBaseType BaseType_error -> return (env2, (CharToString parsedexpr), posEnds) -- in case of errors that already happened, no new error messages are generated
-        
-        _ -> do
-            state <- get
-            put $ state { errors = Errs.ImplicitCasting (show posEnds) "Char" "String":(errors state)}
-            return ( env2, (CharToString parsedexpr), posEnds )
-
 
 -- parseExpression env errs expr = return (env, errs, (ExprLiteral (LiteralInteger (TokInteger ((0,0), "10")))) ) -- temporaneamente ogni espressione non specificata diventa il numero 10 (ora ridondante)
 
@@ -922,7 +894,7 @@ compareArguments env p (expr:args) (Param m ((IdElement (TokIdent (parpos@(x,y),
     | otherwise = do
         argExprType <- getTypeFromExpression expr
 
-        -- confronto tra parametri, diversi casi: 1) int to real, 2) real to int, 3) incompatibile --TODO: type casting CharToString?
+        -- confronto tra parametri, diversi casi: 1) int to real, 2) incompatibile
         if argExprType == t
             then
                 compareArguments env p args (Param m toks t) (pargs++[expr])
@@ -931,9 +903,6 @@ compareArguments env p (expr:args) (Param m ((IdElement (TokIdent (parpos@(x,y),
                     
                     (TypeBaseType BaseType_integer, TypeBaseType BaseType_real) -> 
                         compareArguments env p args (Param m toks t) (pargs++[(IntToReal expr)])
-                    
-                    (TypeBaseType BaseType_char, TypeBaseType BaseType_string) -> 
-                        compareArguments env p args (Param m toks t) (pargs++[(CharToString expr)])
 
                     -- error in expression of parameter of function/procedure call, no new error messages are generated
                     (TypeBaseType BaseType_error, _) -> 

@@ -123,7 +123,6 @@ data EXPR infType =
     | ExprCall (Call infType) infType
     | BaseExpr (BEXPR infType) infType
     | IntToReal (EXPR infType)
-    | CharToString (EXPR infType)
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data BinaryOperator = Or | And | Eq | NotEq | LessT | EqLessT | GreatT | EqGreatT | Sub | Add |
@@ -196,7 +195,6 @@ showExpr (ExprLiteral (literal)) = showLiteral literal
 showExpr (ExprCall call t) = showCall call
 showExpr (BaseExpr bexpr t) = showBaseExpr bexpr
 showExpr (IntToReal exp) = "Real(" ++ showExpr exp ++ ")"
-showExpr (CharToString exp) = "String(" ++ showExpr exp ++ ")"
 
 showUnaryExpr :: UnaryOperator -> EXPR infType -> String
 showUnaryExpr Not exp = "not " ++ showExpr exp
