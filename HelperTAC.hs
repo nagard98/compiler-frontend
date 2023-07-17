@@ -14,7 +14,7 @@ newtype TACQuadSeq = TACQuadSeq (DS.Seq TACQuad)
 data TACLiteral = TACIntLit Int | TACRealLit Float | TACCharLit Char | TACBoolLit Bool | TACMemAddrLit  
     deriving (Eq, Ord)
 
-data TACType = TACIntType | TACFloatType | TACCharType | TACBoolType | TACMemAddrType 
+data TACType = TACIntType | TACFloatType | TACCharType | TACBoolType | TACMemAddrType deriving (Show)
 
 makeTACLit :: AbsGrammar.Literal -> TACLiteral
 makeTACLit (AbsGrammar.LiteralInteger (TokInteger (_, val))) = TACIntLit (read val :: Int)

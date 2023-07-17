@@ -6,12 +6,12 @@ program TACTest;
 var c:real;
 var a:integer;
 
-procedure p (ref ptr :^integer);
-begin end;
+{procedure p (var ptr :^integer);
+{begin end;
 
 begin
-    a := 5;
-    {a[2] := 5;
-    c := a;
-    {b:=@a;
+    
+    a:=5;
+    if a < 10 or a>20 and a<>89 then a:=5 else a:=9;
+    for a:=4 downto 2 do c:=9.9;
 end.

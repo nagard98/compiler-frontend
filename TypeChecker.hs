@@ -313,6 +313,65 @@ parseIter (StmtIter (StmtRepeat stmt expr)) env  = do
                                     (show exprTp):(errors state)}
             return (env, StmtIter (StmtRepeat wrappedStmt parsedExpr), isReturn)
 
+-- parsing of for iteration statement
+parseIter (StmtIter (StmtFor condVar initExpr forDirection limitExpr stmt)) env  = do
+    (env1, parsedAssign) <- parseAssignment condVar initExpr env
+    (env2, parsedLimitExpr, posEnds) <- parseExpression env1 limitExpr
+    limitExprType <- getTypeFromExpression parsedLimitExpr
+
+    (env3, parsedStmt, isReturn) <- parseStatement stmt env2
+    let wrappedStmt = wrapInBeginEnd parsedStmt env3
+
+    case parsedAssign of
+        (StmtAssign parsedCondVar@(BaseExpr (Identifier _) condVarType) parsedInitExpr) -> do
+
+            if sup condVarType limitExprType == TypeBaseType BaseType_integer
+                then do
+                    return (
+                        env,
+                        StmtIter (StmtFor parsedCondVar parsedInitExpr forDirection parsedLimitExpr wrappedStmt),
+                        isReturn)
+                else do
+                    case (condVarType, limitExprType) of
+                        (TypeBaseType BaseType_integer, _) -> do
+                            state <- get
+                            --TODO: creare errore espressione assegnata al contatore non è intera
+                            put $ state {errors = Errs.ReturnInMain:(errors state)} 
+                            return (
+                                env,
+                                StmtIter (StmtFor parsedCondVar parsedInitExpr forDirection parsedLimitExpr wrappedStmt), 
+                                isReturn)
+
+                        (_, TypeBaseType BaseType_integer) -> do
+                            state <- get
+                            --TODO: creare errore contatore for non è intero
+                            put $ state {errors = Errs.ReturnInMain:(errors state)} 
+                            return (
+                                env,
+                                StmtIter (StmtFor parsedCondVar parsedInitExpr forDirection parsedLimitExpr wrappedStmt), 
+                                isReturn)
+                        (_, _) -> do
+                            state <- get
+                            --TODO: creare errore ne contatore ne inizializzatore contatore sono interi
+                            put $ state {errors = Errs.ReturnInMain:(errors state)} 
+                            return (
+                                env,
+                                StmtIter (StmtFor parsedCondVar parsedInitExpr forDirection parsedLimitExpr wrappedStmt), 
+                                isReturn)
+
+        (StmtAssign condExpr initExpr) -> do
+            state <- get
+            --TODO: creare errore espressione limite for deve essere intera
+            put $ state {errors = Errs.ReturnInMain:(errors state)} 
+            return (
+                env,
+                StmtIter (StmtFor condExpr initExpr forDirection parsedLimitExpr wrappedStmt), 
+                isReturn)
+
+        _ -> error "Internal Error: should always parsedAssign should always be StmtAssign"
+
+
+
 parseSelection :: Stmt env infType -> Env -> SSAState (Env, Stmt Env Type, Bool)
 parseSelection (StmtSelect (StmtIf expr stmt)) env  = do
     (env1, parsedExpr, posEnds) <- parseExpression env expr

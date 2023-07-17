@@ -130,8 +130,6 @@ genStmtAssign (AbsGrammar.StmtAssign lexpr rexpr) env = do
     rXAddr <- genExpr rexpr False env
     tmpAddr <- newTmpAddr
 
-    --traceM $ "\nStmtAssign called once\n"
-
     case (lXAddr, rXAddr) of
         (Addr lAddr, Addr rAddr) -> 
             addInstr (TACNulAss lAddr rAddr)
@@ -207,10 +205,6 @@ genStmtSelect (AbsGrammar.StmtSelect selStmt) env = case selStmt of
     AbsGrammar.StmtIf guard stmt -> do
         nextStmtLabel <- newLabel
         genGuard guard Fall nextStmtLabel env
-        --TODO: problema di passare env corretto; se è solo statement e non BEBlock,
-        --come faccio ad avere l'env locale all'interno dell'if
-        --Fare in modo che durante analisi semantica statica all'interno degli if-else, se c'è un unico stmt che
-        --non è un blocco BeginEnd, questo venga inserito facendo da wrapper allo statement
         genStmts [stmt] env
         attachLabelToNext nextStmtLabel
 
@@ -220,6 +214,7 @@ genStmtSelect (AbsGrammar.StmtSelect selStmt) env = case selStmt of
         genGuard guard Fall elseStmtLabel env
         genStmts [tStmt] env
         addInstr (TACUncdJmp nextStmtLabel)
+        attachLabelToNext elseStmtLabel
         genStmts [fStmt] env
         attachLabelToNext nextStmtLabel
 
@@ -245,6 +240,30 @@ genStmtIter (AbsGrammar.StmtIter iterStmt) env = do
             attachLabelToNext inStmtLabel
             genStmts [stmt] env
             genGuard guard inStmtLabel Fall env
+        
+        AbsGrammar.StmtFor condVar@(AbsGrammar.BaseExpr (AbsGrammar.Identifier (AbsGrammar.TokIdent (_, id))) tp) initExpr forDirection limitExpr stmt -> do
+            genStmtAssign (AbsGrammar.StmtAssign condVar initExpr) env
+            guardLabel <- newLabel
+            tmpAddr <- newTmpAddr
+            addInstr (TACUncdJmp guardLabel)
+            attachLabelToNext inStmtLabel
+            addInstr (TACBinAss tmpAddr addr (forDirToArithmOp forDirection) (TacLit (TACIntLit 1)))
+            addInstr (TACNulAss addr tmpAddr)
+            genStmts [stmt] env
+            attachLabelToNext guardLabel
+            genGuard (AbsGrammar.BinaryExpression (forDirToRelOp forDirection) condVar limitExpr (AbsGrammar.TypeBaseType AbsGrammar.BaseType_boolean)) inStmtLabel Fall env
+            where
+                forDirToArithmOp :: AbsGrammar.ForDirection -> TACOp
+                forDirToArithmOp AbsGrammar.ForDirection_downto = TACSubInt
+                forDirToArithmOp AbsGrammar.ForDirection_to = TACAddInt
+                
+                forDirToRelOp :: AbsGrammar.ForDirection -> AbsGrammar.BinaryOperator
+                forDirToRelOp AbsGrammar.ForDirection_downto = AbsGrammar.GreatT
+                forDirToRelOp AbsGrammar.ForDirection_to = AbsGrammar.LessT
+
+                Just (Variable _ _ _ addr) = Env.lookup id env 
+
+        _ -> error "Internal Error: genStmtIter -> shouldn't reach here" 
 
 genStmtIter _ _ =  error "TODO: gestire errore genStmtIter"
 
@@ -282,6 +301,7 @@ genGuard guard trueLab falseLab env = case guard of
                     --TODO: verificare se funziona correttamente passando False
                     e1XAddr <- genExpr expr1 False env
                     e2XAddr <- genExpr expr2 False env
+                    expr1Type <- getExprType expr1
 
                     e1Addr <- case e1XAddr of
                         (Addr a) -> return a
@@ -292,10 +312,10 @@ genGuard guard trueLab falseLab env = case guard of
 
                     case (trueLab, falseLab) of
                         (Fall, Fall) -> return ()
-                        (_, Fall) -> addInstr (TACCndJmp e1Addr (binToTACOp opr (gramTypeToTACType tp)) e2Addr trueLab)
-                        (Fall, _) -> addInstr (TACCndJmp e1Addr (notRel opr (gramTypeToTACType tp)) e2Addr falseLab)
+                        (_, Fall) -> addInstr (TACCndJmp e1Addr (binToTACOp opr (gramTypeToTACType expr1Type)) e2Addr trueLab)
+                        (Fall, _) -> addInstr (TACCndJmp e1Addr (notRel opr (gramTypeToTACType expr1Type)) e2Addr falseLab)
                         _ -> do
-                            addInstr (TACCndJmp e1Addr (binToTACOp opr (gramTypeToTACType tp)) e2Addr trueLab)
+                            addInstr (TACCndJmp e1Addr (binToTACOp opr (gramTypeToTACType expr1Type)) e2Addr trueLab)
                             addInstr (TACUncdJmp falseLab)
                             
                 else error "TODO: genGuard -> operatore non è ne logico ne relazionale"
@@ -417,16 +437,6 @@ genBinExpr (AbsGrammar.BinaryExpression op exp1 exp2 tp) genL env = do
 genBinExpr _ _ _ = error "TODO: gestire errore genBinExpr"
 
 
-{- castIfNecessary :: Addr -> AbsGrammar.Type -> AbsGrammar.Type -> StateTAC Addr
-castIfNecessary exprAddr exprType castType = do
-    if exprType == castType 
-        then return exprAddr;
-        else do 
-            tmpAddr <- newTmpAddr;
-            addInstr (TACUnAss tmpAddr (TACCast castType) exprAddr)
-            return tmpAddr;
-
- -}
 getExprType :: AbsGrammar.EXPR AbsGrammar.Type -> StateTAC AbsGrammar.Type
 getExprType expr = case expr of
     AbsGrammar.UnaryExpression _ _ tp -> return tp;
@@ -452,6 +462,7 @@ genExprCall (AbsGrammar.ExprCall (AbsGrammar.CallArgs (AbsGrammar.TokIdent (_,ca
             return $ Addr tmpAddr
         _ -> error "TODO : errore in genExprCall; funzione con questo nome non esiste"
 
+
 genArgs :: [AbsGrammar.EXPR AbsGrammar.Type] -> Env -> StateTAC ()
 genArgs (arg:args) env = do
     --TODO: stiamo facendo assunzione che usiamo sempre r-value con parametri
@@ -463,6 +474,7 @@ genArgs (arg:args) env = do
     genArgs args env
 
 genArgs [] _ = return ()
+
 
 genBaseExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Bool -> Env -> StateTAC XAddr
 genBaseExpr expr@(AbsGrammar.BaseExpr bexpr tp) genL env = case bexpr of
@@ -481,6 +493,7 @@ genBaseExpr expr@(AbsGrammar.BaseExpr bexpr tp) genL env = case bexpr of
         --return $ Addr elemAddr
 
 genBaseExpr be _ _ = error "TODO: genBaseExpr -> gestire altri casi mancanti"
+
 
 genArrayExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Bool -> Env -> StateTAC XAddr
 genArrayExpr (AbsGrammar.BaseExpr (AbsGrammar.ArrayElem arrExpr indexExpr) tp) genL env = do 

@@ -144,7 +144,7 @@ IterStmt :: { AbsGrammar.IterStmt () () }
 IterStmt
   : 'while' EXPR 'do' Stmt { AbsGrammar.StmtWhileDo $2 $4 }
   | 'repeat' Stmt 'until' EXPR { AbsGrammar.StmtRepeat $2 $4 }
-  | 'for' Ident ':=' EXPR ForDirection EXPR 'do' Stmt { AbsGrammar.StmtFor $2 $4 $5 $6 $8 }
+  | 'for' EXPR ':=' EXPR ForDirection EXPR 'do' Stmt { AbsGrammar.StmtFor $2 $4 $5 $6 $8 }
 
 ForDirection :: { AbsGrammar.ForDirection }
 ForDirection

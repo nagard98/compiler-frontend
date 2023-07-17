@@ -59,7 +59,7 @@ data SelStmt env infType = StmtIf (EXPR infType) (Stmt env infType) | StmtIfElse
 data IterStmt env infType = 
       StmtWhileDo (EXPR infType) (Stmt env infType) 
     | StmtRepeat (Stmt env infType) (EXPR infType)
-    | StmtFor TokIdent (EXPR infType) ForDirection (EXPR infType) (Stmt env infType) 
+    | StmtFor (EXPR infType) (EXPR infType) ForDirection (EXPR infType) (Stmt env infType) 
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data ForDirection = ForDirection_to | ForDirection_downto
