@@ -6,7 +6,11 @@ import AbsGrammar (Position, EXPR)
 
 -- put $ state {errors = ReturnInMain (show posEnds) id : (errors state)} 
 
-data Error = 
+type Problem = (ProblemHeader, ProblemBody)
+
+data ProblemHeader = Error | Warning deriving (Eq, Show)
+
+data ProblemBody = 
     ReturnInMain |
     MissingReturnInFunction Position String |
     UnexpectedReturnInProcedure Position String |
@@ -23,8 +27,6 @@ data Error =
     TypeMismatchUnaryExpr String String | -- posEnds exprType
     TypeMismatchArithmeticMinus String String | -- posEnds wrongTp
     TypeMismatchReference String String | -- posEnds -exprType
-    UnnecessaryCasting String String String | --posEnds from to
-    ImplicitCasting String String String | --posEnds from to
     CallingConstant String String  | --posEnds idVal
     CallingVariable String String | --posEnds idVal
     NumOfArgsMismatch String String String | --posEnds fun/proc name
@@ -43,8 +45,10 @@ data Error =
     TypeMismatchSelectionExpression String String String String String | --posEnds expr1 expr2 type1 type2
     BreakOutsideLoop | -- TODO: add pos info
     ContinueOutsideLoop -- TODO: add pos info
+    | UnnecessaryCasting String String String --posEnds from to
+    | ImplicitCasting String String String --posEnds from to
 
-instance Show Error where
+instance Show ProblemBody where
     show ReturnInMain = "ERROR ReturnInMain: cannot have a return statement in the main begin-end block"
     show (MissingReturnInFunction pos name) = "ERROR MissingReturnInFunction at " ++ show pos ++ ": " ++ name ++ " does not have a return statement or not all the paths return a value" 
     show (UnexpectedReturnInProcedure pos name) = "ERROR UnexpectedReturn at " ++ show pos ++ ": " ++ name ++ " is a procedure so it cannot have a return statement. Transofrm it into a function or delete the return statement"
@@ -62,8 +66,6 @@ instance Show Error where
     show (TypeMismatchUnaryExpr posStr exprStr) = "ERROR TypeMismatchUnaryExpr at " ++ posStr ++ ": boolean negation 'not' can only be applied to boolean expressions but it is applied to an expression of type " ++ exprStr
     show (TypeMismatchArithmeticMinus posStr wrongTp) = "ERROR TypeMismatchArithmeticMinus at " ++ posStr ++ ":  arithmetic unary minus '-' applied to type " ++ wrongTp ++ " but it can only be applied to numeric types"
     show (TypeMismatchReference posStr exprType) = "ERROR TypeMismatchReference at " ++ posStr ++ ": invalid reference '@' operation on type " ++ exprType
-    show (UnnecessaryCasting posStr from to) = "WARNING at " ++ posStr ++ ": removed unnecessary implicit type casting from " ++ from ++ " to " ++ to
-    show (ImplicitCasting posStr from to) = "WARNING at " ++ posStr ++ ": type casting from " ++ from ++ " to " ++ to ++ " is done implicitly"
     show (CallingConstant posStr idVal) = "ERROR CallingConstant at " ++ posStr ++ ": identifier " ++ idVal ++ " is used as a function/procedure but it is a constant"
     -- could be merged with the previous one
     show (CallingVariable posStr idVal) = "ERROR CallingVariable at " ++ posStr ++ ": identifier " ++ idVal ++ " is used as a function/procedure but it is a variable"
@@ -83,3 +85,5 @@ instance Show Error where
     show (TypeMismatchSelectionExpression posEnds expr1 expr2 type1 type2) = "ERROR TypeMismatchSelectionExpression at "++posEnds++": the types of the two branches of expression selection are not matching, as the expressions "++ expr1 ++ " and " ++ expr2 ++ " are respectively of types " ++ type1 ++ " and " ++ type2
     show BreakOutsideLoop = "ERROR BreakOutsideLoop at (TODO:implement pos for break stmt): break statemets are allowed only inside while-do and repeat-until loops"
     show ContinueOutsideLoop = "ERROR ContinueOutsideLoop at (TODO:implement pos for break stmt): continue statemets are allowed only inside while-do and repeat-until loops"
+    show (UnnecessaryCasting posStr from to) = "WARNING at " ++ posStr ++ ": removed unnecessary implicit type casting from " ++ from ++ " to " ++ to
+    show (ImplicitCasting posStr from to) = "WARNING at " ++ posStr ++ ": type casting from " ++ from ++ " to " ++ to ++ " is done implicitly"
