@@ -41,6 +41,8 @@ transStmt x = case x of
   AbsGrammar.StmtSelect selstmt -> failure x
   AbsGrammar.StmtIter iterstmt -> failure x
   AbsGrammar.StmtReturn return -> failure x
+  AbsGrammar.StmtBreak -> failure x
+  AbsGrammar.StmtContinue -> failure x
 
 transSelStmt :: (Show env, Show infType)  => AbsGrammar.SelStmt env infType -> Result
 transSelStmt x = case x of
@@ -51,6 +53,12 @@ transIterStmt :: (Show env, Show infType)  => AbsGrammar.IterStmt env infType ->
 transIterStmt x = case x of
   AbsGrammar.StmtWhileDo expr stmt -> failure x
   AbsGrammar.StmtRepeat stmt expr -> failure x
+  AbsGrammar.StmtFor stmt1 fordirection expr stmt2 -> failure x
+
+transForDirection :: AbsGrammar.ForDirection -> Result
+transForDirection x = case x of
+  AbsGrammar.ForDirection_to -> failure x
+  AbsGrammar.ForDirection_downto -> failure x
 
 transReturn :: Show infType => AbsGrammar.Return infType -> Result
 transReturn x = case x of
@@ -82,9 +90,8 @@ transPrm x = case x of
 
 transModality :: AbsGrammar.Modality -> Result
 transModality x = case x of
-  AbsGrammar.Modality_val -> failure x
   AbsGrammar.Modality_ref -> failure x
-  AbsGrammar.Modality1 -> failure x
+  AbsGrammar.Modality_val -> failure x
 
 transCall :: Show infType => AbsGrammar.Call infType -> Result
 transCall x = case x of
@@ -130,6 +137,7 @@ transCompType x = case x of
 
 transEXPR :: Show infType => AbsGrammar.EXPR infType -> Result
 transEXPR x = case x of
+  AbsGrammar.SelExpr expr1 expr2 expr3 infType -> failure x
   AbsGrammar.BinaryExpression _ rexpr1 rexpr2 infType -> failure x
   AbsGrammar.UnaryExpression _ rexpr1 infType -> failure x
   AbsGrammar.ExprLiteral literal -> failure x

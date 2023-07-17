@@ -153,7 +153,6 @@ instance Print AbsGrammar.TokBoolean where
 
 --instance Print AbsGrammar.Ident where
 --  prt _ (AbsGrammar.Ident i) = doc $ showString i
-
 instance Print (AbsGrammar.P env infType) where
   prt i = \case
     AbsGrammar.Prog pblock dclblocks beblock globEnv -> prPrec i 0 (concatD [prt 0 pblock, prt 0 dclblocks, prt 0 beblock, doc (showString ".")])
@@ -175,6 +174,8 @@ instance Print (AbsGrammar.Stmt env infType) where
     AbsGrammar.StmtSelect selstmt -> prPrec i 0 (concatD [prt 0 selstmt])
     AbsGrammar.StmtIter iterstmt -> prPrec i 0 (concatD [prt 0 iterstmt])
     AbsGrammar.StmtReturn return -> prPrec i 0 (concatD [prt 0 return])
+    AbsGrammar.StmtBreak -> prPrec i 0 (concatD [doc (showString "break")])
+    AbsGrammar.StmtContinue -> prPrec i 0 (concatD [doc (showString "continue")])
 
 instance Print [AbsGrammar.Stmt env infType] where
   prt _ [] = concatD []
@@ -190,6 +191,12 @@ instance Print (AbsGrammar.IterStmt env infType) where
   prt i = \case
     AbsGrammar.StmtWhileDo expr stmt -> prPrec i 0 (concatD [doc (showString "while"), prt 0 expr, doc (showString "do"), prt 0 stmt])
     AbsGrammar.StmtRepeat stmt expr -> prPrec i 0 (concatD [doc (showString "repeat"), prt 0 stmt, doc (showString "until"), prt 0 expr])
+    AbsGrammar.StmtFor stmt1 fordirection expr stmt2 -> prPrec i 0 (concatD [doc (showString "for"), prt 0 stmt1, prt 0 fordirection, prt 0 expr, doc (showString "do"), prt 0 stmt2])
+
+instance Print AbsGrammar.ForDirection where
+  prt i = \case
+    AbsGrammar.ForDirection_to -> prPrec i 0 (concatD [doc (showString "to")])
+    AbsGrammar.ForDirection_downto -> prPrec i 0 (concatD [doc (showString "downto")])
 
 instance Print (AbsGrammar.Return infType) where
   prt i = \case
@@ -225,9 +232,8 @@ instance Print AbsGrammar.Prm where
 
 instance Print AbsGrammar.Modality where
   prt i = \case
-    AbsGrammar.Modality_val -> prPrec i 0 (concatD [doc (showString "val")])
-    AbsGrammar.Modality_ref -> prPrec i 0 (concatD [doc (showString "ref")])
-    AbsGrammar.Modality1 -> prPrec i 0 (concatD [])
+    AbsGrammar.Modality_ref -> prPrec i 0 (concatD [doc (showString "var")])
+    AbsGrammar.Modality_val -> prPrec i 0 (concatD [])
 
 instance Print [AbsGrammar.Prm] where
   prt _ [] = concatD []
@@ -278,11 +284,6 @@ instance Print [AbsGrammar.IdElem] where
   prt _ [x] = concatD [prt 0 x]
   prt _ (x:xs) = concatD [prt 0 x, doc (showString ","), prt 0 xs]
 
---instance Print AbsGrammar.Boolean where
---  prt i = \case
---    AbsGrammar.Boolean_true -> prPrec i 0 (concatD [doc (showString "true")])
---    AbsGrammar.Boolean_false -> prPrec i 0 (concatD [doc (showString "false")])
-
 instance Print AbsGrammar.Type where
   prt i = \case
     AbsGrammar.TypeBaseType basetype -> prPrec i 0 (concatD [prt 0 basetype])
@@ -303,6 +304,7 @@ instance Print AbsGrammar.CompType where
 
 instance Print (AbsGrammar.EXPR infType) where
   prt i = \case
+    AbsGrammar.SelExpr expr1 expr2 expr3 infType -> prPrec i 0 (concatD [prt 1 expr1, doc (showString "?"), prt 0 expr2, doc (showString ":"), prt 0 expr3])
     AbsGrammar.BinaryExpression AbsGrammar.Or expr1 expr2 infType -> prPrec i 0 (concatD [prt 0 expr1, doc (showString "or"), prt 1 expr2])
     AbsGrammar.BinaryExpression AbsGrammar.And expr1 expr2 infType -> prPrec i 1 (concatD [prt 1 expr1, doc (showString "and"), prt 2 expr2])
     AbsGrammar.UnaryExpression AbsGrammar.Not expr infType -> prPrec i 2 (concatD [doc (showString "not"), prt 3 expr])
@@ -326,7 +328,7 @@ instance Print (AbsGrammar.EXPR infType) where
 
 instance Print (AbsGrammar.BEXPR infType) where
   prt i = \case
-    AbsGrammar.ArrayElem expr1 expr2 -> prPrec i 0 (concatD [prt 11 expr1, doc (showString "["), prt 0 expr2, doc (showString "]")])
+    AbsGrammar.ArrayElem expr1 expr2 -> prPrec i 0 (concatD [prt 12 expr1, doc (showString "["), prt 0 expr2, doc (showString "]")])
     AbsGrammar.Identifier id_ -> prPrec i 0 (concatD [prt 0 id_])
 
 instance Print AbsGrammar.Literal where

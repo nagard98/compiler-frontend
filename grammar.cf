@@ -15,6 +15,8 @@ StmtCall.           Stmt ::= Call ;
 StmtSelect.         Stmt ::= SelStmt ;
 StmtIter.           Stmt ::= IterStmt;
 StmtReturn.         Stmt ::= Return;
+StmtBreak.          Stmt ::= "break";
+StmtContinue.       Stmt ::= "continue";
 
 separator Stmt ";";
 
@@ -23,6 +25,9 @@ StmtIfElse.         SelStmt ::= "if" EXPR "then" Stmt "else" Stmt;
 
 StmtWhileDo.        IterStmt ::= "while" EXPR "do" Stmt;
 StmtRepeat.         IterStmt ::= "repeat" Stmt "until" EXPR;
+
+StmtFor.            IterStmt ::= "for" Stmt ForDirection EXPR "do" Stmt ;
+rules               ForDirection ::= "to" | "downto";
 
 Ret.                Return ::= "return" EXPR;
 
@@ -37,7 +42,9 @@ FuncBlock.          FcBlock ::= "function" Ident Prms ":" Type ";" BEBlock ;
 Params.             Prms ::= "(" [Prm] ")";
 NoParams.           Prms ::= ;
 Param.              Prm ::= Modality [IdElem] ":" Type;
-rules               Modality ::= "val" | "ref" | {-empty-};
+Modality_ref.       Modality ::= "var";
+Modality_val.       Modality ::= {-empty-};
+
 separator nonempty Prm "," ;
 
 CallArgs.           Call ::= Ident "(" [EXPR] ")";
@@ -62,35 +69,36 @@ rules               Type ::= BaseType | CompType;
 rules               BaseType ::= "integer" | "boolean" | "real" | "char" | "string" ;
 rules               CompType ::= "array" "[" Integer ".." Integer "]" "of" Type | "^" Type ;
 
-coercions EXPR 11;
+coercions EXPR 12;
 
-Or.                 EXPR ::= EXPR "or" EXPR1;
-And.                EXPR1 ::= EXPR1 "and" EXPR2;
-Not.                EXPR2 ::= "not" EXPR3;
+SelExpr.            EXPR ::=  EXPR1 "?" EXPR ":" EXPR;
+Or.                 EXPR1 ::= EXPR1 "or" EXPR2;
+And.                EXPR2 ::= EXPR2 "and" EXPR3;
+Not.                EXPR3 ::= "not" EXPR4;
 
-Eq.                 EXPR3 ::= EXPR4 "=" EXPR4 ;
-NotEq.              EXPR3 ::= EXPR4 "<>" EXPR4;
-LessT.              EXPR3 ::= EXPR4 "<" EXPR4;
-EqLessT.            EXPR3 ::= EXPR4 "<=" EXPR4;
-GreatT.             EXPR3 ::= EXPR4 ">" EXPR4;
-EqGreatT.           EXPR3 ::= EXPR4 ">=" EXPR4;
+Eq.                 EXPR4 ::= EXPR5 "=" EXPR5 ;
+NotEq.              EXPR4 ::= EXPR5 "<>" EXPR5;
+LessT.              EXPR4 ::= EXPR5 "<" EXPR5;
+EqLessT.            EXPR4 ::= EXPR5 "<=" EXPR5;
+GreatT.             EXPR4 ::= EXPR5 ">" EXPR5;
+EqGreatT.           EXPR4 ::= EXPR5 ">=" EXPR5;
 
-Sub.                EXPR4 ::= EXPR4 "-" EXPR5;
-Add.                EXPR5 ::= EXPR5 "+" EXPR6;
-Div.                EXPR6 ::= EXPR6 "/" EXPR7;
-Mul.                EXPR7 ::= EXPR7 "*" EXPR8;
-Mod.                EXPR8 ::= EXPR8 "mod" EXPR9;
+Sub.                EXPR5 ::= EXPR5 "-" EXPR6;
+Add.                EXPR6 ::= EXPR6 "+" EXPR7;
+Div.                EXPR7 ::= EXPR7 "/" EXPR8;
+Mul.                EXPR8 ::= EXPR8 "*" EXPR9;
+Mod.                EXPR9 ::= EXPR9 "mod" EXPR10;
 
-Negation.           EXPR9 ::= "-" EXPR10;
-Reference.          EXPR9 ::= "@" EXPR10;
-Dereference.        EXPR9 ::= EXPR10 "^";
+Negation.           EXPR10 ::= "-" EXPR11;
+Reference.          EXPR10 ::= "@" EXPR11;
+Dereference.        EXPR10 ::= EXPR11 "^";
 
-ExprCall.           EXPR10 ::= Call;
+ExprCall.           EXPR11 ::= Call;
 
-ExprLiteral.        EXPR11 ::= Literal;
-BaseExpr.           EXPR11 ::= BEXPR;
+ExprLiteral.        EXPR12 ::= Literal;
+BaseExpr.           EXPR12 ::= BEXPR;
 
-ArrayElem.          BEXPR ::= EXPR11 "[" EXPR "]";
+ArrayElem.          BEXPR ::= EXPR12 "[" EXPR "]";
 Identifier.         BEXPR ::= Ident;
 
 

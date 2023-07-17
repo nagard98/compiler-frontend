@@ -41,21 +41,22 @@ The set of reserved words is the set of terminals appearing in the grammar. Thos
 
 The reserved words used in grammar are the following:
   | ``and`` | ``array`` | ``begin`` | ``boolean``
-  | ``char`` | ``const`` | ``do`` | ``else``
-  | ``end`` | ``false`` | ``function`` | ``if``
+  | ``break`` | ``char`` | ``const`` | ``continue``
+  | ``do`` | ``downto`` | ``else`` | ``end``
+  | ``false`` | ``for`` | ``function`` | ``if``
   | ``integer`` | ``mod`` | ``not`` | ``of``
   | ``or`` | ``procedure`` | ``program`` | ``real``
-  | ``ref`` | ``repeat`` | ``return`` | ``string``
-  | ``then`` | ``true`` | ``until`` | ``val``
-  | ``var`` | ``while`` |  |
+  | ``repeat`` | ``return`` | ``string`` | ``then``
+  | ``to`` | ``true`` | ``until`` | ``var``
+  | ``while`` |  |  |
 
 The symbols used in grammar are the following:
   | . | ; | := | :
   | ( | ) | , | =
   | [ | .. | ] | ^
-  | <> | < | <= | >
-  | >= | - | + | /
-  | * | @ |  |
+  | ? | <> | < | <=
+  | > | >= | - | +
+  | / | * | @ |
 
 ===Comments===
 Single-line comments begin with {.Multiple-line comments are  enclosed with {* and *}.
@@ -76,6 +77,8 @@ All other symbols are terminals.
   |  |  **|**  | //SelStmt//
   |  |  **|**  | //IterStmt//
   |  |  **|**  | //Return//
+  |  |  **|**  | ``break``
+  |  |  **|**  | ``continue``
   | //[Stmt]// | -> | **eps**
   |  |  **|**  | //Stmt//
   |  |  **|**  | //Stmt// ``;`` //[Stmt]//
@@ -83,6 +86,9 @@ All other symbols are terminals.
   |  |  **|**  | ``if`` //EXPR// ``then`` //Stmt// ``else`` //Stmt//
   | //IterStmt// | -> | ``while`` //EXPR// ``do`` //Stmt//
   |  |  **|**  | ``repeat`` //Stmt// ``until`` //EXPR//
+  |  |  **|**  | ``for`` //Stmt// //ForDirection// //EXPR// ``do`` //Stmt//
+  | //ForDirection// | -> | ``to``
+  |  |  **|**  | ``downto``
   | //Return// | -> | ``return`` //EXPR//
   | //DclBlock// | -> | //PcBlock//
   |  |  **|**  | //VrBlock//
@@ -95,8 +101,7 @@ All other symbols are terminals.
   | //Prms// | -> | ``(`` //[Prm]// ``)``
   |  |  **|**  | **eps**
   | //Prm// | -> | //Modality// //[IdElem]// ``:`` //Type//
-  | //Modality// | -> | ``val``
-  |  |  **|**  | ``ref``
+  | //Modality// | -> | ``var``
   |  |  **|**  | **eps**
   | //[Prm]// | -> | //Prm//
   |  |  **|**  | //Prm// ``,`` //[Prm]//
@@ -127,38 +132,40 @@ All other symbols are terminals.
   | //CompType// | -> | ``array`` ``[`` //Integer// ``..`` //Integer// ``]`` ``of`` //Type//
   |  |  **|**  | ``^`` //Type//
   | //EXPR// | -> | //EXPR1//
-  |  |  **|**  | //EXPR// ``or`` //EXPR1//
+  |  |  **|**  | //EXPR1// ``?`` //EXPR// ``:`` //EXPR//
   | //EXPR1// | -> | //EXPR2//
-  |  |  **|**  | //EXPR1// ``and`` //EXPR2//
+  |  |  **|**  | //EXPR1// ``or`` //EXPR2//
   | //EXPR2// | -> | //EXPR3//
-  |  |  **|**  | ``not`` //EXPR3//
+  |  |  **|**  | //EXPR2// ``and`` //EXPR3//
   | //EXPR3// | -> | //EXPR4//
-  |  |  **|**  | //EXPR4// ``=`` //EXPR4//
-  |  |  **|**  | //EXPR4// ``<>`` //EXPR4//
-  |  |  **|**  | //EXPR4// ``<`` //EXPR4//
-  |  |  **|**  | //EXPR4// ``<=`` //EXPR4//
-  |  |  **|**  | //EXPR4// ``>`` //EXPR4//
-  |  |  **|**  | //EXPR4// ``>=`` //EXPR4//
+  |  |  **|**  | ``not`` //EXPR4//
   | //EXPR4// | -> | //EXPR5//
-  |  |  **|**  | //EXPR4// ``-`` //EXPR5//
+  |  |  **|**  | //EXPR5// ``=`` //EXPR5//
+  |  |  **|**  | //EXPR5// ``<>`` //EXPR5//
+  |  |  **|**  | //EXPR5// ``<`` //EXPR5//
+  |  |  **|**  | //EXPR5// ``<=`` //EXPR5//
+  |  |  **|**  | //EXPR5// ``>`` //EXPR5//
+  |  |  **|**  | //EXPR5// ``>=`` //EXPR5//
   | //EXPR5// | -> | //EXPR6//
-  |  |  **|**  | //EXPR5// ``+`` //EXPR6//
+  |  |  **|**  | //EXPR5// ``-`` //EXPR6//
   | //EXPR6// | -> | //EXPR7//
-  |  |  **|**  | //EXPR6// ``/`` //EXPR7//
+  |  |  **|**  | //EXPR6// ``+`` //EXPR7//
   | //EXPR7// | -> | //EXPR8//
-  |  |  **|**  | //EXPR7// ``*`` //EXPR8//
+  |  |  **|**  | //EXPR7// ``/`` //EXPR8//
   | //EXPR8// | -> | //EXPR9//
-  |  |  **|**  | //EXPR8// ``mod`` //EXPR9//
+  |  |  **|**  | //EXPR8// ``*`` //EXPR9//
   | //EXPR9// | -> | //EXPR10//
-  |  |  **|**  | ``-`` //EXPR10//
-  |  |  **|**  | ``@`` //EXPR10//
-  |  |  **|**  | //EXPR10// ``^``
+  |  |  **|**  | //EXPR9// ``mod`` //EXPR10//
   | //EXPR10// | -> | //EXPR11//
+  |  |  **|**  | ``-`` //EXPR11//
+  |  |  **|**  | ``@`` //EXPR11//
+  |  |  **|**  | //EXPR11// ``^``
+  | //EXPR11// | -> | //EXPR12//
   |  |  **|**  | //Call//
-  | //EXPR11// | -> | ``(`` //EXPR// ``)``
+  | //EXPR12// | -> | ``(`` //EXPR// ``)``
   |  |  **|**  | //Literal//
   |  |  **|**  | //BEXPR//
-  | //BEXPR// | -> | //EXPR11// ``[`` //EXPR// ``]``
+  | //BEXPR// | -> | //EXPR12// ``[`` //EXPR// ``]``
   |  |  **|**  | //Ident//
   | //Literal// | -> | //Integer//
   |  |  **|**  | //String//

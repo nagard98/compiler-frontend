@@ -49,12 +49,20 @@ data Stmt env infType
     | StmtSelect (SelStmt env infType)
     | StmtIter (IterStmt env infType)
     | StmtReturn (Return infType)
+    | StmtBreak
+    | StmtContinue
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data SelStmt env infType = StmtIf (EXPR infType) (Stmt env infType) | StmtIfElse (EXPR infType) (Stmt env infType) (Stmt env infType)
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data IterStmt env infType = StmtWhileDo (EXPR infType) (Stmt env infType) | StmtRepeat (Stmt env infType) (EXPR infType)
+data IterStmt env infType = 
+      StmtWhileDo (EXPR infType) (Stmt env infType) 
+    | StmtRepeat (Stmt env infType) (EXPR infType)
+    | StmtFor (Stmt env infType) ForDirection (EXPR infType) (Stmt env infType) 
+  deriving (C.Eq, C.Ord, C.Show, C.Read)
+
+data ForDirection = ForDirection_to | ForDirection_downto
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Return infType = Ret (EXPR infType)
@@ -79,7 +87,7 @@ data Prms = Params [Prm] | NoParams
 data Prm = Param Modality [IdElem] Type
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data Modality = Modality_val | Modality_ref | Modality1
+data Modality = Modality_ref | Modality_val
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Call infType = CallArgs TokIdent [EXPR infType]
@@ -116,10 +124,11 @@ data BaseType
 data CompType = Array TokInteger TokInteger Type | Pointer Type
   deriving (C.Ord, C.Read)
 
-data EXPR infType =
+data EXPR infType = 
       UnaryExpression {operator1 :: UnaryOperator, exp :: EXPR infType, tp :: infType}
     | BinaryExpression {operator2 :: BinaryOperator, exp1, exp2 :: EXPR infType, tp :: infType }
     | ExprLiteral Literal
+    | SelExpr (EXPR infType) (EXPR infType) (EXPR infType) infType
     | ExprCall (Call infType) infType
     | BaseExpr (BEXPR infType) infType
     | IntToReal (EXPR infType)
