@@ -28,6 +28,7 @@ import TypeChecker ( launchStatSemAnalysis) -- includere Type Checker
 import Env
 import GeneratorTAC
 import Control.Monad.State.Lazy
+import Errs (getErrors, getWarnings)
 
 type Err        = Either String
 type ParseFun a = [Token] -> Err a
@@ -53,12 +54,28 @@ run v p s =
     Right tree -> do
       putStrLn "\nParse Successful!"
       showTree v tree
+
       putStrLn "\nTYPE CHECKING STARTING..."
-      let (env, errors, annotatedTree) = launchStatSemAnalysis tree
+
+      let (env, problems, annotatedTree) = launchStatSemAnalysis tree
+      let errors = getErrors problems
+      let warnings = getWarnings problems
+
       putStrLn "\nThe environment is:"
       print env
-      putStrLn "\nThe errors/warnings are :"
-      print errors
+
+      if null warnings
+        then putStrLn ""
+        else do
+          putStrLn "\nTYPE CHECKING COMPLETED WITH THE FOLLOWING WARNINGS :"
+          mapM_ print warnings
+
+      if null errors
+        then putStrLn "TYPE CHECKING COMPLETED SUCCESSFULLY!"
+        else do
+          putStrLn "\nTYPE CHECKING COMPLETED WITH THE FOLLOWING ERRORS :"
+          mapM_ print errors
+
       putStrLn "\nThe tree is:"
       print tree
       putStrLn "\nThe annotated tree is:"

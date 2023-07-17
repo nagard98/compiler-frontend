@@ -5,7 +5,7 @@ import qualified Data.Map as Map
 import AbsGrammar
 import HelperTAC
 import Control.Monad.State.Strict
-import Errs (Error (UninitializedVariable))
+import Errs
 
 
 -------------------------Environment----------------------------------------------------------------
@@ -104,10 +104,10 @@ getTypeFromLiteral (LiteralChar _) = BaseType_char
 
 -------------Static Semantic Analysis Utils-----------------------------------------------
 
-type Errors = [Error]
+type Problems = [Problem]
 
-emptyErrors :: [Error]
-emptyErrors = []
+emptyProblems :: [Problem]
+emptyProblems = []
 
 data PosEnds = PosEnds {
     leftmost :: Position,
@@ -122,7 +122,7 @@ type SSAState = State SSAStateStruct
 
 data SSAStateStruct = SSAStateStruct {
     idCount :: Int,
-    errors :: Errors,
+    errors :: Problems,
     unInitVars :: Stack Env
 }
 
@@ -227,7 +227,7 @@ popUninit = do
         makeUninitErrs [] = return ()
         makeUninitErrs ((id,(Variable _ pos@(x,y) _ _)):rest) = do
             state <- get
-            put $ state { errors = Errs.UninitializedVariable (show posEnds) id:errors state}
+            put $ state { errors = (Error, UninitializedVariable (show posEnds) id):errors state}
             makeUninitErrs rest
             where
                 posEnds = PosEnds { leftmost = pos, rightmost = (x, y + length id) }
