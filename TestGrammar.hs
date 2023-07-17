@@ -55,34 +55,30 @@ run v p s =
       putStrLn "\nParse Successful!"
       showTree v tree
 
-      putStrLn "\nTYPE CHECKING STARTING..."
+      putStrLn "\nStarting semantic analysis..."
 
       let (env, problems, annotatedTree) = launchStatSemAnalysis tree
       let errors = getErrors problems
       let warnings = getWarnings problems
 
-      putStrLn "\nThe environment is:"
-      print env
-
       if null warnings
         then putStrLn ""
         else do
-          putStrLn "\nTYPE CHECKING COMPLETED WITH THE FOLLOWING WARNINGS :"
+          putStrLn "\nSemantic analysis completed with the following WARNINGS:"
           mapM_ print warnings
 
       if null errors
-        then putStrLn "TYPE CHECKING COMPLETED SUCCESSFULLY!"
+        then putStrLn "Semantic analysis SUCCESSFUL!"
         else do
-          putStrLn "\nTYPE CHECKING COMPLETED WITH THE FOLLOWING ERRORS :"
+          putStrLn "\nSemantic analysis completed with the following ERRORS:"
           mapM_ print errors
 
-      putStrLn "\nThe tree is:"
-      print tree
       putStrLn "\nThe annotated tree is:"
       print annotatedTree
+
       if null errors 
         then do
-          putStrLn "\n\nSTARTING GENERATION TAC...\n"
+          putStrLn "\n\nStarting generation of TAC...\n"
           print $ genTAC annotatedTree
         else
           putStrLn "\n\nGENERATION TAC ABORTED DUE TO ERRORS IN STATIC SEMANTIC ANALYSIS..."
