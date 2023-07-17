@@ -37,29 +37,53 @@ instance Show Addr where
     show (Temporary tmp) = tmp
 
 instance Show TACLiteral where
-    show (TACInt v) = show v 
-    show (TACChar v) = show v
-    show (TACBool v) = show v 
-    show (TACReal v) = show v 
-    show (TACString v) = v 
+    show (TACIntLit v) = show v 
+    show (TACCharLit v) = show v
+    show (TACBoolLit v) = show v 
+    show (TACRealLit v) = show v 
+    --show (TACString v) = v 
 
 instance Show TACOp where
-    show TACAdd = " + "
-    show TACMul = " * "
-    show TACDiv = " / "
-    show TACSub = " - "
-    show TACEq = " == "
-    show TACJmpEq = " == "
-    show TACNotEq = " != "
-    show TACJmpNotEq = " != "
-    show TACLessT = " < "
-    show TACJmpLessT = " < "
-    show TACGreatT = " > "
-    show TACJmpGreatT = " > "
-    show TACEqGreatT = " >= "
-    show TACJmpEqGreatT = " >= "
-    show TACEqLessT = " <= "
-    show TACJmpEqLessT = " <= "
+    show TACAddInt = " +int "
+    show TACAddFloat = " +float "
+    show TACMulInt = " *int "
+    show TACMulFloat = " *float "
+    show TACDivInt = " /int "
+    show TACDivFloat = " /float "
+    show TACSubInt = " -int "
+    show TACSubFloat = " -float "
+    show TACEqInt = " ==int "
+    show TACEqFloat = " ==float "
+    show TACEqChar = " ==char "
+    show TACEqBool = " ==bool "
+    show TACJmpEqInt = " ==int "
+    show TACJmpEqFloat = " ==float "
+    show TACJmpEqChar = " ==char "
+    show TACJmpEqBool = " ==bool "
+    show TACNotEqInt = " !=int "
+    show TACNotEqFloat = " !=float "
+    show TACNotEqChar = " !=char "
+    show TACNotEqBool = " !=bool "
+    show TACJmpNotEqInt = " !=int "
+    show TACJmpNotEqFloat = " !=float "
+    show TACJmpNotEqChar = " !=char "
+    show TACJmpNotEqBool = " !=bool "
+    show TACLessTInt = " <int "
+    show TACLessTFloat = " <float "
+    show TACJmpLessTInt = " <int "
+    show TACJmpLessTFloat = " <float "
+    show TACGreatTInt = " >int "
+    show TACGreatTFloat = " >float "
+    show TACJmpGreatTInt = " >int "
+    show TACJmpGreatTFloat = " >float "
+    show TACEqGreatTInt = " >=int "
+    show TACEqGreatTFloat = " >=float "
+    show TACJmpEqGreatTInt = " >=int "
+    show TACJmpEqGreatTFloat = " >=float "
+    show TACEqLessTInt = " <=int "
+    show TACEqLessTFloat = " <=float "
+    show TACJmpEqLessTInt = " <=int "
+    show TACJmpEqLessTFloat = " <=float "
     show TACJmp = "goto "
     show TACNot = "!"
     show TACAnd = " && "
@@ -69,10 +93,12 @@ instance Show TACOp where
     --show TACRtVd = "return "
     show TACPCl = "pcall "
     show TACFCl = "fcall "
-    show TACNeg = "-"
+    show TACNegInt = "-int"
+    show TACNegFloat = "-float"
     show TACDeref = "*"
     show TACRef = "&"
-    show (TACCast tp) = "("++ show tp ++")"
+    show TACCastIntToReal = "(int_to_real)"
+    --show TACCastCharToString = "(string)"
     show _ =  " ![TODO OP]! "
 
 instance Show TACQuadSeq where
