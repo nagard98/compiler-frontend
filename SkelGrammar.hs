@@ -53,7 +53,7 @@ transIterStmt :: (Show env, Show infType)  => AbsGrammar.IterStmt env infType ->
 transIterStmt x = case x of
   AbsGrammar.StmtWhileDo expr stmt -> failure x
   AbsGrammar.StmtRepeat stmt expr -> failure x
-  AbsGrammar.StmtFor stmt1 fordirection expr stmt2 -> failure x
+  AbsGrammar.StmtFor ident initExpr fordirection expr stmt2 -> failure x
 
 transForDirection :: AbsGrammar.ForDirection -> Result
 transForDirection x = case x of

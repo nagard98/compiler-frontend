@@ -26,7 +26,7 @@ StmtIfElse.         SelStmt ::= "if" EXPR "then" Stmt "else" Stmt;
 StmtWhileDo.        IterStmt ::= "while" EXPR "do" Stmt;
 StmtRepeat.         IterStmt ::= "repeat" Stmt "until" EXPR;
 
-StmtFor.            IterStmt ::= "for" Stmt ForDirection EXPR "do" Stmt ;
+StmtFor.            IterStmt ::= "for" Ident ":=" EXPR ForDirection EXPR "do" Stmt ;
 rules               ForDirection ::= "to" | "downto";
 
 Ret.                Return ::= "return" EXPR;

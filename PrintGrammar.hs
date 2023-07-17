@@ -191,7 +191,7 @@ instance Print (AbsGrammar.IterStmt env infType) where
   prt i = \case
     AbsGrammar.StmtWhileDo expr stmt -> prPrec i 0 (concatD [doc (showString "while"), prt 0 expr, doc (showString "do"), prt 0 stmt])
     AbsGrammar.StmtRepeat stmt expr -> prPrec i 0 (concatD [doc (showString "repeat"), prt 0 stmt, doc (showString "until"), prt 0 expr])
-    AbsGrammar.StmtFor stmt1 fordirection expr stmt2 -> prPrec i 0 (concatD [doc (showString "for"), prt 0 stmt1, prt 0 fordirection, prt 0 expr, doc (showString "do"), prt 0 stmt2])
+    AbsGrammar.StmtFor ident initExpr fordirection expr stmt2 -> prPrec i 0 (concatD [doc (showString "for"), prt 0 ident, prt 0 initExpr, prt 0 fordirection, prt 0 expr, doc (showString "do"), prt 0 stmt2])
 
 instance Print AbsGrammar.ForDirection where
   prt i = \case
