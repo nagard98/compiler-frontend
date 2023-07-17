@@ -87,3 +87,14 @@ instance Show ProblemBody where
     show ContinueOutsideLoop = "ERROR ContinueOutsideLoop at (TODO:implement pos for break stmt): continue statemets are allowed only inside while-do and repeat-until loops"
     show (UnnecessaryCasting posStr from to) = "WARNING at " ++ posStr ++ ": removed unnecessary implicit type casting from " ++ from ++ " to " ++ to
     show (ImplicitCasting posStr from to) = "WARNING at " ++ posStr ++ ": type casting from " ++ from ++ " to " ++ to ++ " is done implicitly"
+
+    
+getErrors :: [Problem] -> [String]
+getErrors [] = []
+getErrors ((Error, body):xs) = show body : getErrors xs
+getErrors (x:xs) = getErrors xs -- do not include warnings
+
+getWarnings :: [Problem] -> [String]
+getWarnings [] = []
+getWarnings ((Warning, body):xs) = show body : getWarnings xs
+getWarnings (x:xs) = getWarnings xs -- do not include errors

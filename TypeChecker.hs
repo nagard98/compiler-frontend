@@ -10,11 +10,11 @@ import Debug.Trace
 import Data.Map
 import Errs
 
-launchStatSemAnalysis :: P env infType -> (Env, Errors, P Env Type)
+launchStatSemAnalysis :: P env infType -> (Env, Problems, P Env Type)
 launchStatSemAnalysis tree = (env, errors finalState, parsedTree)
     where
         ((env, parsedTree), finalState) = runState (parseTree defaultEnv tree) ssaState
-        ssaState = SSAStateStruct {idCount = 0, errors = emptyErrors, unInitVars = newStack }
+        ssaState = SSAStateStruct {idCount = 0, errors = emptyProblems, unInitVars = newStack }
 
 -- Type Checking starting point
 parseTree :: Env -> P env infType -> SSAState (Env, P Env Type)
