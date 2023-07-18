@@ -193,8 +193,9 @@ parseIds ( idElem@(IdElement (TokIdent (pos, id))):ids) mod typ env isVar = do
 parseBEBlock:: Env -> BEBlock env infType -> SSAState (Env, BEBlock Env Type, Bool)
 parseBEBlock env (BegEndBlock statements annEnv)  = do
     pushNewUninit
-    tmpEnv <- parseStatementsFirstPass env statements
-    (newEnv, newStatements, hasAllReturns) <- parseStatements tmpEnv statements
+    tmpEnv <- parseStatementsFirstPass emptyEnv statements
+    mergedEnv <- Env.mergeEnvs tmpEnv env
+    (newEnv, newStatements, hasAllReturns) <- parseStatements mergedEnv statements
     popUninit
     return (newEnv, BegEndBlock newStatements newEnv, hasAllReturns)
 

@@ -43,6 +43,7 @@ data ProblemBody =
     TypeMismatchBooleanOperator String String String String String | -- posEnds operatorStr leftOrRight exprStr exprType
     TypeErrorConditionSelectionExpression String String String| --posEnds exprcond condtype
     TypeMismatchSelectionExpression String String String String String | --posEnds expr1 expr2 type1 type2
+    DuplicateDeclaration String String String | -- posEnds tipoDuplicazione nomeIdDuplicato
     BreakOutsideLoop | -- TODO: add pos info
     ContinueOutsideLoop -- TODO: add pos info
     | UnnecessaryCasting String String String --posEnds from to
@@ -86,6 +87,7 @@ instance Show ProblemBody where
     show (TypeMismatchBooleanOperator posEnds operatorStr leftOrRight exprStr exprType) = "ERROR TypeMismatchBooleanOperator at " ++ posEnds ++ ": cannot apply boolean operator " ++ operatorStr ++ " because " ++ leftOrRight ++ " expression " ++ exprStr ++ " is of type " ++ exprType ++ " instead of Boolean"
     show (TypeErrorConditionSelectionExpression posEnds exprcond condtype) = "ERROR TypeErrorConditionSelectionExpression at "++ posEnds ++": condition "++exprcond++" of expression selection is of type "++ condtype ++ " but it should be Boolean"
     show (TypeMismatchSelectionExpression posEnds expr1 expr2 type1 type2) = "ERROR TypeMismatchSelectionExpression at "++posEnds++": the types of the two branches of expression selection are not matching, as the expressions "++ expr1 ++ " and " ++ expr2 ++ " are respectively of types " ++ type1 ++ " and " ++ type2
+    show (DuplicateDeclaration posEnds kind id) = "ERROR DuplicateDeclaration at "++ posEnds ++" : "++ kind ++" "++ id ++" has been declared multiple times"
     show BreakOutsideLoop = "ERROR BreakOutsideLoop at (TODO:implement pos for break stmt): break statemets are allowed only inside while-do and repeat-until loops"
     show ContinueOutsideLoop = "ERROR ContinueOutsideLoop at (TODO:implement pos for break stmt): continue statemets are allowed only inside while-do and repeat-until loops"
     show (UnnecessaryCasting posStr from to) = "WARNING UnnecessaryCasting at " ++ posStr ++ ": removed unnecessary implicit type casting from " ++ from ++ " to " ++ to
