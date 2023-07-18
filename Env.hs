@@ -160,11 +160,6 @@ sup t1 t2
     | t1 == (TypeBaseType BaseType_real) && t2 == (TypeBaseType BaseType_integer) = (TypeBaseType BaseType_real)
     | otherwise = (TypeBaseType BaseType_error)
 
-isError :: Type -> Type -> Bool
-isError (TypeBaseType BaseType_error) _ = True
-isError _ (TypeBaseType BaseType_error) = True
-isError _ _ = False
-
 getLitPosEnds :: Literal -> PosEnds
 getLitPosEnds (LiteralInteger (TokInteger (pos@(x,y), val))) = PosEnds {leftmost=pos, rightmost = (x, y + (length val))}
 getLitPosEnds (LiteralChar (TokChar (pos@(x,y), val))) = PosEnds {leftmost=pos, rightmost = (x, y + (length val))}
