@@ -3,6 +3,8 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use camelCase" #-}
 {-# HLINT ignore "Use newtype instead of data" #-}
+{-# HLINT ignore "Use fewer imports" #-}
+{-# HLINT ignore "Redundant bracket" #-}
 
 -- | The abstract syntax of language grammar.
 
@@ -56,10 +58,10 @@ data Stmt env infType
 data SelStmt env infType = StmtIf (EXPR infType) (Stmt env infType) | StmtIfElse (EXPR infType) (Stmt env infType) (Stmt env infType)
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data IterStmt env infType = 
-      StmtWhileDo (EXPR infType) (Stmt env infType) 
+data IterStmt env infType =
+      StmtWhileDo (EXPR infType) (Stmt env infType)
     | StmtRepeat (Stmt env infType) (EXPR infType)
-    | StmtFor (EXPR infType) (EXPR infType) ForDirection (EXPR infType) (Stmt env infType) 
+    | StmtFor (EXPR infType) (EXPR infType) ForDirection (EXPR infType) (Stmt env infType)
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data ForDirection = ForDirection_to | ForDirection_downto
@@ -124,7 +126,7 @@ data BaseType
 data CompType = Array TokInteger TokInteger Type | Pointer Type
   deriving (C.Ord, C.Read)
 
-data EXPR infType = 
+data EXPR infType =
       UnaryExpression {operator1 :: UnaryOperator, exp :: EXPR infType, tp :: infType}
     | BinaryExpression {operator2 :: BinaryOperator, exp1, exp2 :: EXPR infType, tp :: infType }
     | ExprLiteral Literal
@@ -154,9 +156,9 @@ data Literal
 instance C.Show Type where
     show (TypeCompType comptype) = show comptype
     show (TypeBaseType basetype) = show basetype
-    
+
 instance C.Show CompType where
-    show cpTp@(Array (TokInteger (_,i1)) (TokInteger (_,i2)) t) = "Array ["++i1++".."++i2++ "] of type " ++ show t 
+    show cpTp@(Array (TokInteger (_,i1)) (TokInteger (_,i2)) t) = "Array ["++i1++".."++i2++ "] of type " ++ show t
     show cpTp@(Pointer basetype) =  "Pointer of " ++ show basetype
 
 instance C.Show BaseType where
@@ -169,7 +171,7 @@ instance C.Show BaseType where
     show (BaseType_void) = "Void"
 
 instance C.Eq CompType where
-  (==) lArr@(Array _ _ _) rArr@(Array _ _ _) = compArrType lArr rArr 
+  (==) lArr@(Array {}) rArr@(Array {}) = compArrType lArr rArr
   (==) (Pointer lTp) (Pointer rTp) = lTp == rTp
 
 compArrType :: CompType -> CompType -> Bool
