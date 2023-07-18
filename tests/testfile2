@@ -7,7 +7,7 @@ program Hello2;
 {*
     var myVar : integer;
 *}
-var a, b : integer, c, d : char;
+var b : integer, c, d : char;
 const max = 10;
 
 
@@ -21,7 +21,7 @@ end;
 {Funzione parziale}
 function iszero (num: integer) : boolean;
 begin
-    if num = 0 then return "true"
+    if num = 0 then return true
 end;
 
 
@@ -36,10 +36,10 @@ begin
     if num > max then return counter else return funcA(num+1, counter+1)
 end;
 
-{Procedura}
-procedure incr2 (num: ^integer);
+{Procedura e passaggio per riferimento}
+procedure incr2 (var num: integer);
 begin
-    num^ := num^ + 1
+    num := num + 1
 end;
 
 
@@ -57,26 +57,29 @@ begin
 end;
 
 begin
+    
+    {Test if-then-else}
     var a, b : integer, c, d : char;
     if a = 0 then 
         if b = 2 then 
             var z:char
     else b := 0;
-    var k:integer;
 
+    {Test iterazione indeterminata}
     var e, f : integer;
     a := 0; b := 0; e := 0;
     while a < max do 
     begin
         if a < 5 then e := e - 1 else e := e + 1;
         {a = incr(a)}
-        incr2(@a)
+        incr2(a)
     end;
 
     f := funcA(f, 0);
 
+    {Test scoping statico}
     var x: integer;
     x := 50;
-    x := g(); {Scoping statico: il valore è 50 e non 100, f è indipendente dalla x definita in g}
+    x := g(); {Scoping statico: il valore è 50 (e non 100), f è indipendente dalla x definita in g}
 
 end.
