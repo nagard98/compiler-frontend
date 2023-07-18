@@ -1,0 +1,11 @@
+program Loops;
+
+var result : integer;
+
+begin
+    var i : integer;
+    for var i:integer := 0 to i<10 do
+    begin
+        result := result+i;
+    end;
+end.

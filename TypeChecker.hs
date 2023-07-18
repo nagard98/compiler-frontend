@@ -347,7 +347,7 @@ parseIter (StmtIter (StmtFor condVar initExpr forDirection limitExpr stmt)) env 
                         (TypeBaseType BaseType_integer, _) -> do
                             state <- get
                             --TODO: creare errore espressione assegnata al contatore non è intera
-                            put $ state {errors = ((Error, ReturnInMain):(errors state))}
+                            put $ state {errors = ((Error, ForLoopInvalidCounterAssignment):(errors state))}
                             return (
                                 env,
                                 StmtIter (StmtFor parsedCondVar parsedInitExpr forDirection parsedLimitExpr wrappedStmt),
@@ -356,7 +356,7 @@ parseIter (StmtIter (StmtFor condVar initExpr forDirection limitExpr stmt)) env 
                         (_, TypeBaseType BaseType_integer) -> do
                             state <- get
                             --TODO: creare errore contatore for non è intero
-                            put $ state {errors = ((Error, ReturnInMain):(errors state))}
+                            put $ state {errors = ((Error, ForLoopInvalidCounterType):(errors state))}
                             return (
                                 env,
                                 StmtIter (StmtFor parsedCondVar parsedInitExpr forDirection parsedLimitExpr wrappedStmt),
@@ -364,7 +364,7 @@ parseIter (StmtIter (StmtFor condVar initExpr forDirection limitExpr stmt)) env 
                         (_, _) -> do
                             state <- get
                             --TODO: creare errore ne contatore ne inizializzatore contatore sono interi
-                            put $ state {errors = ((Error, ReturnInMain):(errors state))}
+                            put $ state {errors = ((Error, ForLoopInvalidCounter):(errors state))}
                             return (
                                 env,
                                 StmtIter (StmtFor parsedCondVar parsedInitExpr forDirection parsedLimitExpr wrappedStmt),

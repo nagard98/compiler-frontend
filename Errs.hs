@@ -47,6 +47,9 @@ data ProblemBody =
     ContinueOutsideLoop -- TODO: add pos info
     | UnnecessaryCasting String String String --posEnds from to
     | ImplicitCasting String String String --posEnds from to
+    | ForLoopInvalidCounterType 
+    | ForLoopInvalidCounterAssignment 
+    | ForLoopInvalidCounter 
 
 instance Show ProblemBody where
     show ReturnInMain = "ERROR ReturnInMain: cannot have a return statement in the main begin-end block"
@@ -85,8 +88,12 @@ instance Show ProblemBody where
     show (TypeMismatchSelectionExpression posEnds expr1 expr2 type1 type2) = "ERROR TypeMismatchSelectionExpression at "++posEnds++": the types of the two branches of expression selection are not matching, as the expressions "++ expr1 ++ " and " ++ expr2 ++ " are respectively of types " ++ type1 ++ " and " ++ type2
     show BreakOutsideLoop = "ERROR BreakOutsideLoop at (TODO:implement pos for break stmt): break statemets are allowed only inside while-do and repeat-until loops"
     show ContinueOutsideLoop = "ERROR ContinueOutsideLoop at (TODO:implement pos for break stmt): continue statemets are allowed only inside while-do and repeat-until loops"
-    show (UnnecessaryCasting posStr from to) = "WARNING at " ++ posStr ++ ": removed unnecessary implicit type casting from " ++ from ++ " to " ++ to
-    show (ImplicitCasting posStr from to) = "WARNING at " ++ posStr ++ ": type casting from " ++ from ++ " to " ++ to ++ " is done implicitly"
+    show (UnnecessaryCasting posStr from to) = "WARNING UnnecessaryCasting at " ++ posStr ++ ": removed unnecessary implicit type casting from " ++ from ++ " to " ++ to
+    show (ImplicitCasting posStr from to) = "WARNING ImplicitCasting at " ++ posStr ++ ": type casting from " ++ from ++ " to " ++ to ++ " is done implicitly"
+    show (ForLoopInvalidCounterType) = "ERROR ForLoopInvalidCounterType at (TODO:implement pos for for loop):  " 
+    show (ForLoopInvalidCounterAssignment ) = "ERROR ForLoopInvalidCounterAssignment at (TODO:implement pos for for loop):  " 
+    show (ForLoopInvalidCounter ) = "ERROR ForLoopInvalidCounter at (TODO:implement pos for for loop):  "
+
 
     
 getErrors :: [Problem] -> [String]
