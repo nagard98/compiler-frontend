@@ -43,8 +43,6 @@ parseDclBlocksFirstPass env (x:xs) = do
     (finalEnv, newBlocks) <- parseDclBlocksFirstPass env1 xs
     return (finalEnv, newBlock : newBlocks)
     where
-        -- TODO: make sure errores are updated after parsing declaration blocks
-        -- e.g. redefining a variable could produce a warning and redefinig a constant an error
         parseSingleDclBlockFirstPass :: Env -> DclBlock env infType -> SSAState (Env, DclBlock env infType)
         parseSingleDclBlockFirstPass env blk = case blk of
             DclBlockVrBlock _ -> parseDclVrBlockFirstPass env blk
@@ -388,7 +386,7 @@ parseIter (StmtIter (StmtFor condVar initExpr forDirection limitExpr stmt)) env 
         (StmtAssign condExpr initExpr) -> do
             state <- get
             --TODO: creare errore espressione limite for deve essere intera
-            put $ state {errors = ((Error, ReturnInMain):(errors state))}
+            put $ state {errors = ((Error, UNIMPLEMENTED_ERROR):(errors state))}
             return (
                 env,
                 StmtIter (StmtFor condExpr initExpr forDirection parsedLimitExpr wrappedStmt),

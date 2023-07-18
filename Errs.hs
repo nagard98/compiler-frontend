@@ -49,6 +49,8 @@ data ProblemBody =
     | ForLoopInvalidCounterType String String String -- pos id actualTp
     | ForLoopInvalidLimitType String String String -- posEnds
     | ForLoopInvalidCounterTypeAndLimit String String String String String String -- counterPos counterId counterTp exprPos expr exprType
+    | UNIMPLEMENTED_ERROR -- used as a placeholder for errors that we have not implemented yet
+
 
 instance Show ProblemBody where
     show ReturnInMain = "ERROR ReturnInMain: cannot have a return statement in the main begin-end block"
