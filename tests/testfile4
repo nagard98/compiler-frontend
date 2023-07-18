@@ -24,10 +24,25 @@ begin
   d := true;
   i := 1;
 
+{*
   {Test call by reference
-  {c := incr(i);
-  i := 'a'='b' or 1+1.4>2.3 ? 1 : 2;  
+  var pp : ^^integer;
+  pp := @(@i);
+  c := incr((pp^)^);
+  {i := 'a'='b' or 1+1.4>2.3 ? 1 : 2;  
+*}    
     
+    
+{{* 
+    {Test pointers as l-values}
+    var a: integer;
+    var b: integer;
+    a := 8;
+    b := 9;
+    var c: ^integer;
+    c := @a;
+    @b := @a;
+{*}    
 {*
   {Test loop
   while 1+true do
