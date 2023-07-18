@@ -621,17 +621,21 @@ parseIdExprAssignment tkId@(TokIdent (idPos, idVal)) expr env posEnds = do
                 )
 
 
-
+-- Parse assignment of and expression to an expression. The only situation considered is when expr1 is an operation of dereference
+-- in all other cases this function is not reached in the first place, since expr1 would not be a valid l-value
+-- Since this function only checks the compatibility of the types of the two expressions, expr1 can be considered to be any generic expression in order to keep the function total
 parseExprExprAssignment :: EXPR Type -> EXPR Type -> Env -> PosEnds -> SSAState (Env, Stmt Env Type)
 parseExprExprAssignment expr1 expr2 env posEnds = do
     typeExpr1 <- getTypeFromExpression expr1
     typeExpr2 <- getTypeFromExpression expr2
 
-    -- TODO: includere posizione e stringa dell'espressione sinistra nel messaggio di errore
+    -- if the types are the same, return annotated tree
     if typeExpr1 == typeExpr2
         then return (env, (StmtAssign expr1 expr2) )
+
         else case (typeExpr1, typeExpr2) of
 
+            -- type casting int to real
             (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) ->
                 return (env, (StmtAssign expr1 (IntToReal expr2)))
 
@@ -641,6 +645,7 @@ parseExprExprAssignment expr1 expr2 env posEnds = do
             (_, TypeBaseType BaseType_error) ->
                 return (env, (StmtAssign expr1 expr2))
 
+            -- types not compatible -> generate new error message
             _ -> do
                 state <- get
                 exprTp1 <- getTypeFromExpression expr1
@@ -661,6 +666,8 @@ parseExpression env (UnaryExpression Not exp t) = do
     (env2, parsedexp, posEnds) <- parseExpression env exp
     typeExpr <- getTypeFromExpression parsedexp
 
+    -- if the type is boolean or it is an error no new error messages are generated
+    -- sup function guarantees that if the type was Error the expression is annotated with type Error
     if typeExpr == TypeBaseType BaseType_boolean || typeExpr == TypeBaseType BaseType_error
         then -- no new errors are generated
             return (
@@ -668,7 +675,7 @@ parseExpression env (UnaryExpression Not exp t) = do
                 (UnaryExpression Not parsedexp (sup (typeExpr) (TypeBaseType BaseType_boolean)) ),
                 posEnds
                 )
-        else do
+        else do -- expression is neither boolean or an already generated error -> generate new error message
             state <- get
             exprTp <- getTypeFromExpression parsedexp
             put $ state { errors = ((Error, TypeMismatchUnaryExpr (show posEnds) (show exprTp)):(errors state))}
@@ -685,7 +692,7 @@ parseExpression env (UnaryExpression Negation exp t) = do
     typeExpr <- getTypeFromExpression parsedexp
 
     -- if the type is numeric or it is an error no new error messages are generated
-    -- sup function guarantess that if the type was Error the expression is annotated with type Error
+    -- sup function guarantees that if the type was Error the expression is annotated with type Error
     if typeExpr == TypeBaseType BaseType_integer || typeExpr == TypeBaseType BaseType_real || typeExpr == TypeBaseType BaseType_error
         then
             return (
@@ -727,45 +734,25 @@ parseExpression env (BinaryExpression EqGreatT exp1 exp2 t) = parseBinaryRelatio
 parseExpression env (UnaryExpression Dereference exp t)  = do
     (env2, parsedexp, posEnds) <- parseExpression env exp
     typeExpr <- getTypeFromExpression parsedexp
-    --TODO: aggiornare posEnds, allunga a destra di 1 colonna per l'operatore ^
-
+    
     -- need to get type of pointed expression: can do so only if expression is of pointer type
     case typeExpr of
         (TypeBaseType BaseType_error) ->
-            return (env2, (UnaryExpression Dereference parsedexp (TypeBaseType BaseType_error)), posEnds )
+            return (env2, (UnaryExpression Dereference parsedexp (TypeBaseType BaseType_error)), (updatePosEnds posEnds) )
 
         (TypeCompType (Pointer pointedType) ) ->
-            return (env2, (UnaryExpression Dereference parsedexp pointedType), posEnds )
+            return (env2, (UnaryExpression Dereference parsedexp pointedType), (updatePosEnds posEnds) )
 
         _ -> do
             state <- get
             exprTp <- getTypeFromExpression parsedexp
             --TODO: nonostante questo errore, viene segnato errore anche nella chiamata della funzione dove viene usata l'espressione
-            put $ state { errors = ((Error, TypeMismatchPointer (show posEnds) (showExpr exp) (show exprTp)):(errors state))}
-            return (env2, (UnaryExpression Dereference parsedexp (TypeBaseType BaseType_error)), posEnds )
-{- 
-    if validLExpr parsedexp
-        then
-            case typeExpr of
-                (TypeBaseType BaseType_error) ->
-                    return (env2, (UnaryExpression Dereference parsedexp (TypeBaseType BaseType_error)), posEnds )
-
-                (TypeCompType (Pointer pointedType) ) ->
-                    return (env2, (UnaryExpression Dereference parsedexp pointedType), posEnds )
-
-                _ -> do
-                    state <- get
-                    exprTp <- getTypeFromExpression parsedexp
-                    --TODO: nonostante questo errore, viene segnato errore anche nella chiamata della funzione dove viene usata l'espressione
-                    put $ state { errors = ((Error, TypeMismatchPointer (show posEnds) (showExpr exp) (show exprTp)):(errors state))}
-                    return (env2, (UnaryExpression Dereference parsedexp (TypeBaseType BaseType_error)), posEnds )
-
-        else do
-            state <- get
-            --TODO: nonostante questo errore, viene segnato errore anche nella chiamata della funzione dove viene usata l'espressione
-            put $ state { errors =((Error, InvalidLExpressionDereference (show posEnds) (showExpr exp)):(errors state))}
-            return (env2, (UnaryExpression Dereference parsedexp (TypeBaseType BaseType_error)), posEnds )
--}
+            put $ state { errors = ((Error, TypeMismatchPointer (show (updatePosEnds posEnds)) (showExpr exp) (show exprTp)):(errors state))}
+            return (env2, (UnaryExpression Dereference parsedexp (TypeBaseType BaseType_error)), (updatePosEnds posEnds) )
+    where
+        -- expand posEnds of 1 to the right to account for the symbol ^
+        updatePosEnds :: PosEnds -> PosEnds
+        updatePosEnds PosEnds{leftmost=(lr,lc),rightmost=(rr,rc)} = PosEnds{leftmost=(lr,lc),rightmost=(rr,rc+1)}
 
 
 -- Reference
@@ -774,25 +761,28 @@ parseExpression env (UnaryExpression Reference exp t) = do
     typeExpr <- getTypeFromExpression parsedexp
     traceM $ "\n"++ show (typeExpr)++"  "++ showExpr exp ++"\n"
 
-    --TODO: aggiornare posEnds, allunga a sinistra di 1 colonna per l'operatore @
-    -- can create a pointer only if expression is a valid l-expression, including a pointer
+    -- can create a pointer only if expression is a valid l-expression
     if typeExpr == TypeBaseType BaseType_error
         then
-            return (env2, (UnaryExpression Reference parsedexp (TypeBaseType BaseType_error)), posEnds )
+            return (env2, (UnaryExpression Reference parsedexp (TypeBaseType BaseType_error)), (updatePosEnds posEnds) )
         else
             if validLExpr parsedexp || isPointerType typeExpr
-                then return (env2, (UnaryExpression Reference parsedexp (TypeCompType (Pointer (typeExpr)))), posEnds )
+                then return (env2, (UnaryExpression Reference parsedexp (TypeCompType (Pointer (typeExpr)))), (updatePosEnds posEnds) )
                 else do
                     state <- get
                     exprTp <- getTypeFromExpression parsedexp
                     --TODO: nonostante questo errore, viene segnato errore anche nella chiamata della funzione dove viene usata l'espressione
-                    put $ state { errors = ((Error, TypeMismatchReference (show posEnds) (show exprTp)):(errors state))}
+                    put $ state { errors = ((Error, TypeMismatchReference (show (updatePosEnds posEnds)) (show exprTp)):(errors state))}
                     return (
                         env2,
                         (UnaryExpression Reference parsedexp (TypeBaseType BaseType_error) ),
-                        posEnds
+                        (updatePosEnds posEnds)
                         )
             where
+                -- update posEnds of 1 to the left to account for the symbol @
+                updatePosEnds :: PosEnds -> PosEnds
+                updatePosEnds PosEnds{leftmost=(lr,lc),rightmost=(rr,rc)} = PosEnds{leftmost=(lr,lc-1),rightmost=(rr,rc)}
+
                 isPointerType :: Type -> Bool
                 isPointerType (TypeCompType (Pointer _)) = True
                 isPointerType _ = False
