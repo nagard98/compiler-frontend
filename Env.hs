@@ -55,7 +55,9 @@ defaultEnv = foldl1 Map.union [ Map.singleton "writeInt" (Procedure (0,0) (Param
                                   Map.singleton "readInt" (Procedure (0,0) (Params [Param Modality_ref [IdElement (TokIdent ((0,0),"val"))] (TypeBaseType BaseType_integer)]) (ProgVar "readInt") ),
                                   Map.singleton "readReal" (Procedure (0,0) (Params [Param Modality_ref [IdElement (TokIdent ((0,0),"val"))] (TypeBaseType BaseType_real)]) (ProgVar "readReal") ),
                                   Map.singleton "readChar" (Procedure (0,0) (Params [Param Modality_ref [IdElement (TokIdent ((0,0),"val"))] (TypeBaseType BaseType_char)]) (ProgVar "readChar") ),
-                                  Map.singleton "readString" (Procedure (0,0) (Params [Param Modality_ref [IdElement (TokIdent ((0,0),"val"))] (TypeBaseType BaseType_string)]) (ProgVar "readString") ) ]
+                                  Map.singleton "readString" (Procedure (0,0) (Params [Param Modality_ref [IdElement (TokIdent ((0,0),"val"))] (TypeBaseType BaseType_string)]) (ProgVar "readString") ),
+                                  Map.singleton "errOutOfBounds" (Procedure (0,0) NoParams (ProgVar "errOutOfBounds") )
+                                  ]
 
 
 -- TODO : aggiungere generazione warning quando un identificatore nel env viene sovrascritto? Forse bisogna passare
