@@ -16,7 +16,7 @@ launchStatSemAnalysis tree = (env, errors finalState, parsedTree)
         ((env, parsedTree), finalState) = runState (parseTree defaultEnv tree) ssaState
         ssaState = SSAStateStruct {idCount = 0, labelCount = 0, errors = emptyProblems, unInitVars = newStack }
 
--- Type Checking starting point
+-- Syntax analysis starting point
 parseTree :: Env -> P env infType -> SSAState (Env, P Env Type)
 parseTree defEnv (Prog pBlock dclBlock beBlock _) = do
     pushNewUninit
@@ -36,7 +36,6 @@ parseTree defEnv (Prog pBlock dclBlock beBlock _) = do
     return (finalEnv, Prog pBlock annBlks beBlks globEnv)
 
 --TODO: prova a rimuovere DclBlock come valore di ritorno per i first pass
--- Navigates syntax tree and saves info about variables type (declared in a Declaration block) in the global environment
 parseDclBlocksFirstPass:: Env -> [DclBlock env infType] -> SSAState (Env, [DclBlock env infType])
 parseDclBlocksFirstPass env [] = return (env, [])
 parseDclBlocksFirstPass env (x:xs) = do
@@ -50,12 +49,9 @@ parseDclBlocksFirstPass env (x:xs) = do
         parseSingleDclBlockFirstPass env blk = case blk of
             DclBlockVrBlock _ -> parseDclVrBlockFirstPass env blk
             DclBlockCsBlock _ -> parseDclCsBlockFirstPass env blk
-            -- TODO: pass global environment to begin-end block and parse inner statemets
             DclBlockFcBlock _ -> parseDclFcBlockFirstPass env blk
             DclBlockPcBlock _ -> parseDclPcBlockFirstPass env blk
 
-
--- Navigates syntax tree and saves info about variables type (declared in a Declaration block) in the global environment
 parseDclBlocks:: Env -> [DclBlock env infType] -> SSAState (Env, [DclBlock Env Type])
 parseDclBlocks env [] = return (env, [])
 parseDclBlocks env (x:xs) = do
@@ -63,16 +59,12 @@ parseDclBlocks env (x:xs) = do
     (finalEnv, newBlocks) <- parseDclBlocks env1 xs
     return (finalEnv, newBlock : newBlocks)
     where
-        -- TODO: make sure errores are updated after parsing declaration blocks
-        -- e.g. redefining a variable could produce a warning and redefinig a constant an error
         parseSingleDclBlock :: Env -> DclBlock env infType -> SSAState (Env, DclBlock Env Type)
         parseSingleDclBlock env blk = case blk of
             DclBlockVrBlock (VarBlock vrDefs) -> return (env, DclBlockVrBlock (VarBlock vrDefs))
             DclBlockCsBlock (ConstBlock csDefs) -> return (env, DclBlockCsBlock (ConstBlock csDefs))
-            -- TODO: pass global environment to begin-end block and parse inner statemets
             DclBlockFcBlock _ -> parseDclFcBlock env blk
             DclBlockPcBlock _ -> parseDclPcBlock env blk
-
 
 parseDclVrBlockFirstPass :: Env -> DclBlock env infType -> SSAState (Env, DclBlock env infType)
 parseDclVrBlockFirstPass env (DclBlockVrBlock (VarBlock vrDefs)) = do
@@ -80,14 +72,12 @@ parseDclVrBlockFirstPass env (DclBlockVrBlock (VarBlock vrDefs)) = do
     -- add info about variables to the environment
     return (newEnv, DclBlockVrBlock (VarBlock vrDefs))
         where
-            -- savese info about variables type in env 
+            -- parse definititions like "var a, b, c : integer"
             parseVrDefs :: [VrDef] -> Env -> SSAState Env
             parseVrDefs [] env = return env
             parseVrDefs ((VarDefinition idElements t):vrDefs) env = do
-                -- TODO : probabilmente necessaria gestione errori (ovvero restituire anche errori)
                 (tmpEnv, _) <- parseIds idElements Modality_val t env True
                 return tmpEnv
-
 
 -- add info about constants to the environment          
 parseDclCsBlockFirstPass :: Env -> DclBlock env infType -> SSAState (Env, DclBlock env infType)
@@ -95,7 +85,7 @@ parseDclCsBlockFirstPass env (DclBlockCsBlock (ConstBlock csDefs)) = do
     newEnv <- parseConsDefs csDefs env
     return (newEnv, DclBlockCsBlock (ConstBlock csDefs))
         where
-            -- saves info about constants type in env 
+            -- saves info about constants in env 
             parseConsDefs :: [CsDef] -> Env -> SSAState Env
             parseConsDefs [] env = return env
             parseConsDefs ((ConstDefinition (IdElement (TokIdent (pos, id))) literal):cs) env = do
@@ -110,7 +100,7 @@ parseDclFcBlockFirstPass env dcBlockFc@(DclBlockFcBlock (FuncBlock (TokIdent (po
     fcAddr <- Env.newIdAddr id env
 
     -- add to env return type (needed for type checking of the return statement) and function info
-    -- IMPORTANT NOTE: env must be the secondo argument of mergeEnvs, otherwise the new "return" key will not be updated
+    -- IMPORTANT NOTE: env must be the second argument of mergeEnvs, otherwise the new "return" key will not be updated
     -- this is because the underlying function union (t1, t2) of Data.Map prefers t1 when duplicated keys are encountered
     tmpEnv <- Env.mergeEnvs (Env.fromList [(id, Function pos params retType fcAddr)]) env
     (tmpEnv1, parsedParams) <- parseParams params [] tmpEnv
@@ -286,6 +276,8 @@ parseIter :: Stmt env infType -> Env -> SSAState (Env, Stmt Env Type, Bool)
 parseIter (StmtIter (StmtWhileDo expr stmt)) env  = do
     (env1, parsedExpr, posEnds) <- parseExpression env expr
 
+    -- inset labels with "break" and "continue" keys in env before passing it to parseStamtemets
+    -- by doing so, we can check if break and continue statemts are used inside or outside loops
     (brLab, ctLab) <- newBreakContLabels
     env2 <- Env.insert "break" (InsideLoop brLab) env1
     env3 <- Env.insert "continue" (InsideLoop ctLab) env2
@@ -310,6 +302,8 @@ parseIter (StmtIter (StmtWhileDo expr stmt)) env  = do
 -- parsing of repeat-until statement
 parseIter (StmtIter (StmtRepeat stmt expr)) env  = do
 
+    -- inset labels with "break" and "continue" keys in env before passing it to parseStamtemets
+    -- by doing so, we can check if break and continue statemts are used inside or outside loops
     (brLab, ctLab) <- newBreakContLabels
     env1 <- Env.insert "break" (InsideLoop brLab) env
     env2 <- Env.insert "continue" (InsideLoop ctLab) env1
@@ -338,11 +332,12 @@ parseIter (StmtIter (StmtFor condVar initExpr forDirection limitExpr stmt)) env 
     limitExprType <- getTypeFromExpression parsedLimitExpr
 
     (env3, parsedStmt, isReturn) <- parseStatement stmt env2
-    let wrappedStmt = wrapInBeginEnd parsedStmt env3
 
+    let wrappedStmt = wrapInBeginEnd parsedStmt env3
+    
+    -- type checking of expressions 
     case parsedAssign of
         (StmtAssign parsedCondVar@(BaseExpr (Identifier ((TokIdent (tkPos,id)))) condVarType) parsedInitExpr) -> do
-
             if sup condVarType limitExprType == TypeBaseType BaseType_integer
                 then do
                     return (
