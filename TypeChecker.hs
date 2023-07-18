@@ -337,43 +337,53 @@ parseIter (StmtIter (StmtFor condVar initExpr forDirection limitExpr stmt)) env 
     
     -- type checking of expressions 
     case parsedAssign of
+
+        -- expression is assigned to an identifier id
         (StmtAssign parsedCondVar@(BaseExpr (Identifier ((TokIdent (tkPos,id)))) condVarType) parsedInitExpr) -> do
-            if sup condVarType limitExprType == TypeBaseType BaseType_integer
-                then do
+            initType <- getTypeFromExpression parsedInitExpr
+            if  initType == TypeBaseType BaseType_error || condVarType == TypeBaseType BaseType_error || limitExprType == TypeBaseType BaseType_error
+                then
                     return (
                         env,
                         StmtIter (StmtFor parsedCondVar parsedInitExpr forDirection parsedLimitExpr wrappedStmt),
                         isReturn)
-                else do
-                    case (condVarType, limitExprType) of
-                        (TypeBaseType BaseType_integer, _) -> do
-                            state <- get
-                            put $ state {errors = ((Error, ForLoopInvalidLimitType (show posEnds) (showExpr parsedLimitExpr) (show limitExprType)):(errors state))}
+                else
+                    if sup condVarType limitExprType == TypeBaseType BaseType_integer
+                        then do
                             return (
                                 env,
                                 StmtIter (StmtFor parsedCondVar parsedInitExpr forDirection parsedLimitExpr wrappedStmt),
                                 isReturn)
+                        else do
+                            case (condVarType, limitExprType) of
+                                (TypeBaseType BaseType_integer, _) -> do
+                                    state <- get
+                                    put $ state {errors = ((Error, ForLoopInvalidLimitType (show posEnds) (showExpr parsedLimitExpr) (show limitExprType)):(errors state))}
+                                    return (
+                                        env,
+                                        StmtIter (StmtFor parsedCondVar parsedInitExpr forDirection parsedLimitExpr wrappedStmt),
+                                        isReturn)
 
-                        (_, TypeBaseType BaseType_integer) -> do
-                            state <- get
-                            put $ state {errors = ((Error, ForLoopInvalidCounterType (show tkPos) id (show condVarType)):(errors state))}
-                            return (
-                                env,
-                                StmtIter (StmtFor parsedCondVar parsedInitExpr forDirection parsedLimitExpr wrappedStmt),
-                                isReturn)
-                        (_, _) -> do
-                            state <- get
-                            put $ state {errors = ((Error, ForLoopInvalidCounterTypeAndLimit 
-                                                        (show tkPos) 
-                                                        id
-                                                        (show condVarType)
-                                                        (show posEnds)
-                                                        (showExpr parsedLimitExpr)
-                                                        (show limitExprType)):(errors state))}
-                            return (
-                                env,
-                                StmtIter (StmtFor parsedCondVar parsedInitExpr forDirection parsedLimitExpr wrappedStmt),
-                                isReturn)
+                                (_, TypeBaseType BaseType_integer) -> do
+                                    state <- get
+                                    put $ state {errors = ((Error, ForLoopInvalidCounterType (show tkPos) id (show condVarType)):(errors state))}
+                                    return (
+                                        env,
+                                        StmtIter (StmtFor parsedCondVar parsedInitExpr forDirection parsedLimitExpr wrappedStmt),
+                                        isReturn)
+                                (_, _) -> do
+                                    state <- get
+                                    put $ state {errors = ((Error, ForLoopInvalidCounterTypeAndLimit 
+                                                                (show tkPos) 
+                                                                id
+                                                                (show condVarType)
+                                                                (show posEnds)
+                                                                (showExpr parsedLimitExpr)
+                                                                (show limitExprType)):(errors state))}
+                                    return (
+                                        env,
+                                        StmtIter (StmtFor parsedCondVar parsedInitExpr forDirection parsedLimitExpr wrappedStmt),
+                                        isReturn)
 
         (StmtAssign condExpr initExpr) -> do
             state <- get
