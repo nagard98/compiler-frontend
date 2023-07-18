@@ -209,10 +209,12 @@ parseStatementsFirstPass env (_:stmts) = parseStatementsFirstPass env stmts
 parseStatementsFirstPass env _ = return env
 
 
+-- Parses a list of statements and annotates the tree
 parseStatements :: Env -> [Stmt env infType] -> SSAState (Env, [Stmt Env Type], Bool)
 parseStatements env [] = return (env, [], False)
 parseStatements env allStmts = q env allStmts [] False
         where
+            -- helper function that calls parseStatement for every element in the list of statements
             q::Env -> [Stmt env infType] -> [Stmt Env Type] -> Bool -> SSAState (Env, [Stmt Env Type], Bool)
             q env [] annStmts accReturn = return (env, annStmts, accReturn)
             q env (s:xs) annStmts accReturn = do
@@ -220,25 +222,28 @@ parseStatements env allStmts = q env allStmts [] False
                 q env1 xs (annStmts++[annStmt]) (accReturn || isReturn)
 
 
+-- Parse a single statement and return the annotated tree
 parseStatement :: Stmt stmtenv infType -> Env  ->  SSAState (Env, Stmt Env Type, Bool)
 parseStatement stmt env = case stmt of
-            -- tipologie di statement: dichiarazione, blocco, assegnamento, chiamata funzione, if-else, iterazione, return
-            -- Dichiarazione
+            -- Types of statements: declaration, block, assignment, function/procedure call, select, iter, return, break, continue
+            -- parse and annotate the content of the statement and return the annotated tree
+
+            -- Declaration
             (StmtDecl dclblock) -> do
                 (env2, blocks) <- parseDclBlocks env [dclblock]
                 return (env2, (StmtDecl (head blocks)), False)
 
-            -- Blocco
+            -- Block
             (StmtComp beblock) -> do
                 (env2, block, hasAllReturns) <- parseBEBlock env beblock
                 return (env2, (StmtComp block), hasAllReturns)
 
-            -- Assegnamento
+            -- Assignment
             (StmtAssign expr1 expr2) -> do
                 (env2, parsedStmt) <- parseAssignment expr1 expr2 env
                 return (env2, parsedStmt, False)
 
-            -- Iterazione
+            -- Iteration
             (StmtIter iter) -> parseIter (StmtIter iter) env
 
             -- Return
@@ -249,7 +254,7 @@ parseStatement stmt env = case stmt of
             -- Select
             (StmtSelect sel) -> parseSelection (StmtSelect sel) env
 
-            -- Chiamata funzione
+            -- Function/Procedure call
             (StmtCall call) -> do
                 (env2, parsedStmt) <- parseStatementCall env call
                 return (env2, parsedStmt, False)
@@ -275,6 +280,7 @@ parseStatement stmt env = case stmt of
                         return (env, StmtContinue, False)
 
 
+-- Parse iteration statement and return the annotated tree
 parseIter :: Stmt env infType -> Env -> SSAState (Env, Stmt Env Type, Bool)
 -- parsing of while-do statement
 parseIter (StmtIter (StmtWhileDo expr stmt)) env  = do
@@ -383,7 +389,7 @@ parseIter (StmtIter (StmtFor condVar initExpr forDirection limitExpr stmt)) env 
         _ -> error "Internal Error: should always parsedAssign should always be StmtAssign"
 
 
-
+-- Parse select statement and return the annotated tree
 parseSelection :: Stmt env infType -> Env -> SSAState (Env, Stmt Env Type, Bool)
 parseSelection (StmtSelect (StmtIf expr stmt)) env  = do
     (env1, parsedExpr, posEnds) <- parseExpression env expr
@@ -432,6 +438,8 @@ wrapInBeginEnd :: Stmt Env infType -> Env -> Stmt Env infType
 wrapInBeginEnd (StmtComp (BegEndBlock stmts begEnv)) _ = StmtComp (BegEndBlock stmts begEnv)
 wrapInBeginEnd stmt stmEnv = StmtComp (BegEndBlock [stmt] stmEnv)
 
+
+-- Parse return statement and return the annotated tree
 parseReturn :: Stmt env infType -> Env -> SSAState (Env, Stmt Env Type)
 parseReturn (StmtReturn (Ret expr)) env = do
     (newEnv, parsedExpr, posEnds) <- parseExpression env expr
@@ -463,29 +471,31 @@ parseReturn (StmtReturn (Ret expr)) env = do
             return (newEnv, StmtReturn (Ret parsedExpr))
 
 
+-- Parse assignment statement and return the annotated tree
 parseAssignment :: EXPR infType -> EXPR infType -> Env -> SSAState (Env, Stmt Env Type)
 parseAssignment expr1 expr2 env = case (expr1, expr2) of
-            -- Assegno a variabile un letterale
+            -- Cases of assignments:
+
+            -- Assign a literal to a variable
             ( (BaseExpr (Identifier tId@(TokIdent (_,id))) tp), (ExprLiteral literal) ) -> do
                 removeVar id
                 (env2, parsedid, posEnds) <- parseExpression env (BaseExpr (Identifier tId) tp)
                 parseLitAssignment tId literal env2 posEnds
 
-            -- Assegno a variabile valore espressione generica: 1) parsing dell'espressione e trovo il tipo; 2) controllo compatibilità con letterale in assegnamento
+            -- Assign a generic expression to a variable: need to parse the expression and check if the types are compatible
             ( (BaseExpr (Identifier tId@(TokIdent (_,id))) tp), expr ) -> do
                 removeVar id
                 (env2, parsedid, posEnds) <- parseExpression env (BaseExpr (Identifier tId) tp)
                 (env3, parsedexpr, posEnds2) <- parseExpression env2 expr
                 parseIdExprAssignment tId parsedexpr env3 posEnds --TODO: ricavare il range corretto, anche nei casi successivi
 
-
-            -- Dereference di un puntatore è un l-value valido
+            -- Dereference of a pointer is a valid l-value
             ( (UnaryExpression Dereference expr1 t), expr2 ) -> do
                 (env2, parsedexpr1, posEnds1) <- parseExpression env (UnaryExpression Dereference expr1 t)
                 (env3, parsedexpr2, posEnds2) <- parseExpression env2 expr2
                 parseExprExprAssignment parsedexpr1 parsedexpr2 env3 posEnds1
 
-            -- Puntatore non è un l-value valido
+            -- Reference operation is not a valid l-value
 
             -- Array elements are valid l-values
             ( arr@(BaseExpr (ArrayElem idexpr iexpr) t), expr ) -> do
@@ -494,7 +504,7 @@ parseAssignment expr1 expr2 env = case (expr1, expr2) of
 
                 parseArrayAssignment parsedarrexpr parsedexpr env3 posEnds1
 
-            -- Il resto dei possibili l-value non è valido
+            -- All the other possible expressions are invalid l-values
             ( expr1, expr2 ) -> do
                 (env2, parsedexpr1, posEnds1) <- parseExpression env expr1
                 (env3, parsedexpr2, posEnds2) <- parseExpression env2 expr2
@@ -506,28 +516,25 @@ parseAssignment expr1 expr2 env = case (expr1, expr2) of
 -- Checks if r-expression matches typing with an l-expression that is an element of an array
 parseArrayAssignment:: EXPR Type -> EXPR Type -> Env -> PosEnds -> SSAState (Env, Stmt Env Type)
 parseArrayAssignment bExpr@(BaseExpr (ArrayElem bbexpr iiexpr) t) expr env posEnds = do
-    -- Tipo del valore che si vuole assegnare
-    rtype <- getTypeFromExpression expr
+
+    rtype <- getTypeFromExpression expr -- the type of the expression that is to be assigned
 
     if t == rtype
-        then return (env, (StmtAssign bExpr expr))
+        then return (env, (StmtAssign bExpr expr)) -- if the type of the l-value and the expression match, then annotate the tree with the same type
         else
-            -- 2 cases: a) int to real, b) incompatible types -> error
+            -- if the types are not the same, 2 cases: a) type casting int to real, b) incompatible types -> error
             case (t, rtype) of
 
                 (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) ->
                     return (env, (StmtAssign bExpr (IntToReal expr) ) )
 
-                -- cases in which an error was previously generated: no new error messages
+                -- if there is an error that was previously generated, don't generate new error messages but just pass the annotated tree
                 (TypeBaseType BaseType_error, _) ->
                     return (env, (StmtAssign bExpr expr ) )
                 (_, TypeBaseType BaseType_error) ->
                     return (env, (StmtAssign bExpr expr ) )
 
-                --TODO: implementare posizione con il modo che avevamo discusso
-                -- Durante il parsing le funzioni restituiscono anche 2 posizioni (quella più a sx e quella più a dx)
-
-
+                -- the types are incompatible and none of them is the Error type -> generate new error message
                 _ -> do
                     state <- get
                     put $ state { errors = ((Error, TypeMismatchArrayAssignment
@@ -535,22 +542,10 @@ parseArrayAssignment bExpr@(BaseExpr (ArrayElem bbexpr iiexpr) t) expr env posEn
                                             (showExpr bExpr)
                                             (show t)
                                             (show rtype)):(errors state))}
-                    return (env, StmtAssign bExpr (IntToReal expr))
+                    return (env, StmtAssign bExpr expr)
 
 
---TODO: a cosa serviva questa parte? scrivetemelo su whatsapp
--- generic expression that is not a base expression
-{-parseArrayAssignment idexpr ltype iexpr expr env errs = if ltype == getTypeFromExpression expr --TODO: risolvere errore assegnamento array ad array di array (vedere testfile4)
-    then
-        return (env, errs, (StmtAssign idexpr expr) )
-    else
-        -- 2 cases: a) int to real, b) incompatible types -> error
-        case (ltype, getTypeFromExpression expr) of
-            (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) -> return (env, errs, (StmtAssign idexpr (IntToReal expr) ) )
-            otherwise -> return (env, ("Error. l-Expression is of type " ++ show ltype  ++ " but it is assigned value of type "++show (getTypeFromExpression expr) ++"."):errs, (StmtAssign idexpr expr) )
--}
-
--- check if literal type matches with the one saved in the environment. 
+-- Parse assignment of a literal to a variable denoted by just its identifier: check if literal type matches with the one saved in the environment
 -- If it doesn't return current environment and a new error message
 parseLitAssignment:: TokIdent -> Literal -> Env -> PosEnds -> SSAState (Env, Stmt Env Type)
 parseLitAssignment tkId@(TokIdent (idPos, idVal)) literal env posEnds = case Env.lookup idVal env of
@@ -559,7 +554,6 @@ parseLitAssignment tkId@(TokIdent (idPos, idVal)) literal env posEnds = case Env
         if envType == TypeBaseType litType
             then return (
                 env,
-                -- NOTICE HOW WE ANNOTATE THE TREE, saving info about type of expr!
                 StmtAssign (BaseExpr (Identifier tkId) envType) (ExprLiteral literal)
                 )
             else case (envType, litType ) of
@@ -578,7 +572,7 @@ parseLitAssignment tkId@(TokIdent (idPos, idVal)) literal env posEnds = case Env
                         put $ state { errors = ((Error, TypeMismatchLiteral (show posEnds) idVal (showLiteral literal) (show litType) (show envType)):(errors state))}
                         return (env, StmtAssign (BaseExpr (Identifier tkId) (TypeBaseType BaseType_error)) (ExprLiteral literal))
 
-
+    -- identifier was not found in the environment -> error, variable is not declared in this scope
     Nothing -> do
         state <- get
         put $ state { errors = ((Error, UnknownIdentifier (show posEnds) idVal):(errors state))}
@@ -599,11 +593,11 @@ parseIdExprAssignment tkId@(TokIdent (idPos, idVal)) expr env posEnds = do
 
                 then return (
                     env,
-                    StmtAssign (BaseExpr (Identifier tkId) envType) expr -- annoto literal con il tipo corretto
+                    StmtAssign (BaseExpr (Identifier tkId) envType) expr -- annotate literal with the correct type
                     )
 
                 else case (envType, exprType ) of
-                    -- 2 cases: 1) casting int->real, 2) incompatible types
+                    -- 2 cases: 1) type casting int to real, 2) incompatible types -> error
                     (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) ->
                         return (env, StmtAssign (BaseExpr (Identifier tkId) envType) (IntToReal expr) )
                     -- cases in which an error was previously generated: no new error messages, pass the error forwards
@@ -664,9 +658,6 @@ parseExprExprAssignment expr1 expr2 env posEnds = do
 -- Given current environment, errors and syntax tree, returns annotated tree and updated environment and errors
 parseExpression :: Env -> EXPR infType -> SSAState (Env, EXPR Type, PosEnds)
 
---TODO: ottenere informazione sulla posizione per stamparla nel messaggio di errore per tutti i casi
---TODO: evitare messaggi di errore indotti (conseguenza di assegnazioni del tipo error)
-
 -- Boolean Unary Negation
 parseExpression env (UnaryExpression Not exp t) = do
     (env2, parsedexp, posEnds) <- parseExpression env exp
@@ -695,7 +686,8 @@ parseExpression env (UnaryExpression Negation exp t) = do
     (env2, parsedexp, posEnds) <- parseExpression env exp
     typeExpr <- getTypeFromExpression parsedexp
 
-    --TODO: come viene gestito se il tipo errore? No dovrebbe poi essere restituito poi l'errore invece che il tipo integer
+    -- if the type is numeric or it is an error no new error messages are generated
+    -- sup function guarantess that if the type was Error the expression is annotated with type Error
     if typeExpr == TypeBaseType BaseType_integer || typeExpr == TypeBaseType BaseType_real || typeExpr == TypeBaseType BaseType_error
         then
             return (
@@ -703,7 +695,7 @@ parseExpression env (UnaryExpression Negation exp t) = do
                 (UnaryExpression Negation parsedexp (sup (typeExpr) (TypeBaseType BaseType_integer)) ),
                 posEnds
                 )
-        else do
+        else do -- generate new error message
             state <- get
             exprTp <- getTypeFromExpression parsedexp
             put $ state { errors = ((Error, TypeMismatchArithmeticMinus (show posEnds) (show exprTp)):(errors state))}
