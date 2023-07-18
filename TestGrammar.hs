@@ -12,7 +12,7 @@ import Prelude
   , Show, show
   , IO, (>>), (>>=), mapM_, putStrLn
   , FilePath
-  , getContents, readFile, print, null
+  , getContents, readFile, print, null, reverse
   )
 import System.Environment ( getArgs )
 import System.Exit        ( exitFailure )
@@ -65,13 +65,13 @@ run v p s =
         then putStrLn ""
         else do
           putStrLn "\nSemantic analysis completed with the following WARNINGS:"
-          mapM_ print warnings
+          mapM_ print (reverse warnings)
 
       if null errors
         then putStrLn "Semantic analysis SUCCESSFUL!"
         else do
           putStrLn "\nSemantic analysis completed with the following ERRORS:"
-          mapM_ print errors
+          mapM_ print (reverse errors)
 
       putStrLn "\nThe annotated tree is:"
       print annotatedTree

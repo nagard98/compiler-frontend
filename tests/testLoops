@@ -15,7 +15,6 @@ begin
         result := result+j;
     end;
 
-    var j: real;
     for j:= 0.5 to 3<10 do  {both counter j and limit expression are not integer!}
     begin
         result := result+j;
