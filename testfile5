@@ -1,13 +1,13 @@
 program TACTest;
 
-{var arr : array [0..100] of array [0..7] of integer ; 
-{var b, z: integer;
+var arr : array [0..100] of array [0..7] of integer ; 
+var z: integer;
 var a: real;
 
-var u,v: real;
+{var u,v: real;
 {const pk = 3.14;
 { TODO : valutare perchè non posso passare un int ad una funzione che richede real
-function f (k,l : real):real;
+{*function f (k,l : real):real;
 begin
     a:=2;
     var o:real;
@@ -21,6 +21,7 @@ begin
     return 1.4;
     {TODO: durante static semantic analysis bisogna garantire che ci sia return per le funzioni
 end;
+*}
 
 
 {*procedure m (q,h:real);
@@ -32,7 +33,8 @@ end;
 *}
 
 begin
-    u:=4.909;
+    if true and false then a:=0;
+    z:=3;
 {   a:=2.3;
 {    arr[10][3] := 99;
 {   if b>4+5 and u<7.2 then z:= 55;

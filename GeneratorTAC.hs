@@ -356,10 +356,11 @@ genGuard guard trueLab falseLab env = case guard of
     (AbsGrammar.UnaryExpression opr b1@expr tp) -> case opr of
         AbsGrammar.Not -> genGuard b1 falseLab trueLab env
 
-    (AbsGrammar.ExprLiteral (AbsGrammar.LiteralBoolean (AbsGrammar.TokBoolean (_, value)))) -> case value of
-        "true" -> addInstr (TACUncdJmp trueLab)
-        "false" -> addInstr (TACUncdJmp falseLab)
-        _ -> error "TODO: genGuard -> valore literal non è ne true ne false"
+    (AbsGrammar.ExprLiteral (AbsGrammar.LiteralBoolean (AbsGrammar.TokBoolean (_, value)))) -> 
+        case value of
+            "true" -> if trueLab == Fall then return () else addInstr (TACUncdJmp trueLab)
+            "false" -> if falseLab == Fall then return () else addInstr (TACUncdJmp falseLab)
+            _ -> error "TODO: genGuard -> valore literal non è ne true ne false"
 
     _ -> error "TODO: genGuard -> espressione guardia non è compatibile"
 
@@ -625,5 +626,8 @@ addInstr instr = do
 attachLabelToNext :: TACLabel -> StateTAC ()
 attachLabelToNext label = do
     state <- get
-    put $ state {labelsNextInstr = appendAddrList (getLabelAddr label) (labelsNextInstr state) }
+    if label == Fall
+        then return ()
+        else do
+            put $ state {labelsNextInstr = appendAddrList (getLabelAddr label) (labelsNextInstr state) }
 
