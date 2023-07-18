@@ -1,3 +1,6 @@
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Redundant bracket" #-}
+
 module Env where
 
 import Prelude hiding (lookup)
@@ -68,11 +71,11 @@ insert id entry env = case Map.lookup id env of
     Nothing -> return $ Map.insert id entry env 
 
 getPosEntryEnv :: String -> EnvData -> PosEnds
-getPosEntryEnv id (Variable _ pos@(x,y) _ _) = PosEnds{leftmost=pos, rightmost= (x, y + (length id) - 1 )}
-getPosEntryEnv id (Procedure pos@(x,y) _ _) = PosEnds{leftmost=pos, rightmost= (x, y + (length id) - 1 )}
-getPosEntryEnv id (Function pos@(x,y) _ _ _) = PosEnds{leftmost=pos, rightmost= (x, y + (length id) - 1 )}
-getPosEntryEnv id (Constant pos@(x,y) _ _) = PosEnds{leftmost=pos, rightmost= (x, y + (length id) - 1 )}
-getPosEntryEnv id (Return _ _ pos@(x,y)) = PosEnds{leftmost=pos, rightmost= (x, y + (length id) - 1 )}
+getPosEntryEnv id (Variable _ pos@(x,y) _ _) = PosEnds{leftmost=pos, rightmost= (x, y + length id - 1 )}
+getPosEntryEnv id (Procedure pos@(x,y) _ _) = PosEnds{leftmost=pos, rightmost= (x, y + length id - 1 )}
+getPosEntryEnv id (Function pos@(x,y) _ _ _) = PosEnds{leftmost=pos, rightmost= (x, y + length id - 1 )}
+getPosEntryEnv id (Constant pos@(x,y) _ _) = PosEnds{leftmost=pos, rightmost= (x, y + length id - 1 )}
+getPosEntryEnv id (Return _ _ pos@(x,y)) = PosEnds{leftmost=pos, rightmost= (x, y + length id - 1 )}
 getPosEntryEnv _ _ = PosEnds{leftmost=(0,0), rightmost= (0,0)}
 
 getEntryKind ::  EnvData -> String
