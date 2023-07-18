@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Redundant bracket" #-}
 
-module Env where
+module SSAHelper where
 
 import Prelude hiding (lookup)
 import qualified Data.Map as Map
@@ -58,10 +58,11 @@ defaultEnv = foldl1 Map.union [ Map.singleton "writeInt" (Procedure (0,0) (Param
                                   ]
 
 
--- TODO : aggiungere generazione warning quando un identificatore nel env viene sovrascritto? 
+
 mergeEnvs :: Env -> Env -> SSAState Env
 mergeEnvs e1 e2 = return $ Map.union e1 e2
 
+--Generates an error if the id is already present in the environment
 insert :: String -> EnvData -> Env -> SSAState Env
 insert id entry env = case Map.lookup id env of
     (Just _) -> do
@@ -69,6 +70,9 @@ insert id entry env = case Map.lookup id env of
         put $ state {errors = (Error, DuplicateDeclaration (show $ getPosEntryEnv id entry) (getEntryKind entry) id ):(errors state)}
         return $ Map.insert id entry env
     Nothing -> return $ Map.insert id entry env 
+
+lookup :: String -> Env -> Maybe EnvData
+lookup = Map.lookup
 
 getPosEntryEnv :: String -> EnvData -> PosEnds
 getPosEntryEnv id (Variable _ pos@(x,y) _ _) = PosEnds{leftmost=pos, rightmost= (x, y + length id - 1 )}
@@ -86,16 +90,13 @@ getEntryKind  (Constant {}) = "constant"
 getEntryKind  (Return {}) = "return"
 getEntryKind  _ = "break/continue"
 
-lookup :: String -> Env -> Maybe EnvData
-lookup = Map.lookup
 
 getIdAddr :: String -> Env -> StateTAC Addr
 getIdAddr id env = case lookup id env of
     Just (Variable _ _ _ addr) -> return addr
     Just (Constant _ _ addr) -> return addr
-    _ -> error "TODO : errore id non trovato in env per recuper addr; funzione getIdAddr"
+    _ -> error "InternalError : errore id non trovato in env per recuper addr; funzione getIdAddr"
 
--- TODO : implementare correttamente; soluzione solo temporanea
 newIdAddr :: String -> Env -> SSAState Addr
 newIdAddr id env = 
     if  Map.member id env 
@@ -143,15 +144,18 @@ instance Show PosEnds where {
     show (PosEnds leftmost rightmost) = show leftmost ++"-"++ show rightmost
 }
 
+--State used during static semantic analysis
 type SSAState = State SSAStateStruct
 
 data SSAStateStruct = SSAStateStruct {
     idCount :: Int,
     labelCount :: Int,
     errors :: Problems,
-    unInitVars :: Stack Env
+    unInitVars :: Stack Env -- stack of uninitialized variables per scope
 }
 
+--Initially intended for use in determining initialization of array
+{-
 data BitVector
     = BitVector {
       size :: !Int,
@@ -164,10 +168,21 @@ zeros n = BitVector n 0
 isAllOnes :: BitVector -> Bool
 isAllOnes bitVector = value bitVector ==  (2 ^ fromIntegral (size bitVector)) - 1
 
+
+
 setVectorBit :: BitVector -> Int -> BitVector
 setVectorBit bitVector bitIndex = if bitIndex < size bitVector 
     then bitVector { value = setBit (value bitVector) bitIndex} 
     else error "Setting bit in vector with out of bounds index"
+
+
+lengthForBitVector :: AbsGrammar.Type -> Int
+lengthForBitVector (AbsGrammar.TypeCompType cType) = case cType of
+    AbsGrammar.Array (TokInteger (_, start)) (TokInteger (_, end)) tp -> (((read end :: Int) - (read start :: Int)) + 1) + lengthForBitVector tp 
+    AbsGrammar.Pointer _-> 0
+
+lengthForBitVector _ = 0;
+-}
 
 -- Returns annotated type for expressions
 getTypeFromExpression :: EXPR Type -> SSAState Type
@@ -181,7 +196,7 @@ getTypeFromExpression (IntToReal _) = return $ TypeBaseType BaseType_real
 
 getTypeFromBaseExpression:: BEXPR Type -> Env -> SSAState Type
 getTypeFromBaseExpression (Identifier (TokIdent (tokpos, tokid)) ) env = 
-    case Env.lookup tokid env of
+    case SSAHelper.lookup tokid env of
         Just (Variable _ _ envType _ ) -> return envType
         Just (Constant _ envType _) -> return envType
         Just _ -> return $ TypeBaseType BaseType_error
@@ -203,7 +218,6 @@ getLitPosEnds (LiteralString (TokString (pos@(x,y), val))) = PosEnds {leftmost=p
 getLitPosEnds (LiteralBoolean (TokBoolean (pos@(x,y), val))) = PosEnds {leftmost=pos, rightmost = (x, y + (length val))}
 getLitPosEnds (LiteralDouble (TokDouble (pos@(x,y), val))) = PosEnds {leftmost=pos, rightmost = (x, y + (length val))}
 
-
 getLitValue :: Literal -> String
 getLitValue (LiteralInteger tok) = getTokValue (TokI tok)
 getLitValue (LiteralChar tok) = getTokValue (TokC tok)
@@ -220,11 +234,14 @@ getTokValue (TokC (TokChar (_,val))) = val
 getTokValue (TokB (TokBoolean (_,val))) = val
 
 
+
+----------- Utils for managing the stack of uninitialized variables
+
 insertVar :: String -> EnvData -> SSAState ()
 insertVar id entry = do
     state <- get
     (locUninit, poppedStack) <- pop $ unInitVars state
-    newLocUninit <- Env.insert id entry locUninit
+    newLocUninit <- SSAHelper.insert id entry locUninit
     newStack <- push newLocUninit poppedStack
     put (state {unInitVars = newStack})
 
@@ -252,6 +269,7 @@ pushNewUninit = do
     newStack <- push emptyEnv (unInitVars state)
     put $ state {unInitVars = newStack}
 
+-- when popping if there are variables present in what was popped, signal uninitialized error
 popUninit :: SSAState ()
 popUninit = do
     state <- get
@@ -267,17 +285,6 @@ popUninit = do
             makeUninitErrs rest
             where
                 posEnds = PosEnds { leftmost = pos, rightmost = (x, y + length id) }
-
-
-
-
-
-lengthForBitVector :: AbsGrammar.Type -> Int
-lengthForBitVector (AbsGrammar.TypeCompType cType) = case cType of
-    AbsGrammar.Array (TokInteger (_, start)) (TokInteger (_, end)) tp -> (((read end :: Int) - (read start :: Int)) + 1) + lengthForBitVector tp 
-    AbsGrammar.Pointer _-> 0
-
-lengthForBitVector _ = 0;
 
 
 ------------------------------------------------------------------------------------------

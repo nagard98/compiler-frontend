@@ -30,6 +30,7 @@ appendQuad (TACQuadSeq seq) quad = TACQuadSeq (seq DS.|> quad)
 concatQSeq :: TACQuadSeq -> TACQuadSeq -> TACQuadSeq
 concatQSeq (TACQuadSeq seq1) (TACQuadSeq seq2) = TACQuadSeq (seq1 DS.>< seq2) 
 
+------ STACK SUPPORT
 
 push :: a -> Stack a -> State b (Stack a)
 push val stack = return $ val:stack
@@ -42,6 +43,9 @@ peek :: Stack a -> (a, Stack a)
 peek stack@(val:_) = (val, stack)
 peek [] = error "TODO: trying to pop empty stack" 
 
+------------------
+
+------------Stream for function declaration parsing
 newStack :: Stack a
 newStack = []
 
@@ -59,7 +63,7 @@ pushStream stream = do
     state <- get
     newStack <- push stream (stackStrms state)
     put $ state {stackStrms = newStack}
-
+---------------------------------------
 
 data Addr =
       ProgVar { var :: String }
@@ -88,7 +92,7 @@ data TACStateStruct = TACStateStruct {
     labelsNextInstr :: AddrList
 }
 
---TODO: pensare se è necessario sistemare i label
+
 data TACLabel =
       FuncLab Addr
     | StmtLab Addr
@@ -191,7 +195,7 @@ data TACOp =
         | TACNegFloat
         | TACRef
         | TACDeref
-        -- TODO: usare un tipo specifico per TAC
+
         | TACCastIntToReal
 
 toJmpOp :: TACOp -> TACOp
@@ -236,7 +240,6 @@ data TACInst =
     | TACUnAss Addr TACOp Addr
     | TACNulAss Addr Addr
     | TACUncdJmp TACLabel
-    --TODO: implementa boolean valued conditional jump
     | TACCndJmp Addr TACOp Addr TACLabel
     | TACIndxStr Addr Addr Addr
     | TACIndxLd Addr Addr Addr

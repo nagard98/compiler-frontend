@@ -1,0 +1,18 @@
+{In this file we want to test a basic mathematical expressions}
+
+program MathTest;
+
+var x,y: integer;
+var z: real;
+
+function sum(a,b:real):real;
+begin
+  return a+b;
+end;
+
+begin
+  x:=4;
+  y:=11;
+
+  z:=sum(y, x);
+end.

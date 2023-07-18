@@ -25,7 +25,7 @@ import PrintGrammar ( Print, printTree )
 import PrintTAC
 import SkelGrammar  ()
 import TypeChecker ( launchStatSemAnalysis) -- includere Type Checker
-import Env
+import SSAHelper
 import GeneratorTAC
 import Control.Monad.State.Lazy
 import Errs (getErrors, getWarnings)
@@ -79,7 +79,7 @@ run v p s =
       if null errors 
         then do
           putStrLn "\n\nStarting generation of TAC...\n"
-          print $ genTAC annotatedTree
+          print $ generateTAC annotatedTree
         else
           putStrLn "\n\nGENERATION TAC ABORTED DUE TO ERRORS IN STATIC SEMANTIC ANALYSIS..."
   where

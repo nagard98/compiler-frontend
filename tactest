@@ -1,5 +1,0 @@
-program tac;
-var myVar : integer;
-begin
-    e1 := e2 + e3;
-end.

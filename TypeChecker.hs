@@ -3,7 +3,7 @@
 
 module TypeChecker where
 import AbsGrammar
-import Env
+import SSAHelper
 import HelperTAC
 import Control.Monad.State.Strict
 import Debug.Trace
@@ -35,7 +35,7 @@ parseTree defEnv (Prog pBlock dclBlock beBlock _) = do
 
     return (finalEnv, Prog pBlock annBlks beBlks globEnv)
 
---TODO: prova a rimuovere DclBlock come valore di ritorno per i first pass
+-- first pass only checks only ids on the scope level
 parseDclBlocksFirstPass:: Env -> [DclBlock env infType] -> SSAState (Env, [DclBlock env infType])
 parseDclBlocksFirstPass env [] = return (env, [])
 parseDclBlocksFirstPass env (x:xs) = do
@@ -49,6 +49,7 @@ parseDclBlocksFirstPass env (x:xs) = do
             DclBlockCsBlock _ -> parseDclCsBlockFirstPass env blk
             DclBlockFcBlock _ -> parseDclFcBlockFirstPass env blk
             DclBlockPcBlock _ -> parseDclPcBlockFirstPass env blk
+
 
 parseDclBlocks:: Env -> [DclBlock env infType] -> SSAState (Env, [DclBlock Env Type])
 parseDclBlocks env [] = return (env, [])
@@ -87,7 +88,7 @@ parseDclCsBlockFirstPass env (DclBlockCsBlock (ConstBlock csDefs)) = do
             parseConsDefs :: [CsDef] -> Env -> SSAState Env
             parseConsDefs [] env = return env
             parseConsDefs ((ConstDefinition (IdElement (TokIdent (pos, id))) literal):cs) env = do
-                tmpEnv <- Env.insert id (Constant pos (TypeBaseType (getTypeFromLiteral literal)) (TacLit (makeTACLit literal))) env
+                tmpEnv <- SSAHelper.insert id (Constant pos (TypeBaseType (getTypeFromLiteral literal)) (TacLit (makeTACLit literal))) env
                 parseConsDefs cs tmpEnv;
 
 
@@ -95,12 +96,12 @@ parseDclCsBlockFirstPass env (DclBlockCsBlock (ConstBlock csDefs)) = do
 -- info are: function position, function name, parameters, return type
 parseDclFcBlockFirstPass :: Env -> DclBlock env infType -> SSAState (Env, DclBlock env infType)
 parseDclFcBlockFirstPass env dcBlockFc@(DclBlockFcBlock (FuncBlock (TokIdent (pos, id)) params retType beb)) = do
-    fcAddr <- Env.newIdAddr id env
+    fcAddr <- SSAHelper.newIdAddr id env
 
     -- add to env return type (needed for type checking of the return statement) and function info
     -- IMPORTANT NOTE: env must be the second argument of mergeEnvs, otherwise the new "return" key will not be updated
     -- this is because the underlying function union (t1, t2) of Data.Map prefers t1 when duplicated keys are encountered
-    tmpEnv <- Env.mergeEnvs (Env.fromList [(id, Function pos params retType fcAddr)]) env
+    tmpEnv <- SSAHelper.mergeEnvs (SSAHelper.fromList [(id, Function pos params retType fcAddr)]) env
     return (tmpEnv, dcBlockFc)
 
 
@@ -117,13 +118,15 @@ parseDclFcBlock env (DclBlockFcBlock fB@(FuncBlock idTok@(TokIdent (pos, id)) pa
 
     return (env, DclBlockFcBlock (FuncBlock idTok params retType annotatedBEB))
 
+
 -- add info about procedures to the environment. Same as functions but without return type
 parseDclPcBlockFirstPass :: Env -> DclBlock env infType -> SSAState (Env, DclBlock env infType)
 parseDclPcBlockFirstPass env dclBlockPc@(DclBlockPcBlock (ProcBlock (TokIdent (pos, id)) params beb)) = do
-    pcAddr <- Env.newIdAddr id env
-    tmpEnv <- Env.insert id (Procedure pos params pcAddr) env
+    pcAddr <- SSAHelper.newIdAddr id env
+    tmpEnv <- SSAHelper.insert id (Procedure pos params pcAddr) env
 
     return (tmpEnv, dclBlockPc)
+
 
 -- add info about procedures to the environment. Same as functions but without return type
 parseDclPcBlock :: Env -> DclBlock env infType -> SSAState (Env, DclBlock Env Type)
@@ -156,12 +159,11 @@ parseIds :: [IdElem] -> Modality -> Type -> Env -> Bool -> SSAState (Env, [IdEle
 parseIds [] mod typ env _ = return (env, [])
 parseIds ( idElem@(IdElement (TokIdent (pos, id))):ids) mod typ env isVar = do
     idAddr <- newIdAddr id env
-    tmpEnv <- Env.insert id (Variable mod pos typ idAddr) env
+    tmpEnv <- SSAHelper.insert id (Variable mod pos typ idAddr) env
 
     if isVar
         then do
             case typ of
-                --TODO: gestire inizializzazione array
                 (TypeCompType (Array {}) ) -> do
                     (newEnv, newIds) <- parseIds ids mod typ tmpEnv isVar
                     return (newEnv, idElem:newIds)
@@ -174,15 +176,13 @@ parseIds ( idElem@(IdElement (TokIdent (pos, id))):ids) mod typ env isVar = do
             (newEnv, newIds) <- parseIds ids mod typ tmpEnv isVar
             return (newEnv, idElem:newIds)
 
-    where
-        bitVector = zeros (lengthForBitVector typ)
 
 -- parse the begin-end block and check the statements for type errors
 parseBEBlock:: Env -> BEBlock env infType -> SSAState (Env, BEBlock Env Type, Bool)
 parseBEBlock env (BegEndBlock statements annEnv)  = do
     pushNewUninit
     tmpEnv <- parseStatementsFirstPass emptyEnv statements
-    mergedEnv <- Env.mergeEnvs tmpEnv env
+    mergedEnv <- SSAHelper.mergeEnvs tmpEnv env
     (newEnv, newStatements, hasAllReturns) <- parseStatements mergedEnv statements
     popUninit
     return (newEnv, BegEndBlock newStatements newEnv, hasAllReturns)
@@ -250,7 +250,7 @@ parseStatement stmt env = case stmt of
             -- Break
             StmtBreak -> do
                 state <- get
-                case Env.lookup "break" env of
+                case SSAHelper.lookup "break" env of
                     -- break inside loop, this is ok
                     Just (InsideLoop _) -> return (env, StmtBreak, False)
                     _ -> do -- error otherwise 
@@ -260,7 +260,7 @@ parseStatement stmt env = case stmt of
             -- Continue
             StmtContinue -> do
                 state <- get
-                case Env.lookup "continue" env of
+                case SSAHelper.lookup "continue" env of
                     -- continue inside loop, this is ok
                     Just (InsideLoop _) -> return (env, StmtContinue, False)
                     _ -> do -- error otherwise 
@@ -277,8 +277,8 @@ parseIter (StmtIter (StmtWhileDo expr stmt)) env  = do
     -- inset labels with "break" and "continue" keys in env before passing it to parseStamtemets
     -- by doing so, we can check if break and continue statemts are used inside or outside loops
     (brLab, ctLab) <- newBreakContLabels
-    env2 <- Env.insert "break" (InsideLoop brLab) env1
-    env3 <- Env.insert "continue" (InsideLoop ctLab) env2
+    env2 <- SSAHelper.insert "break" (InsideLoop brLab) env1
+    env3 <- SSAHelper.insert "continue" (InsideLoop ctLab) env2
 
     (newEnv, parsedStmt, isReturn) <- parseStatement stmt env3
     let wrappedStmt = wrapInBeginEnd parsedStmt newEnv
@@ -303,8 +303,8 @@ parseIter (StmtIter (StmtRepeat stmt expr)) env  = do
     -- inset labels with "break" and "continue" keys in env before passing it to parseStamtemets
     -- by doing so, we can check if break and continue statemts are used inside or outside loops
     (brLab, ctLab) <- newBreakContLabels
-    env1 <- Env.insert "break" (InsideLoop brLab) env
-    env2 <- Env.insert "continue" (InsideLoop ctLab) env1
+    env1 <- SSAHelper.insert "break" (InsideLoop brLab) env
+    env2 <- SSAHelper.insert "continue" (InsideLoop ctLab) env1
 
     (env3, parsedStmt, isReturn) <- parseStatement stmt env2
     let wrappedStmt = wrapInBeginEnd parsedStmt env3
@@ -385,7 +385,6 @@ parseIter (StmtIter (StmtFor condVar initExpr forDirection limitExpr stmt)) env 
 
         (StmtAssign condExpr initExpr) -> do
             state <- get
-            --TODO: creare errore espressione limite for deve essere intera
             put $ state {errors = ((Error, UNIMPLEMENTED_ERROR):(errors state))}
             return (
                 env,
@@ -451,7 +450,7 @@ parseReturn (StmtReturn (Ret expr)) env = do
     (newEnv, parsedExpr, posEnds) <- parseExpression env expr
     typeExpr <- getTypeFromExpression parsedExpr
 
-    case Env.lookup "return" env of
+    case SSAHelper.lookup "return" env of
 
         Just (Return expectedType funName funPos) ->
             if sup expectedType (typeExpr) /= expectedType && typeExpr /= TypeBaseType BaseType_error
@@ -493,8 +492,8 @@ parseAssignment expr1 expr2 env = case (expr1, expr2) of
                 removeVar id
                 (env2, parsedid, posEnds) <- parseExpression env (BaseExpr (Identifier tId) tp)
                 (env3, parsedexpr, posEnds2) <- parseExpression env2 expr
-                parseIdExprAssignment tId parsedexpr env3 posEnds --TODO: ricavare il range corretto, anche nei casi successivi
-
+                parseIdExprAssignment tId parsedexpr env3 posEnds
+                
             -- Dereference of a pointer is a valid l-value
             ( (UnaryExpression Dereference expr1 t), expr2 ) -> do
                 (env2, parsedexpr1, posEnds1) <- parseExpression env (UnaryExpression Dereference expr1 t)
@@ -561,7 +560,7 @@ parseArrayAssignment bExpr@(BaseExpr (ArrayElem bbexpr iiexpr) t) expr env posEn
 -- Parse assignment of a literal to a variable denoted by just its identifier: check if literal type matches with the one saved in the environment
 -- If it doesn't return current environment and a new error message
 parseLitAssignment:: TokIdent -> Literal -> Env -> PosEnds -> SSAState (Env, Stmt Env Type)
-parseLitAssignment tkId@(TokIdent (idPos, idVal)) literal env posEnds = case Env.lookup idVal env of
+parseLitAssignment tkId@(TokIdent (idPos, idVal)) literal env posEnds = case SSAHelper.lookup idVal env of
 
     Just (Variable mod envPos envType addr) ->
         if envType == TypeBaseType litType
@@ -600,7 +599,7 @@ parseIdExprAssignment :: TokIdent -> EXPR Type -> Env -> PosEnds -> SSAState (En
 parseIdExprAssignment tkId@(TokIdent (idPos, idVal)) expr env posEnds = do
     exprType <- getTypeFromExpression expr
 
-    case Env.lookup idVal env of
+    case SSAHelper.lookup idVal env of
         Just (Variable mod envPos envType addr) ->
             if envType == exprType
 
@@ -889,7 +888,7 @@ parseCall env call@(CallArgs tkId@(TokIdent (tokpos@(x,y),tokid)) args ) = do
     --posEnds contains position of rightmost argument
     (env2, parsedargs, posEndsArgs) <- parseArguments env args [] posEndsToken
 
-    case Env.lookup tokid env of
+    case SSAHelper.lookup tokid env of
         Just (Function pos parameters t _) -> do
             --TODO: implementare ritorno posEnds da parseFunctionCall
             (env, clType, tp) <- parseFunctionCall env2 (CallArgs tkId parsedargs) parameters t [] posEndsToken{rightmost = rightmost posEndsArgs}
@@ -1478,7 +1477,7 @@ parseBinaryRelationExpression env op exp1 exp2 = do
 -- output is of type (BEXPR Type). If (EXPR Type) output is required use parseExpression
 parseBaseExpression:: Env -> BEXPR infType -> SSAState (Env, BEXPR Type, Type, PosEnds)
 parseBaseExpression env (Identifier tkId@(TokIdent (tokpos@(x,y),tokid)) ) =
-    case Env.lookup tokid env of
+    case SSAHelper.lookup tokid env of
 
         Just (Variable mod _ envType addr) -> return (env, (Identifier tkId ), envType, posEnds)
 
@@ -1498,13 +1497,13 @@ parseBaseExpression env (Identifier tkId@(TokIdent (tokpos@(x,y),tokid)) ) =
             posEnds = PosEnds { leftmost = tokpos, rightmost = (x, y + length tokid) }
 
 parseBaseExpression env (ArrayElem bexpr iexpr) = do
-    --TODO: con parsediexpr sarebbe necessario verifiicare se l'indice rientra entro i limiti dell'array
+    
     (env2, parsediexpr, posEndsR) <- parseExpression env iexpr -- parsing of index for type checking (and casting if needed)
     (env3, parsedbexpr, posEndsL) <- parseExpression env2 bexpr -- parsing of base expression to get its type: if it is an array type, return type of element of that array; otherwise it is an error
     typeBExpr <- getTypeFromExpression parsedbexpr
     typeIExpr <- getTypeFromExpression parsediexpr
 
-    case (typeBExpr, typeIExpr) of -- TODO: refactoring possibile di questa parte di codice? --TODO: posizione nei messaggi di errore
+    case (typeBExpr, typeIExpr) of 
 
         -- 4 cases: 1) array and integer; 2) array and error; 3) error and integer; 4) error and error (distinction necessary to generate appropriate error messages)
         -- + 2 cases of Error types: do not print any new error messages
