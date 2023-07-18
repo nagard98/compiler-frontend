@@ -4,30 +4,16 @@ compile:
 	ghc TestGrammar.hs
 	@# TODO: compile main file here when we will have one
 
-
-test:
-	ghc TestGrammar.hs
-	@echo "******** TESTING GRAMMAR ON FILE testfile1"
-	./TestGrammar < testfile1
-	@echo "\n\n******** TESTING GRAMMAR ON FILE testfile2"
-	./TestGrammar < testfile2
-	@echo "\n\n******** TESTING GRAMMAR ON FILE testfile3"
-	./TestGrammar < testfile3
-	@echo "\n\n******** TESTING GRAMMAR ON FILE testfile4"
-	./TestGrammar < testfile4
-	@echo "\n\n******** TESTING GRAMMAR ON FILE testfile5"
-	./TestGrammar < testfile5
-
-
 TESTSDIR = ./tests
 
 demo:
-ifeq ($(strip $(file)),)
-	$(foreach testFile, $(wildcard $(TESTSDIR)/*), make testSingle file=$(notdir $(testFile));)
-else
-	make testSingle $(file)
+ifeq ($(strip $(file)),) # no file specified, ran on all files in tests directory
+	$(foreach testFile, $(wildcard $(TESTSDIR)/*), $(MAKE) --no-print-directory testSingle file=$(notdir $(testFile));)
+else # run only on specified file
+	$(MAKE) --no-print-directory testSingle $(file)
 endif
 
+# runs TestsGrammar on the file speficied by the file argument
 testSingle:
 	ghc TestGrammar.hs
 	@echo "\n\n********************** TESTING FILE" $(file) "**********************"
