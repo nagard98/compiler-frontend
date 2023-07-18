@@ -4,8 +4,6 @@ import AbsGrammar (Position, EXPR)
 
 -- ERROR/WARNING name at (Pos)-(Pos): "description"
 
--- put $ state {errors = ReturnInMain (show posEnds) id : (errors state)} 
-
 type Problem = (ProblemHeader, ProblemBody)
 
 data ProblemHeader = Error | Warning deriving (Eq, Show)
@@ -65,13 +63,11 @@ instance Show ProblemBody where
     show (TypeMismatchLiteral posStr idVal expr tpExpr tpActual) = "ERROR TypeMismatchLiteral at " ++ posStr ++ ": " ++ idVal ++ " is of type " ++ tpActual ++ " but it is assigned value " ++ expr ++ " of type " ++ tpExpr
     show (UnknownIdentifier posStr idVal) = "ERROR UnknownIdentifier at " ++ posStr ++ ": " ++ idVal ++ " is not defined in the current scope"
     show (TypeMismatchIdExprAssignment posStr idVal tpExpected tpAssigned) = "ERROR TypeMismatchIdExprAssignment at " ++ posStr ++ ": " ++ idVal ++ " is of type " ++ tpExpected ++ " but it is assigned a value of type " ++ tpAssigned
-    -- same error text as TypeMismatchArrayAssignment
     show (TypeMismatchExprExprAssignment posStr exprStr tpExpected tpAssigned) = "ERROR: TypeMismatchExprExprAssignment at " ++ posStr ++ ": l-expression " ++ exprStr ++ " is of type " ++ tpAssigned ++ " but it is assigned a value of type " ++ tpExpected 
     show (TypeMismatchUnaryExpr posStr exprStr) = "ERROR TypeMismatchUnaryExpr at " ++ posStr ++ ": boolean negation 'not' can only be applied to boolean expressions but it is applied to an expression of type " ++ exprStr
     show (TypeMismatchArithmeticMinus posStr wrongTp) = "ERROR TypeMismatchArithmeticMinus at " ++ posStr ++ ":  arithmetic unary minus '-' applied to type " ++ wrongTp ++ " but it can only be applied to numeric types"
     show (TypeMismatchReference posStr exprType) = "ERROR TypeMismatchReference at " ++ posStr ++ ": invalid reference '@' operation on type " ++ exprType
     show (CallingConstant posStr idVal) = "ERROR CallingConstant at " ++ posStr ++ ": identifier " ++ idVal ++ " is used as a function/procedure but it is a constant"
-    -- could be merged with the previous one
     show (CallingVariable posStr idVal) = "ERROR CallingVariable at " ++ posStr ++ ": identifier " ++ idVal ++ " is used as a function/procedure but it is a variable"
     show (NumOfArgsMismatch posStr funOrProc name) = "ERROR NumOfArgsMismatch at " ++ posStr ++ ": " ++ funOrProc ++ " " ++ name ++ " is called with a wrong number of arguments"
     show (TypeMismatchArgument posStr argExpr argTp expectedTp paramId paramPos) = "ERROR TypeMismatchArgument at " ++ posStr ++ ": argument " ++ argExpr ++ " is of type " ++ argTp ++ " but it is passed to parameter " ++ paramId ++ " of type " ++ expectedTp ++ " at " ++ paramPos
@@ -96,13 +92,13 @@ instance Show ProblemBody where
     show (ForLoopInvalidLimitType posEnds strExpr actualTp) = "ERROR ForLoopInvalidLimitType at  " ++ posEnds ++ ": expression " ++ strExpr ++ " is of type " ++ actualTp ++ " but it should be of type integer"
     show (ForLoopInvalidCounterTypeAndLimit counterPos counterId counterTp exprPos expr exprType) = "ERROR ForLoopInvalidCounterTypeAndLimit: counter " ++ counterId ++ " at " ++ counterPos ++ " is of type " ++ counterTp ++ " and expression " ++ expr ++ " at " ++ exprPos ++ " is of type " ++ exprType ++ " but they should both be of type integer"
 
-
-    
+-- returns the list with all the error string messages
 getErrors :: [Problem] -> [String]
 getErrors [] = []
 getErrors ((Error, body):xs) = show body : getErrors xs
 getErrors (x:xs) = getErrors xs -- do not include warnings
 
+-- returns the list with all the warning string messages
 getWarnings :: [Problem] -> [String]
 getWarnings [] = []
 getWarnings ((Warning, body):xs) = show body : getWarnings xs
