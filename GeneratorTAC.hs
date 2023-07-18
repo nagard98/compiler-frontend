@@ -395,9 +395,7 @@ genExpr expr genL env =
         (AbsGrammar.ExprCall _ _) -> genExprCall expr genL env
         (AbsGrammar.BaseExpr _ _) -> genBaseExpr expr genL env
         (AbsGrammar.IntToReal exp) -> genCastIntToRealExpr expr genL env
---        (AbsGrammar.CharToString exp) -> do
-            --traceM "TODO: genExpr -> implementa IntToReal"
---            genExpr exp genL env
+
 
 -- TODO: valutare come usare tp(fare cast) ed env
 genUnrExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Bool -> Env -> StateTAC XAddr
@@ -530,15 +528,17 @@ genBaseExpr be _ _ = error "TODO: genBaseExpr -> gestire altri casi mancanti"
 
 
 genArrayExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Bool -> Env -> StateTAC XAddr
-genArrayExpr (AbsGrammar.BaseExpr (AbsGrammar.ArrayElem arrExpr indexExpr) tp) genL env = do
+genArrayExpr (AbsGrammar.BaseExpr (AbsGrammar.ArrayElem arrExpr indexExpr) arrTpOf) genL env = do
     aXVal <- genExpr arrExpr True env
     iXVal <- genExpr indexExpr False env
-    --traceM $ "\nType is: "++show tp++" and size is: "++ show (sizeof tp) ++"\n"
-    --TODO: giusto considerare questo tipo? tp
+    tp <- getExprType arrExpr
+
     case (aXVal, iXVal) of
-        (Addr fldAddr, Addr indAddr)-> do
+        (Addr fldAddr, Addr indAddr)-> do        
+            genCheckIndexBounds indAddr tp env
+
             offsetAddr <- newTmpAddr
-            sizeXAddr <- genLitExpr (convertIntToExpr (sizeof tp)) False env
+            sizeXAddr <- genLitExpr (convertIntToExpr (sizeof arrTpOf)) False env
             sizeAddr <- case sizeXAddr of
                 (Addr a) -> return a
                 _ -> error "TODO: genArrayExpr -> getisci errore creazione address literal"
@@ -551,7 +551,9 @@ genArrayExpr (AbsGrammar.BaseExpr (AbsGrammar.ArrayElem arrExpr indexExpr) tp) g
                     return $ Addr tmpAddr
 
         (ArrayAddr bsAddr offAddr, Addr indAddr )-> do
-            sizeXAddr <- genLitExpr (convertIntToExpr (sizeof tp)) False env
+            genCheckIndexBounds indAddr tp env
+
+            sizeXAddr <- genLitExpr (convertIntToExpr (sizeof arrTpOf)) False env
             sizeAddr <- case sizeXAddr of
                 (Addr a) -> return a
                 _ -> error "TODO: genArrayExpr -> getisci errore creazione address literal"
@@ -569,7 +571,25 @@ genArrayExpr (AbsGrammar.BaseExpr (AbsGrammar.ArrayElem arrExpr indexExpr) tp) g
         --(t, Addr fldAddr, Addr indAddr) -> error $ show t ++ show fldAddr ++ show indAddr
         --(_, ArrayAddr bsAddr offAddr, Addr indAddr ) -> error "TODO:caso particolare 2"
         _ -> error "TODO: genArrayExpr -> considera altri casi case slide"
+    
+    where
+        genCheckIndexBounds :: Addr -> AbsGrammar.Type -> Env -> StateTAC () 
+        genCheckIndexBounds indexAddr (AbsGrammar.TypeCompType arrTp@(AbsGrammar.Array {})) env = do
+            outOfBoundsLabel <- newLabel
+            nextStmtLabel <- newLabel
+            addInstr (TACCndJmp indexAddr TACEqLessTInt (TacLit l_end) outOfBoundsLabel)
+            addInstr (TACCndJmp indexAddr TACEqLessTInt (TacLit r_end) nextStmtLabel)
+            attachLabelToNext outOfBoundsLabel
+            case Env.lookup "errOutOfBounds" env of
+                Just (Procedure _ _ addr) -> do
+                    addInstr (TACPCall addr 0)
+                    attachLabelToNext nextStmtLabel
+                Nothing -> error "InternalError: errOutOfBounds is a default procedure; it can't be missing"
 
+            where
+                (l_end, r_end) = getArrayRange arrTp
+
+        genCheckIndexBounds _ _ _ = error "InternalError: genCheckIndexBounds shouldn't receive non array type"
 
 genArrayExpr _ _ _ = error "TODO: genArrayExpr -> non è un array"
 {-genArrayExpr (AbsGrammar.ArrayElem (AbsGrammar.Identifier (AbsGrammar.TokIdent (_,id))) indexExpr) genL env =

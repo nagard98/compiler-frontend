@@ -28,7 +28,7 @@ instance Show TACQuad where
 
 instance Show AddrList where
     show (AddrList (addr:[])) = show addr ++ ":"
-    show (AddrList (addr:rest)) = show addr ++ ","++ show rest
+    show (AddrList (addr:rest)) = show addr ++ ","++ show (AddrList rest)
     show (AddrList []) = ""
 
 instance Show Addr where

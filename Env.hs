@@ -251,13 +251,7 @@ popUninit = do
                 posEnds = PosEnds { leftmost = pos, rightmost = (x, y + length id) }
 
 
-isInRange :: Literal -> CompType -> Bool
-isInRange lit@(LiteralInteger _) (Array l_tok r_tok _) =
-    (indx >= l_end) && (indx <= r_end)
-    where
-        indx = read (getLitValue lit) :: Int
-        l_end = read (getTokValue (TokI l_tok)) :: Int
-        r_end = read (getTokValue (TokI r_tok)) :: Int
+
 
 
 lengthForBitVector :: AbsGrammar.Type -> Int
