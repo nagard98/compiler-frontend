@@ -18,7 +18,7 @@ begin
     end;
 
     {This is ok: return statement is not needed in the outer block if all paths contain it!}
-    function gratherThenOne (num: integer) : boolean;
+    function greaterThanOne (num: integer) : boolean;
     begin 
         begin
             if num > 1 then
