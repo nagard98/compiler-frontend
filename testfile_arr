@@ -1,9 +1,0 @@
-program HelloArr;
-var
-   n: array [1..10] of integer;
-begin
-   
-   {TODO: this should generate a range check error}
-   n[11] := 111;
-  
-end.
