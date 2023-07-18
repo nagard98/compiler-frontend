@@ -1,0 +1,14 @@
+{integer type is compatible with real, but not the opposite}
+
+program P;
+begin
+   
+   var result: real;
+   var a: integer;
+
+   a := 1;
+
+   result := a; {ok, an integer value can be assigned to a real}
+
+   {* a:= result; {error! the opposite is not allowed} *}
+end.
