@@ -1496,7 +1496,7 @@ parseBaseExpression env (ArrayElem bexpr iexpr) = do
                 env3,
                 (ArrayElem parsedbexpr parsediexpr),
                 TypeBaseType BaseType_error,
-                PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}
+                ( newPosEnds PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                 )
 
         (TypeBaseType BaseType_error, _) ->
@@ -1504,44 +1504,49 @@ parseBaseExpression env (ArrayElem bexpr iexpr) = do
                 env3,
                 (ArrayElem parsedbexpr parsediexpr),
                 TypeBaseType BaseType_error,
-                PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}
+                ( newPosEnds PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                 )
 
         (TypeCompType (Array i1 i2 basetype), TypeBaseType BaseType_integer) ->
-            return (env3, (ArrayElem parsedbexpr parsediexpr), basetype, PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
+            return (env3, (ArrayElem parsedbexpr parsediexpr), basetype, ( newPosEnds PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}))
 
         (TypeCompType (Array i1 i2 basetype), _) -> do
             state <- get
             exprTp <- getTypeFromExpression parsediexpr
-            put $ state { errors = ((Error, TypeMismatchArrayIndex (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}) (show exprTp)):(errors state))}
+            put $ state { errors = ((Error, TypeMismatchArrayIndex (show ( newPosEnds PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})) (show exprTp)):(errors state))}
             return (
                 env3,
                 (ArrayElem parsedbexpr parsediexpr),
                 TypeBaseType BaseType_error,
-                PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}
+                ( newPosEnds PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                 )
 
         (_, TypeBaseType BaseType_integer) -> do
             state <- get
             exprTp <- getTypeFromExpression parsedbexpr
-            put $ state { errors = ((Error, TypeMismatchNotArray (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}) (showExpr parsedbexpr) (show exprTp)):(errors state))}
+            put $ state { errors = ((Error, TypeMismatchNotArray (show (newPosEnds PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})) (showExpr parsedbexpr) (show exprTp)):(errors state))}
             return (
                 env3,
                 (ArrayElem parsedbexpr parsediexpr),
                 TypeBaseType BaseType_error,
-                PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}
+                ( newPosEnds PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                 )
+
 
         _ -> do
             state <- get
             exprTp1 <- getTypeFromExpression parsedbexpr
             exprTp2 <- getTypeFromExpression parsediexpr
             put $ state { errors =
-                ((Error, TypeMismatchNotArray (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}) (showExpr parsedbexpr) (show exprTp1))
-                :((Error, TypeMismatchArrayIndex (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}) (show exprTp2)):(errors state)))}
+                ((Error, TypeMismatchNotArray (show ( newPosEnds PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})) (showExpr parsedbexpr) (show exprTp1))
+                :((Error, TypeMismatchArrayIndex (show ( newPosEnds PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})) (show exprTp2)):(errors state)))}
             return (
                 env3,
                 (ArrayElem parsedbexpr parsediexpr),
                 TypeBaseType BaseType_error,
-                PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}
+                ( newPosEnds PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                 )
+    where
+        -- expand posEnds of 1 to the right to account for closed bracket ] of array assignment 
+        newPosEnds :: PosEnds -> PosEnds
+        newPosEnds PosEnds{leftmost=(lr,lc),rightmost=(rr,rc)} = PosEnds{leftmost=(lr,lc),rightmost=(rr,rc+1)}

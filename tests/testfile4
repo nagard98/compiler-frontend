@@ -1,9 +1,9 @@
 {In this file we want to test a basic mathematical expressions}
 
 program HelloMath;
-{var a: array[1..2]of integer; 
+var a: array[1..2]of integer; 
 {var b: ^real;
-{var c: real;
+var c: real;
 var d: boolean;
 var i: integer;
 function sum(x,y: real): real;
@@ -23,6 +23,8 @@ begin
 {  c := 3.2;
   d := true;
   i := 1;
+  c := 1.1;
+  c[10] := 10;
 
 {*
   {Test call by reference
@@ -33,7 +35,7 @@ begin
 *}    
     
     
-{{* 
+{* 
     {Test pointers as l-values}
     var a: integer;
     var b: integer;
@@ -42,7 +44,7 @@ begin
     var c: ^integer;
     c := @a;
     @b := @a;
-{*}    
+*}    
 {*
   {Test loop
   while 1+true do
