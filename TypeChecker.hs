@@ -103,14 +103,13 @@ parseDclFcBlockFirstPass env dcBlockFc@(DclBlockFcBlock (FuncBlock (TokIdent (po
     -- IMPORTANT NOTE: env must be the second argument of mergeEnvs, otherwise the new "return" key will not be updated
     -- this is because the underlying function union (t1, t2) of Data.Map prefers t1 when duplicated keys are encountered
     tmpEnv <- Env.mergeEnvs (Env.fromList [(id, Function pos params retType fcAddr)]) env
-    (tmpEnv1, parsedParams) <- parseParams params [] tmpEnv
-    return (tmpEnv1, dcBlockFc)
+    return (tmpEnv, dcBlockFc)
 
 
 parseDclFcBlock :: Env -> DclBlock env infType -> SSAState (Env, DclBlock Env Type)
 parseDclFcBlock env (DclBlockFcBlock fB@(FuncBlock idTok@(TokIdent (pos, id)) params retType beb)) = do
-    tmpEnv <-  Env.insert ("return") (Return retType id pos) env
 
+    (tmpEnv, parsedParams) <- parseParams params [] (Data.Map.insert ("return") (Return retType id pos) env)
     (finalEnv, annotatedBEB, hasAllReturns) <- parseBEBlock tmpEnv beb
 
     state <- get
@@ -118,27 +117,28 @@ parseDclFcBlock env (DclBlockFcBlock fB@(FuncBlock idTok@(TokIdent (pos, id)) pa
         then put $ state{errors = errors state}
         else put $ state{errors = ((Error, MissingReturnInFunction pos id):(errors state))}
 
-    return (finalEnv, DclBlockFcBlock (FuncBlock idTok params retType annotatedBEB))
+    return (env, DclBlockFcBlock (FuncBlock idTok params retType annotatedBEB))
+
 -- add info about procedures to the environment. Same as functions but without return type
 parseDclPcBlockFirstPass :: Env -> DclBlock env infType -> SSAState (Env, DclBlock env infType)
 parseDclPcBlockFirstPass env dclBlockPc@(DclBlockPcBlock (ProcBlock (TokIdent (pos, id)) params beb)) = do
     pcAddr <- Env.newIdAddr id env
     tmpEnv <- Env.insert id (Procedure pos params pcAddr) env
-    (pEnv, pPrms) <- parseParams params [] tmpEnv
 
-    return (pEnv, dclBlockPc)
+    return (tmpEnv, dclBlockPc)
 
 -- add info about procedures to the environment. Same as functions but without return type
 parseDclPcBlock :: Env -> DclBlock env infType -> SSAState (Env, DclBlock Env Type)
 parseDclPcBlock env (DclBlockPcBlock (ProcBlock idTok@(TokIdent (pos, id)) params beb)) = do
-    (fEnv, annBEB, hasReturn) <- parseBEBlock env beb
+    (locEnv, pPrms) <- parseParams params [] env
+    (fEnv, annBEB, hasReturn) <- parseBEBlock locEnv beb
     state <- get
     if hasReturn
         then put $ state{errors = ((Error, UnexpectedReturnInProcedure pos id ):(errors state))}
 
         else put $ state{errors = errors state}
 
-    return (fEnv, DclBlockPcBlock (ProcBlock idTok params annBEB))
+    return (env, DclBlockPcBlock (ProcBlock idTok params annBEB))
 
 
 parseParams :: Prms -> [Prm] -> Env -> SSAState (Env, Prms)
@@ -759,7 +759,6 @@ parseExpression env (UnaryExpression Dereference exp t)  = do
 parseExpression env (UnaryExpression Reference exp t) = do
     (env2, parsedexp, posEnds) <- parseExpression env exp
     typeExpr <- getTypeFromExpression parsedexp
-    traceM $ "\n"++ show (typeExpr)++"  "++ showExpr exp ++"\n"
 
     -- can create a pointer only if expression is a valid l-expression
     if typeExpr == TypeBaseType BaseType_error
