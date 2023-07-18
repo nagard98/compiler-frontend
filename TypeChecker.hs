@@ -569,7 +569,7 @@ parseLitAssignment tkId@(TokIdent (idPos, idVal)) literal env posEnds = case Env
                 -- In case of error it is added to the state
                 (_, _)  -> do
                         state <- get
-                        put $ state { errors = ((Error, TypeMismatchLiteral (show posEnds) idVal (show litType) (show envType)):(errors state))}
+                        put $ state { errors = ((Error, TypeMismatchLiteral (show posEnds) idVal (showLiteral literal) (show litType) (show envType)):(errors state))}
                         return (env, StmtAssign (BaseExpr (Identifier tkId) (TypeBaseType BaseType_error)) (ExprLiteral literal))
 
     
@@ -1161,12 +1161,14 @@ parseBinaryArithmeticExpression env op exp1 exp2 = do
             put $ state { errors = ((Error, TypeMismatchBinaryExpr 
                                     (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                                     "first"
+                                    (showExpr parsedexp1)
                                     (getStringFromOperator op) 
                                     (show typeExpr1) 
                                     "numeric (Integer or Real)"):
                                     (Error, TypeMismatchBinaryExpr 
                                     (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                                     "second"
+                                    (showExpr parsedexp2)
                                     (getStringFromOperator op)
                                     (show typeExpr2) 
                                     "numeric (Integer or Real)"):(errors state))}
@@ -1181,6 +1183,7 @@ parseBinaryArithmeticExpression env op exp1 exp2 = do
             put $ state { errors = ((Error, TypeMismatchBinaryExpr 
                                     (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                                     "first"
+                                    (showExpr parsedexp1)
                                     (getStringFromOperator op) 
                                     (show typeExpr1) 
                                     "numeric (Integer or Real)"):(errors state))}
@@ -1195,6 +1198,7 @@ parseBinaryArithmeticExpression env op exp1 exp2 = do
             put $ state { errors = ((Error, TypeMismatchBinaryExpr 
                                 (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                                 "second"
+                                (showExpr parsedexp2)
                                 (getStringFromOperator op)
                                 (show typeExpr2) 
                                 "numeric (Integer or Real)"):(errors state))}
@@ -1265,12 +1269,14 @@ parseBinaryRelationExpression env op exp1 exp2 = do
             put $ state { errors = ((Error, TypeMismatchBinaryExpr 
                                     (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                                     "first"
+                                    (showExpr parsedexp1)
                                     (getStringFromOperator op)
                                     (show typeExpr1) 
                                     "atomic (Integer, Real, Boolean or Char)"):
                                     (Error, TypeMismatchBinaryExpr 
                                     (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                                     "second"
+                                    (showExpr parsedexp2)
                                     (getStringFromOperator op)
                                     (show typeExpr2) 
                                     "atomic (Integer, Real, Boolean or Char)"):(errors state))}
@@ -1284,6 +1290,7 @@ parseBinaryRelationExpression env op exp1 exp2 = do
             put $ state { errors = ((Error, TypeMismatchBinaryExpr 
                                     (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                                     "first"
+                                    (showExpr parsedexp1)
                                     (getStringFromOperator op)
                                     (show typeExpr1) 
                                     "atomic (Integer, Real, Boolean or Char)"):(errors state))}
@@ -1297,6 +1304,7 @@ parseBinaryRelationExpression env op exp1 exp2 = do
             put $ state { errors = ((Error, TypeMismatchBinaryExpr 
                                     (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                                     "second"
+                                    (showExpr parsedexp2)
                                     (getStringFromOperator op)
                                     (show typeExpr2) 
                                     "atomic (Integer, Real, Boolean or Char)"):(errors state))}
@@ -1353,12 +1361,14 @@ parseBinaryRelationExpression env op exp1 exp2 = do
                 put $ state { errors = ((Error, TypeMismatchBinaryExpr 
                                         (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                                         "first"
+                                        (showExpr parsedexp1)
                                         (getStringFromOperator op)
                                         (show typeExpr1) 
                                         "numeric (Integer or Real)"):
                                         (Error, TypeMismatchBinaryExpr 
                                         (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                                         "second"
+                                        (showExpr parsedexp2)
                                         (getStringFromOperator op)
                                         (show typeExpr2) 
                                         "numeric (Integer or Real)"):(errors state))} 
@@ -1372,6 +1382,7 @@ parseBinaryRelationExpression env op exp1 exp2 = do
                 put $ state { errors = ((Error, TypeMismatchBinaryExpr 
                                         (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                                         "first"
+                                        (showExpr parsedexp1)
                                         (getStringFromOperator op)
                                         (show typeExpr1) 
                                         "numeric (Integer or Real)"):(errors state))} 
@@ -1385,6 +1396,7 @@ parseBinaryRelationExpression env op exp1 exp2 = do
                 put $ state { errors = ((Error, TypeMismatchBinaryExpr 
                                         (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                                         "second"
+                                        (showExpr parsedexp2)
                                         (getStringFromOperator op)
                                         (show typeExpr2) 
                                         "numeric (Integer or Real)"):(errors state))}   

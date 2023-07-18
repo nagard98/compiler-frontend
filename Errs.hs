@@ -20,7 +20,7 @@ data ProblemBody =
     ExpectedTypeNotFound String | -- posEnds
     InvalidLValueAssignment String String | -- posEnds exprStr
     TypeMismatchArrayAssignment String String String String | -- posEnds expr expectedTp assignedTp
-    TypeMismatchLiteral String String String String | -- posEnds idVal expectedTp actualTp 
+    TypeMismatchLiteral String String String String String | -- posEnds idVal expr expectedTp actualTp 
     UnknownIdentifier String String | -- posEnds idVal
     TypeMismatchIdExprAssignment String String String String | -- posEnds idVal expectedTp assignedType
     TypeMismatchExprExprAssignment String String String String | -- posEnds expr expectedTp assignedTp
@@ -31,7 +31,7 @@ data ProblemBody =
     CallingVariable String String | --posEnds idVal
     NumOfArgsMismatch String String String | --posEnds fun/proc name
     TypeMismatchArgument String String String String String String | --posEnds argExpr argTp expectedTp paramId paramPos
-    TypeMismatchBinaryExpr String String String String String | --posEnds first/second operatorStr actualTp expectedTp
+    TypeMismatchBinaryExpr String String String String String String | --posEnds first/second expr operatorStr actualTp expectedTp
     TypeIncompatibleBinaryExpr String String String String String String | --posEnds operatorStr exp1 exp2 typeexp1 typeexp2
     TypeMismatchArrayIndex String String | -- posEnds exprTp
     TypeMismatchNotArray String String String |  -- posEnds expr exprTp
@@ -58,7 +58,7 @@ instance Show ProblemBody where
     show (ExpectedTypeNotFound posStr) = "ERROR ExpectedTypeNotFound at " ++ posStr ++ ": can't find expected return type of current function in the environment while parsing the expression following the return"
     show (InvalidLValueAssignment posStr exprStr) = "ERROR InvalidLValueAssignment at " ++ posStr ++ ": expression " ++ exprStr ++ " is not a valid l-value for the assignment"
     show (TypeMismatchArrayAssignment posStr exprStr tpExpected tpAssigned) = "ERROR TypeMismatchArrayAssignment at " ++ posStr ++ ": l-expression " ++ exprStr ++ " is of type " ++ tpAssigned ++ " but it is assigned a value of type " ++ tpExpected
-    show (TypeMismatchLiteral posStr idVal tpExpected tpActual) = "ERROR TypeMismatchLiteral at " ++ posStr ++ ": " ++ idVal ++ " is of type " ++ tpActual ++ " but it is assigned a value of type " ++ tpExpected
+    show (TypeMismatchLiteral posStr idVal expr tpExpr tpActual) = "ERROR TypeMismatchLiteral at " ++ posStr ++ ": " ++ idVal ++ " is of type " ++ tpActual ++ " but it is assigned value " ++ expr ++ " of type " ++ tpExpr
     show (UnknownIdentifier posStr idVal) = "ERROR UnknownIdentifier at " ++ posStr ++ ": " ++ idVal ++ " is not defined in the current scope"
     show (TypeMismatchIdExprAssignment posStr idVal tpExpected tpAssigned) = "ERROR TypeMismatchIdExprAssignment at " ++ posStr ++ ": " ++ idVal ++ " is of type " ++ tpExpected ++ " but it is assigned a value of type " ++ tpAssigned
     -- same error text as TypeMismatchArrayAssignment
@@ -71,7 +71,7 @@ instance Show ProblemBody where
     show (CallingVariable posStr idVal) = "ERROR CallingVariable at " ++ posStr ++ ": identifier " ++ idVal ++ " is used as a function/procedure but it is a variable"
     show (NumOfArgsMismatch posStr funOrProc name) = "ERROR NumOfArgsMismatch at " ++ posStr ++ ": " ++ funOrProc ++ " " ++ name ++ " is called with a wrong number of arguments"
     show (TypeMismatchArgument posStr argExpr argTp expectedTp paramId paramPos) = "ERROR TypeMismatchArgument at " ++ posStr ++ ": argument " ++ argExpr ++ " is of type " ++ argTp ++ " but it is passed to parameter " ++ paramId ++ " of type " ++ expectedTp ++ " at " ++ paramPos
-    show (TypeMismatchBinaryExpr posStr firstOrSecond operatorStr actualTp expectedTp) = "ERROR TypeMismatchBinaryExpr at " ++ posStr ++ ": " ++ firstOrSecond ++ " operand of operator " ++ operatorStr ++ " is of type " ++ actualTp ++ " but it should be of type " ++ expectedTp
+    show (TypeMismatchBinaryExpr posStr firstOrSecond expr operatorStr actualTp expectedTp) = "ERROR TypeMismatchBinaryExpr at " ++ posStr ++ ": " ++ firstOrSecond ++ " operand " ++ expr ++ " of operator " ++ operatorStr ++ " is of type " ++ actualTp ++ " but it should be of type " ++ expectedTp
     show (TypeIncompatibleBinaryExpr posStr operatorStr exp1 exp2 type1 type2) = "ERROR TypeIncompatibleBinaryExpr at " ++ posStr ++ ": operands " ++ exp1++ " and "++  exp2 ++" of operator " ++ operatorStr ++ " are not compatible, as they are respectively of types " ++ type1 ++ " and " ++ type2
     show (TypeMismatchArrayIndex posStr exprTp) = "ERROR TypeMismatchArrayIndex at " ++ posStr ++ ": array index must be of numeric type but it is of type " ++ exprTp
     show (TypeMismatchNotArray posStr expr exprTp) = "ERROR TypeMismatchNotArray at " ++ posStr ++ ": expression " ++ expr ++ " is treated as an array but it is of type " ++ exprTp

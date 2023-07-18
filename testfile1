@@ -1,28 +1,55 @@
 {*
-testfile1: Operazioni su numeri e stringhe
+testfile1, Operazioni su numeri e stringhe: esempi corretti e di casi di errore
 *}
 
 program Hello1;
 var myIntVar : integer;
+var myRealVar : real;
 var myBoolVar : boolean;
 var myString : string;
+var myChar : char;
 const x = 'a', y=333 , z=2.3;
 
-function myfunc (a: integer) : integer ;
+function myFunc (a: integer) : integer ;
 begin return a end;
 
 begin
 
-    myIntVar := 10.0;
+    myIntVar := 10;
+    myIntVar := 10.0; {Error: assignment Real to Integer}
+    myRealVar := 20.0;
+    myRealVar := 20; {Type casting Int to Real}
+    myIntVar := -30; {Arithmetic unary negation}
+    myIntVar := 1+1; {Arithmetic binary operation}
+    myIntVar := 2*2+10;
+    myRealVar := 5/2;
+    myIntVar := true? 1 : 0; {Conditional expression}
+    myIntVar := 1? 1 : 0; {Error: condition not boolean}
+    myIntVar := 1>0? -1+2 : 1>=1; {Error: values in two branches of conditional expression are not of the same type}
+    myIntVar := myFunc(myIntVar);
+    myRealVar := myFunc(myIntVar); {Type casting}
+    myRealVar := myFunc(myRealVar); {Error: real cannot be converted to integer}
+    
+
     myBoolVar := false;
-    myBoolVar := myBoolVar or -myIntVar < z;
+    myBoolVar := 1+1>0? 1>1 : 0>1;
+    myBoolVar := not false; {Boolean unary negation}
+    myBoolVar := true or false; {Boolean binary operation}
+    myBoolVar := 'a' = 'b'; {Binary equality}
+    myBoolVar := "hello" = "world"; {Error: binary equality defined only for base atomic types (integer, real, char, boolean)}
+    myBoolVar := 1 = true; {Error: cannot compare integer and boolean}
+    myBoolVar := true and 0 = false; {Avoid induced errors}
+    myBoolVar := 1 > 0; {Binary numeric relation operation}
+    myBoolVar := myBoolVar or -myIntVar < z; {Not an error, because 'or' has priority over '<', it is the same as "(myBoolVar) or (-myIntVar < z)"}
+    myBoolVar := (myBoolVar or -myIntVar) < z; {Error: 'or' applied to Integer value}
+
     myIntVar := myIntVar + y;
     myIntVar := myIntVar + z;
     myIntVar := myIntVar + myBoolVar;
 
-    var myChar : char;
     myChar := 'b';
     myString := "Hello World!";
-    myString := myString + " " + x + myChar;
+    myString := myChar; {Error: char cannot be converted to string because char and string are not compatible}
+    myString := myString + " " + x + myChar; {Error: '+' operator not allowed on strings}
     
 end.
