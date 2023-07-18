@@ -14,7 +14,7 @@ launchStatSemAnalysis :: P env infType -> (Env, Problems, P Env Type)
 launchStatSemAnalysis tree = (env, errors finalState, parsedTree)
     where
         ((env, parsedTree), finalState) = runState (parseTree defaultEnv tree) ssaState
-        ssaState = SSAStateStruct {idCount = 0, errors = emptyProblems, unInitVars = newStack }
+        ssaState = SSAStateStruct {idCount = 0, labelCount = 0, errors = emptyProblems, unInitVars = newStack }
 
 -- Type Checking starting point
 parseTree :: Env -> P env infType -> SSAState (Env, P Env Type)
@@ -249,7 +249,7 @@ parseStatement stmt env = case stmt of
                 state <- get
                 case Env.lookup "break" env of
                     -- break inside loop, this is ok
-                    Just InsideLoop -> return (env, StmtBreak, False)
+                    Just (InsideLoop _) -> return (env, StmtBreak, False)
                     _ -> do -- error otherwise 
                         put $ state {errors = ((Error, BreakOutsideLoop):(errors state))}
                         return (env, StmtBreak, False)
@@ -259,7 +259,7 @@ parseStatement stmt env = case stmt of
                 state <- get
                 case Env.lookup "continue" env of
                     -- continue inside loop, this is ok
-                    Just InsideLoop -> return (env, StmtContinue, False)
+                    Just (InsideLoop _) -> return (env, StmtContinue, False)
                     _ -> do -- error otherwise 
                         put $ state {errors = ((Error, ContinueOutsideLoop):(errors state))}
                         return (env, StmtContinue, False)
@@ -270,8 +270,9 @@ parseIter :: Stmt env infType -> Env -> SSAState (Env, Stmt Env Type, Bool)
 parseIter (StmtIter (StmtWhileDo expr stmt)) env  = do
     (env1, parsedExpr, posEnds) <- parseExpression env expr
 
-    env2 <- Env.insert "break" InsideLoop env1
-    env3 <- Env.insert "continue" InsideLoop env2
+    (brLab, ctLab) <- newBreakContLabels
+    env2 <- Env.insert "break" (InsideLoop brLab) env1
+    env3 <- Env.insert "continue" (InsideLoop ctLab) env2
 
     (newEnv, parsedStmt, isReturn) <- parseStatement stmt env3
     let wrappedStmt = wrapInBeginEnd parsedStmt newEnv
@@ -293,8 +294,9 @@ parseIter (StmtIter (StmtWhileDo expr stmt)) env  = do
 -- parsing of repeat-until statement
 parseIter (StmtIter (StmtRepeat stmt expr)) env  = do
 
-    env1 <- Env.insert "break" InsideLoop env
-    env2 <- Env.insert "continue" InsideLoop env1
+    (brLab, ctLab) <- newBreakContLabels
+    env1 <- Env.insert "break" (InsideLoop brLab) env
+    env2 <- Env.insert "continue" (InsideLoop ctLab) env1
 
     (env3, parsedStmt, isReturn) <- parseStatement stmt env2 
     let wrappedStmt = wrapInBeginEnd parsedStmt env3

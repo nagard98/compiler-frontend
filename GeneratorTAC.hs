@@ -58,7 +58,7 @@ genCsDcl (AbsGrammar.ConstBlock csDefs) env = return ()
 
 
 genFcDcl :: AbsGrammar.FcBlock Env AbsGrammar.Type -> Env -> StateTAC ()
-genFcDcl (AbsGrammar.FuncBlock (AbsGrammar.TokIdent (_,id)) prms tp (AbsGrammar.BegEndBlock stmts scopeEnv)) env = 
+genFcDcl (AbsGrammar.FuncBlock (AbsGrammar.TokIdent (_,id)) prms tp (AbsGrammar.BegEndBlock stmts scopeEnv)) env =
     case Env.lookup id env of
         Just (Function _ _ _ addr) -> do
             newStrm <- createNewStream
@@ -68,7 +68,7 @@ genFcDcl (AbsGrammar.FuncBlock (AbsGrammar.TokIdent (_,id)) prms tp (AbsGrammar.
             genStmts stmts scopeEnv
             --TODO: sembra che sia obbligatorio verificare in analisi semantica statica
             --che le funzioni abbiano un return
-            closeCurrentStream 
+            closeCurrentStream
         _ -> error "TODO: genFcDcl -> id funzione non esiste nell' env"
 
 --TODO: controlla se funzionano bene parametri; ovvero addr sono quelli giusti
@@ -82,7 +82,7 @@ genPcDcl (AbsGrammar.ProcBlock (AbsGrammar.TokIdent (_,id)) prms (AbsGrammar.Beg
             attachLabelToNext (FuncLab addr)
             genStmts stmts scopeEnv
             addInstr TACReturnVoid
-            closeCurrentStream 
+            closeCurrentStream
         _ -> error "TODO: genPcDcl -> id procedura non esiste nell' env"
 
 
@@ -103,7 +103,7 @@ genVrDcl (AbsGrammar.VarBlock vrDefs) env = do
                         Just (Variable mod _ tp addr) -> addInstr (TACNulAss addr (getVarDefaultVal tp))
                         _ -> error "TODO: genVrDefIds -> id non esiste in env"
                     genVrDefIds ids env
-                
+
 
 
 genStmts :: [AbsGrammar.Stmt Env AbsGrammar.Type] -> Env -> StateTAC ()
@@ -122,16 +122,24 @@ genStmts (stmt:stmts) env = do
                 AbsGrammar.StmtIter _ -> genStmtIter stmt env
                 AbsGrammar.StmtReturn _ -> genStmtReturn stmt env
 
+                AbsGrammar.StmtBreak -> do
+                    case Env.lookup "break" env of
+                        Just (InsideLoop label) -> addInstr (TACUncdJmp label)
+
+                AbsGrammar.StmtContinue -> 
+                    case Env.lookup "continue" env of
+                        Just (InsideLoop label) -> addInstr (TACUncdJmp label)
+
 --TODO: gestisci caso assegnamento array
 genStmtAssign :: AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> StateTAC ()
 genStmtAssign (AbsGrammar.StmtAssign lexpr rexpr) env = do
-    
+
     lXAddr <- genExpr lexpr True env
     rXAddr <- genExpr rexpr False env
     tmpAddr <- newTmpAddr
 
     case (lXAddr, rXAddr) of
-        (Addr lAddr, Addr rAddr) -> 
+        (Addr lAddr, Addr rAddr) ->
             addInstr (TACNulAss lAddr rAddr)
 
         (ArrayAddr lBase lOffset, ArrayAddr rBase rOffset) -> do
@@ -142,16 +150,16 @@ genStmtAssign (AbsGrammar.StmtAssign lexpr rexpr) env = do
         (RefAddr lRAddr, RefAddr rRAddr) -> do
             addInstr (TACNulAss lRAddr rRAddr)
 
-        (ArrayAddr base offset, Addr rAddr) -> 
+        (ArrayAddr base offset, Addr rAddr) ->
             addInstr (TACIndxStr base offset rAddr)
 
-        (Addr lAddr, ArrayAddr base offset) -> 
+        (Addr lAddr, ArrayAddr base offset) ->
             addInstr (TACIndxLd lAddr base offset)
 
-        (RefAddr lRefAddr, Addr rAddr) -> 
+        (RefAddr lRefAddr, Addr rAddr) ->
             addInstr (TACDerefAss lRefAddr rAddr)
 
-        (Addr lAddr, RefAddr rRefAddr) -> 
+        (Addr lAddr, RefAddr rRefAddr) ->
             addInstr (TACAssDeref lAddr rRefAddr)
 
         --TODO: valutare se sono fatti bene questi casi; Assegna valore di un array a reference?
@@ -163,7 +171,7 @@ genStmtAssign (AbsGrammar.StmtAssign lexpr rexpr) env = do
             addInstr (TACAssDeref tmpAddr rRefAddr)
             addInstr (TACIndxStr base offset tmpAddr)
 
-    
+
     {-case lexpr of
     --TODO: potrebbe essere utile passare giù il tipo; credo di no
     {-AbsGrammar.BaseExpr arr@(AbsGrammar.ArrayElem _ _) tp -> do
@@ -193,7 +201,7 @@ genStmtComp (AbsGrammar.StmtComp (AbsGrammar.BegEndBlock stmts envScope)) env = 
 genStmtComp _ _ = error "TODO: gestire errore genStmtComp"
 
 genStmtCall :: AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> StateTAC ()
-genStmtCall (AbsGrammar.StmtCall (AbsGrammar.CallArgs (AbsGrammar.TokIdent (_,callId)) args)) env = 
+genStmtCall (AbsGrammar.StmtCall (AbsGrammar.CallArgs (AbsGrammar.TokIdent (_,callId)) args)) env =
     case Env.lookup callId env of
         Just (Procedure pos prms addr) -> do
             genArgs args env
@@ -218,52 +226,77 @@ genStmtSelect (AbsGrammar.StmtSelect selStmt) env = case selStmt of
         genStmts [fStmt] env
         attachLabelToNext nextStmtLabel
 
-
+    
 genStmtSelect _ _ = error "TODO: gestire errore genStmtSelect"
 
 
 genStmtIter :: AbsGrammar.Stmt Env AbsGrammar.Type -> Env -> StateTAC ()
 genStmtIter (AbsGrammar.StmtIter iterStmt) env = do
 
+    scopeEnv <- getIterScopeEnv iterStmt
+
     inStmtLabel <- newLabel
+    guardLabel <- newLabel
+
+    breakLabel <- case Env.lookup "break" scopeEnv of
+        Just (InsideLoop label) -> return label
+
+    continueLabel <- case Env.lookup "continue" scopeEnv of
+        Just (InsideLoop label) -> return label
+
 
     case iterStmt of
-        AbsGrammar.StmtWhileDo guard stmt -> do
-            guardLabel <- newLabel
+        AbsGrammar.StmtWhileDo guard (AbsGrammar.StmtComp (AbsGrammar.BegEndBlock stmts _)) -> do
             addInstr (TACUncdJmp guardLabel)
             attachLabelToNext inStmtLabel
-            genStmts [stmt] env
-            attachLabelToNext guardLabel
-            genGuard guard inStmtLabel Fall env
+            genStmts stmts scopeEnv                  
 
-        AbsGrammar.StmtRepeat stmt guard -> do
+            attachLabelToNext guardLabel
+            attachLabelToNext continueLabel
+            genGuard guard inStmtLabel Fall scopeEnv
+
+            attachLabelToNext breakLabel
+
+        AbsGrammar.StmtRepeat (AbsGrammar.StmtComp (AbsGrammar.BegEndBlock stmts _))  guard -> do
             attachLabelToNext inStmtLabel
-            genStmts [stmt] env
-            genGuard guard inStmtLabel Fall env
-        
-        AbsGrammar.StmtFor condVar@(AbsGrammar.BaseExpr (AbsGrammar.Identifier (AbsGrammar.TokIdent (_, id))) tp) initExpr forDirection limitExpr stmt -> do
-            genStmtAssign (AbsGrammar.StmtAssign condVar initExpr) env
+            genStmts stmts scopeEnv
+
+            attachLabelToNext guardLabel
+            attachLabelToNext continueLabel
+            genGuard guard inStmtLabel Fall scopeEnv
+
+            attachLabelToNext breakLabel
+
+
+        AbsGrammar.StmtFor condVar@(AbsGrammar.BaseExpr (AbsGrammar.Identifier (AbsGrammar.TokIdent (_, id))) tp) initExpr forDirection limitExpr (AbsGrammar.StmtComp (AbsGrammar.BegEndBlock stmts scopeEnv))  -> do
+            genStmtAssign (AbsGrammar.StmtAssign condVar initExpr) scopeEnv
             guardLabel <- newLabel
             tmpAddr <- newTmpAddr
             addInstr (TACUncdJmp guardLabel)
             attachLabelToNext inStmtLabel
             addInstr (TACBinAss tmpAddr addr (forDirToArithmOp forDirection) (TacLit (TACIntLit 1)))
             addInstr (TACNulAss addr tmpAddr)
-            genStmts [stmt] env
+            genStmts stmts scopeEnv
             attachLabelToNext guardLabel
-            genGuard (AbsGrammar.BinaryExpression (forDirToRelOp forDirection) condVar limitExpr (AbsGrammar.TypeBaseType AbsGrammar.BaseType_boolean)) inStmtLabel Fall env
+            genGuard (AbsGrammar.BinaryExpression (forDirToRelOp forDirection) condVar limitExpr (AbsGrammar.TypeBaseType AbsGrammar.BaseType_boolean)) inStmtLabel Fall scopeEnv
             where
                 forDirToArithmOp :: AbsGrammar.ForDirection -> TACOp
                 forDirToArithmOp AbsGrammar.ForDirection_downto = TACSubInt
                 forDirToArithmOp AbsGrammar.ForDirection_to = TACAddInt
-                
+
                 forDirToRelOp :: AbsGrammar.ForDirection -> AbsGrammar.BinaryOperator
                 forDirToRelOp AbsGrammar.ForDirection_downto = AbsGrammar.GreatT
                 forDirToRelOp AbsGrammar.ForDirection_to = AbsGrammar.LessT
 
-                Just (Variable _ _ _ addr) = Env.lookup id env 
+                Just (Variable _ _ _ addr) = Env.lookup id env
 
-        _ -> error "Internal Error: genStmtIter -> shouldn't reach here" 
+        _ -> error "Internal Error: genStmtIter -> shouldn't reach here"
+
+    where
+        getIterScopeEnv :: AbsGrammar.IterStmt Env AbsGrammar.Type -> StateTAC Env
+        getIterScopeEnv (AbsGrammar.StmtWhileDo _ (AbsGrammar.StmtComp (AbsGrammar.BegEndBlock _ scopeEnv))) = return scopeEnv
+        getIterScopeEnv (AbsGrammar.StmtRepeat (AbsGrammar.StmtComp (AbsGrammar.BegEndBlock _ scopeEnv)) _) = return scopeEnv
+        getIterScopeEnv (AbsGrammar.StmtFor _ _ _ _ (AbsGrammar.StmtComp (AbsGrammar.BegEndBlock _ scopeEnv))) = return scopeEnv
 
 genStmtIter _ _ =  error "TODO: gestire errore genStmtIter"
 
@@ -317,7 +350,7 @@ genGuard guard trueLab falseLab env = case guard of
                         _ -> do
                             addInstr (TACCndJmp e1Addr (binToTACOp opr (gramTypeToTACType expr1Type)) e2Addr trueLab)
                             addInstr (TACUncdJmp falseLab)
-                            
+
                 else error "TODO: genGuard -> operatore non è ne logico ne relazionale"
 
     (AbsGrammar.UnaryExpression opr b1@expr tp) -> case opr of
@@ -352,7 +385,7 @@ genStmtReturn (AbsGrammar.StmtReturn (AbsGrammar.Ret expr)) env = do
     addInstr (TACReturn exprAddr)
 
 genExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Bool -> Env -> StateTAC XAddr
-genExpr expr genL env = 
+genExpr expr genL env =
     case expr of
         --TODO: considerare se passare genL alle funzioni
         (AbsGrammar.UnaryExpression _ _ _) -> genUnrExpr expr genL env
@@ -367,9 +400,9 @@ genExpr expr genL env =
 
 -- TODO: valutare come usare tp(fare cast) ed env
 genUnrExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Bool -> Env -> StateTAC XAddr
-genUnrExpr (AbsGrammar.UnaryExpression op@AbsGrammar.Dereference exp1 tp) genL env = 
+genUnrExpr (AbsGrammar.UnaryExpression op@AbsGrammar.Dereference exp1 tp) genL env =
     if genL
-        then 
+        then
             error "TODO: genUnrExpr -> E non è l'expr"
         else do
             expXAddr <- genExpr exp1 True env
@@ -383,12 +416,12 @@ genUnrExpr (AbsGrammar.UnaryExpression op@AbsGrammar.Dereference exp1 tp) genL e
                             return $ Addr tmpAddr
                 _ -> error "TODO:genUnrExpr -> gestire altri casi case come da slide"
 
-genUnrExpr (AbsGrammar.UnaryExpression op@AbsGrammar.Reference exp1 tp) genL env = 
+genUnrExpr (AbsGrammar.UnaryExpression op@AbsGrammar.Reference exp1 tp) genL env =
     error "TODO: genUnrExpr -> implementa Reference"
 
 genUnrExpr (AbsGrammar.UnaryExpression op exp1 tp) genL env = do
     if genL
-    then 
+    then
         error "TODO: genUnrExpr -> E non è l'expr"
     else do
         tmpAddr <- newTmpAddr;
@@ -450,7 +483,7 @@ genLitExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Bool -> Env -> StateTAC XAddr
 genLitExpr (AbsGrammar.ExprLiteral lit) genL env = return $ Addr (TacLit $ makeTACLit lit)
 
 genExprCall :: AbsGrammar.EXPR AbsGrammar.Type -> Bool -> Env -> StateTAC XAddr
-genExprCall (AbsGrammar.ExprCall (AbsGrammar.CallArgs (AbsGrammar.TokIdent (_,callId)) args) tp) genL env = 
+genExprCall (AbsGrammar.ExprCall (AbsGrammar.CallArgs (AbsGrammar.TokIdent (_,callId)) args) tp) genL env =
     case Env.lookup callId env of
         Just (Env.Function _ _ retType fAddr) -> do
             --TODO : valutare se necessario fare cast qui; forse non serve considerando
@@ -483,7 +516,7 @@ genBaseExpr expr@(AbsGrammar.BaseExpr bexpr tp) genL env = case bexpr of
         case Env.lookup id env of
             Just (Env.Variable AbsGrammar.Modality_val _ idType addr) -> return $ Addr addr
             _ -> error "TODO : genBaseExpr -> gestisci altri casi con diverse modalità"
-    
+
     arr@(AbsGrammar.ArrayElem _ _) -> do
         --TODO: che genL passo a genArrayExpr?
         genArrayExpr expr genL env
@@ -496,7 +529,7 @@ genBaseExpr be _ _ = error "TODO: genBaseExpr -> gestire altri casi mancanti"
 
 
 genArrayExpr :: AbsGrammar.EXPR AbsGrammar.Type -> Bool -> Env -> StateTAC XAddr
-genArrayExpr (AbsGrammar.BaseExpr (AbsGrammar.ArrayElem arrExpr indexExpr) tp) genL env = do 
+genArrayExpr (AbsGrammar.BaseExpr (AbsGrammar.ArrayElem arrExpr indexExpr) tp) genL env = do
     aXVal <- genExpr arrExpr True env
     iXVal <- genExpr indexExpr False env
     --traceM $ "\nType is: "++show tp++" and size is: "++ show (sizeof tp) ++"\n"
@@ -510,12 +543,12 @@ genArrayExpr (AbsGrammar.BaseExpr (AbsGrammar.ArrayElem arrExpr indexExpr) tp) g
                 _ -> error "TODO: genArrayExpr -> getisci errore creazione address literal"
             addInstr (TACBinAss offsetAddr indAddr TACMulInt sizeAddr)
             if genL
-                then return $ ArrayAddr fldAddr offsetAddr 
+                then return $ ArrayAddr fldAddr offsetAddr
                 else do
                     tmpAddr <- newTmpAddr
                     addInstr (TACIndxLd tmpAddr fldAddr offsetAddr)
                     return $ Addr tmpAddr
-        
+
         (ArrayAddr bsAddr offAddr, Addr indAddr )-> do
             sizeXAddr <- genLitExpr (convertIntToExpr (sizeof tp)) False env
             sizeAddr <- case sizeXAddr of
@@ -534,7 +567,7 @@ genArrayExpr (AbsGrammar.BaseExpr (AbsGrammar.ArrayElem arrExpr indexExpr) tp) g
 
         --(t, Addr fldAddr, Addr indAddr) -> error $ show t ++ show fldAddr ++ show indAddr
         --(_, ArrayAddr bsAddr offAddr, Addr indAddr ) -> error "TODO:caso particolare 2"
-        _ -> error "TODO: genArrayExpr -> considera altri casi case slide" 
+        _ -> error "TODO: genArrayExpr -> considera altri casi case slide"
 
 
 genArrayExpr _ _ _ = error "TODO: genArrayExpr -> non è un array"
@@ -585,7 +618,7 @@ addInstr instr = do
         then put $ state { quads = appendQuad (quads state) newQuad, labelsNextInstr = AddrList [] }
         else do
             (strm, stack) <- pop $ stackStrms state
-            newStack <- push (appendQuad strm newQuad) stack 
+            newStack <- push (appendQuad strm newQuad) stack
             put $ state {stackStrms = newStack, labelsNextInstr = AddrList []}
 
 
@@ -593,4 +626,4 @@ attachLabelToNext :: TACLabel -> StateTAC ()
 attachLabelToNext label = do
     state <- get
     put $ state {labelsNextInstr = appendAddrList (getLabelAddr label) (labelsNextInstr state) }
-    
+

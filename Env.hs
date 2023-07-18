@@ -25,7 +25,7 @@ data EnvData =    Variable Modality Position Type Addr
                 | Procedure Position Prms Addr
                 | Constant Position Type Addr
                 | Return Type String Position -- (expected return type from current function, function name, function position)
-                | InsideLoop -- used to check if break/continue are inside a loop
+                | InsideLoop TACLabel -- used to check if break/continue are inside a loop
 
 -- data Parameter = Parameter TokIdent Modality Type deriving Show
 
@@ -40,7 +40,7 @@ instance Show EnvData where
     show (Function p prms tp _) = "{function, " ++ show p ++ ", " ++ show prms ++ ", " ++ show tp ++ "}"
     show (Procedure p prms _) = "{procedure, " ++ show p ++ ", " ++ show prms ++  "}"
     show (Return t _ _) = "{exected return type: " ++ show t  ++ "}" 
-    show InsideLoop = "inside loop"
+    show (InsideLoop _) = "inside loop "
     -- TODO: this line can be reached if show function is not implemented for all type of params
     -- at the moment, it is not implemented for pointers. This line can be removed when all types can be printed
     show _ = "CANT_SHOW. IMPLEMENT ME!"
@@ -64,7 +64,7 @@ mergeEnvs e1 e2 = return $ Map.union e1 e2
 
 -- TODO : aggiungere generazione warning quando un identificatore nel env viene sovrascritto? Forse bisogna passare
 -- anche errs come parametro?
-insert :: String -> EnvData -> Env -> SSAState Env
+insert :: String -> EnvData -> Env -> State a Env
 insert id entry env = return $ Map.insert id entry env
 
 lookup :: String -> Env -> Maybe EnvData
@@ -88,6 +88,12 @@ newIdAddr id env =
 
 int2IdName :: String -> Int -> Addr
 int2IdName id k = ProgVar (id ++ show k)
+
+newBreakContLabels :: SSAState (TACLabel, TACLabel)
+newBreakContLabels = do
+    state <- get;
+    put $ state {labelCount = labelCount state + 1};
+    return (StmtLab (ProgVar ("B" ++ show (labelCount state))) , StmtLab (ProgVar ("C" ++ show (labelCount state))) )
 
 fromList :: [(String, EnvData)] -> Env 
 fromList = Map.fromList
@@ -122,6 +128,7 @@ type SSAState = State SSAStateStruct
 
 data SSAStateStruct = SSAStateStruct {
     idCount :: Int,
+    labelCount :: Int,
     errors :: Problems,
     unInitVars :: Stack Env
 }
