@@ -48,9 +48,9 @@ data ProblemBody =
     ContinueOutsideLoop -- TODO: add pos info
     | UnnecessaryCasting String String String --posEnds from to
     | ImplicitCasting String String String --posEnds from to
-    | ForLoopInvalidCounterType 
-    | ForLoopInvalidCounterAssignment 
-    | ForLoopInvalidCounter 
+    | ForLoopInvalidCounterType String String String -- pos id actualTp
+    | ForLoopInvalidLimitType String String String -- posEnds
+    | ForLoopInvalidCounterTypeAndLimit String String String String String String -- counterPos counterId counterTp exprPos expr exprType
 
 instance Show ProblemBody where
     show ReturnInMain = "ERROR ReturnInMain: cannot have a return statement in the main begin-end block"
@@ -92,9 +92,9 @@ instance Show ProblemBody where
     show ContinueOutsideLoop = "ERROR ContinueOutsideLoop at (TODO:implement pos for break stmt): continue statemets are allowed only inside while-do and repeat-until loops"
     show (UnnecessaryCasting posStr from to) = "WARNING UnnecessaryCasting at " ++ posStr ++ ": removed unnecessary implicit type casting from " ++ from ++ " to " ++ to
     show (ImplicitCasting posStr from to) = "WARNING ImplicitCasting at " ++ posStr ++ ": type casting from " ++ from ++ " to " ++ to ++ " is done implicitly"
-    show (ForLoopInvalidCounterType) = "ERROR ForLoopInvalidCounterType at (TODO:implement pos for for loop):  " 
-    show (ForLoopInvalidCounterAssignment ) = "ERROR ForLoopInvalidCounterAssignment at (TODO:implement pos for for loop):  " 
-    show (ForLoopInvalidCounter ) = "ERROR ForLoopInvalidCounter at (TODO:implement pos for for loop):  "
+    show (ForLoopInvalidCounterType pos id actualTp) = "ERROR ForLoopInvalidCounterType at " ++ pos ++ ": counter " ++ id ++ " is of type " ++ actualTp ++ " but it should be of type integer"
+    show (ForLoopInvalidLimitType posEnds strExpr actualTp) = "ERROR ForLoopInvalidLimitType at  " ++ posEnds ++ ": expression " ++ strExpr ++ " is of type " ++ actualTp ++ " but it should be of type integer"
+    show (ForLoopInvalidCounterTypeAndLimit counterPos counterId counterTp exprPos expr exprType) = "ERROR ForLoopInvalidCounterTypeAndLimit: counter " ++ counterId ++ " at " ++ counterPos ++ " is of type " ++ counterTp ++ " and expression " ++ expr ++ " at " ++ exprPos ++ " is of type " ++ exprType ++ " but they should both be of type integer"
 
 
     
