@@ -1,0 +1,31 @@
+{Example used to test the parsing of the return statement}
+
+program Hello1;
+begin
+    {This function is ok}
+    function incr (num: integer) : integer;
+    begin return num+1; end;
+
+
+
+    function inc2 (num: integer) : integer;
+    begin return num+1; end;
+
+ 
+    function inc3 (num: integer) : boolean;
+    begin 
+        num:=10;
+        return true;
+    end;
+
+    {This is ok: return statement is not needed in the outer block if all paths contain it!}
+    function gratherThenOne (num: integer) : boolean;
+    begin 
+        begin
+            if num > 1 then
+            return true
+            else return false;
+        end;
+    end;
+    
+end.

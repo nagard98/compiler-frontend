@@ -16,4 +16,15 @@ begin
     begin 
         num:=10;
     end;
+
+    {This is ok: return statement is not needed in the outer block if all paths contain it!}
+    function greaterThanOne (num: integer) : boolean;
+    begin 
+        begin
+            if num > 1 then
+            return true
+            else return false;
+        end;
+    end;
+    
 end.
