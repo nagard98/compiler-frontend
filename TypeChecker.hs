@@ -276,6 +276,8 @@ parseIter :: Stmt env infType -> Env -> SSAState (Env, Stmt Env Type, Bool)
 parseIter (StmtIter (StmtWhileDo expr stmt)) env  = do
     (env1, parsedExpr, posEnds) <- parseExpression env expr
 
+    -- inset labels with "break" and "continue" keys in env before passing it to parseStamtemets
+    -- by doing so, we can check if break and continue statemts are used inside or outside loops
     (brLab, ctLab) <- newBreakContLabels
     env2 <- Env.insert "break" (InsideLoop brLab) env1
     env3 <- Env.insert "continue" (InsideLoop ctLab) env2
@@ -300,6 +302,8 @@ parseIter (StmtIter (StmtWhileDo expr stmt)) env  = do
 -- parsing of repeat-until statement
 parseIter (StmtIter (StmtRepeat stmt expr)) env  = do
 
+    -- inset labels with "break" and "continue" keys in env before passing it to parseStamtemets
+    -- by doing so, we can check if break and continue statemts are used inside or outside loops
     (brLab, ctLab) <- newBreakContLabels
     env1 <- Env.insert "break" (InsideLoop brLab) env
     env2 <- Env.insert "continue" (InsideLoop ctLab) env1
@@ -328,11 +332,12 @@ parseIter (StmtIter (StmtFor condVar initExpr forDirection limitExpr stmt)) env 
     limitExprType <- getTypeFromExpression parsedLimitExpr
 
     (env3, parsedStmt, isReturn) <- parseStatement stmt env2
-    let wrappedStmt = wrapInBeginEnd parsedStmt env3
 
+    let wrappedStmt = wrapInBeginEnd parsedStmt env3
+    
+    -- type checking of expressions 
     case parsedAssign of
         (StmtAssign parsedCondVar@(BaseExpr (Identifier ((TokIdent (tkPos,id)))) condVarType) parsedInitExpr) -> do
-
             if sup condVarType limitExprType == TypeBaseType BaseType_integer
                 then do
                     return (
