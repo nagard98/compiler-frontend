@@ -334,7 +334,7 @@ parseIter (StmtIter (StmtFor condVar initExpr forDirection limitExpr stmt)) env 
     let wrappedStmt = wrapInBeginEnd parsedStmt env3
 
     case parsedAssign of
-        (StmtAssign parsedCondVar@(BaseExpr (Identifier _) condVarType) parsedInitExpr) -> do
+        (StmtAssign parsedCondVar@(BaseExpr (Identifier ((TokIdent (tkPos,id)))) condVarType) parsedInitExpr) -> do
 
             if sup condVarType limitExprType == TypeBaseType BaseType_integer
                 then do
@@ -346,8 +346,7 @@ parseIter (StmtIter (StmtFor condVar initExpr forDirection limitExpr stmt)) env 
                     case (condVarType, limitExprType) of
                         (TypeBaseType BaseType_integer, _) -> do
                             state <- get
-                            --TODO: creare errore espressione assegnata al contatore non è intera
-                            put $ state {errors = ((Error, ForLoopInvalidCounterAssignment):(errors state))}
+                            put $ state {errors = ((Error, ForLoopInvalidLimitType (show posEnds) (showExpr parsedLimitExpr) (show limitExprType)):(errors state))}
                             return (
                                 env,
                                 StmtIter (StmtFor parsedCondVar parsedInitExpr forDirection parsedLimitExpr wrappedStmt),
@@ -355,16 +354,20 @@ parseIter (StmtIter (StmtFor condVar initExpr forDirection limitExpr stmt)) env 
 
                         (_, TypeBaseType BaseType_integer) -> do
                             state <- get
-                            --TODO: creare errore contatore for non è intero
-                            put $ state {errors = ((Error, ForLoopInvalidCounterType):(errors state))}
+                            put $ state {errors = ((Error, ForLoopInvalidCounterType (show tkPos) id (show condVarType)):(errors state))}
                             return (
                                 env,
                                 StmtIter (StmtFor parsedCondVar parsedInitExpr forDirection parsedLimitExpr wrappedStmt),
                                 isReturn)
                         (_, _) -> do
                             state <- get
-                            --TODO: creare errore ne contatore ne inizializzatore contatore sono interi
-                            put $ state {errors = ((Error, ForLoopInvalidCounter):(errors state))}
+                            put $ state {errors = ((Error, ForLoopInvalidCounterTypeAndLimit 
+                                                        (show tkPos) 
+                                                        id
+                                                        (show condVarType)
+                                                        (show posEnds)
+                                                        (showExpr parsedLimitExpr)
+                                                        (show limitExprType)):(errors state))}
                             return (
                                 env,
                                 StmtIter (StmtFor parsedCondVar parsedInitExpr forDirection parsedLimitExpr wrappedStmt),

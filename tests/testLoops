@@ -1,11 +1,23 @@
 program Loops;
 
-var result : integer;
+var result: real;
 
 begin
     var i : integer;
-    for i:= 0 to i<10 do
+    for i:= 0 to i<10 do {limit expression is not of type integer!}
     begin
         result := result+i;
+    end;
+
+    var j: real;
+    for j:= 0.5 to 10 do  {counter j is not of type integer!}
+    begin
+        result := result+j;
+    end;
+
+    var j: real;
+    for j:= 0.5 to 3<10 do  {both counter j and limit expression are not integer!}
+    begin
+        result := result+j;
     end;
 end.
