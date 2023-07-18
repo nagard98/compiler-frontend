@@ -11,7 +11,7 @@ import Data.Bits
 
 -------------------------Environment----------------------------------------------------------------
 
--- This is the global environment.
+-- This is a environment.
 -- first argument is the key type, second one the value type 
 type Env = Map.Map String EnvData
 
@@ -19,8 +19,7 @@ emptyEnv:: Env
 emptyEnv = Map.empty
 
 -- Needed for modelling how data of the map entries in Env should be
--- E.g. variable types: the key is the name of the variable, data created using VarType constructor
--- TODO: create new constructors as needed
+-- E.g. variable types: the key is the name of the variable, value is created using Variable constructor
 data EnvData =    Variable Modality Position Type Addr
                 | Function Position Prms Type Addr
                 | Procedure Position Prms Addr
@@ -28,10 +27,6 @@ data EnvData =    Variable Modality Position Type Addr
                 | Return Type String Position -- (expected return type from current function, function name, function position)
                 | InsideLoop TACLabel -- used to check if break/continue are inside a loop
 
--- data Parameter = Parameter TokIdent Modality Type deriving Show
-
--- TODO: aggiungere gli altri casi per gestire EnvData
--- TODO: aggiunti campo addr ad alcuni tipi di EnvData; stampare anche quelli
 -- make EnvData printable
 instance Show EnvData where
     show (Variable mod p (TypeBaseType t) adr) = "{variable, " ++ show p ++ ", " ++ show t ++ "}"
@@ -60,13 +55,10 @@ defaultEnv = foldl1 Map.union [ Map.singleton "writeInt" (Procedure (0,0) (Param
                                   ]
 
 
--- TODO : aggiungere generazione warning quando un identificatore nel env viene sovrascritto? Forse bisogna passare
--- anche errs come parametro?
+-- TODO : aggiungere generazione warning quando un identificatore nel env viene sovrascritto? 
 mergeEnvs :: Env -> Env -> SSAState Env
 mergeEnvs e1 e2 = return $ Map.union e1 e2
 
--- TODO : aggiungere generazione warning quando un identificatore nel env viene sovrascritto? Forse bisogna passare
--- anche errs come parametro?
 insert :: String -> EnvData -> Env -> SSAState Env
 insert id entry env = case Map.lookup id env of
     (Just _) -> do

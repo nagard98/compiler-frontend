@@ -948,7 +948,6 @@ parseArguments env (arg:args) res posEnds = do
 
 
 -- Last parameter is list of parsed expressions (call arguments) that have been type casted if needed
--- Parameters: env, errors, call, params, parsedargs --TODO: dire nel messaggio di errore di mismatch quanti parametri sono previsti?
 parseFunctionCall :: Env -> Call Type -> Prms -> Type -> [EXPR Type] -> PosEnds -> SSAState (Env, Call Type, Type)
 parseFunctionCall env (CallArgs tkId@(TokIdent (tokpos,tokid)) [] ) NoParams t pargs posEnds =
     return (env, (CallArgs tkId pargs ), t )
