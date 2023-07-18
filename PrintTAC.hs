@@ -98,7 +98,7 @@ instance Show TACOp where
     show TACDeref = "*"
     show TACRef = "&"
     show TACCastIntToReal = "(int_to_real)"
-    --show TACCastCharToString = "(string)"
+
     show _ =  " ![TODO OP]! "
 
 instance Show TACQuadSeq where

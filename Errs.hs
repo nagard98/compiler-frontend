@@ -32,6 +32,7 @@ data ProblemBody =
     NumOfArgsMismatch String String String | --posEnds fun/proc name
     TypeMismatchArgument String String String String String String | --posEnds argExpr argTp expectedTp paramId paramPos
     TypeMismatchBinaryExpr String String String String String | --posEnds first/second operatorStr actualTp expectedTp
+    TypeIncompatibleBinaryExpr String String String String String String | --posEnds operatorStr exp1 exp2 typeexp1 typeexp2
     TypeMismatchArrayIndex String String | -- posEnds exprTp
     TypeMismatchNotArray String String String |  -- posEnds expr exprTp
     UninitializedVariable String String | -- posEnds idVal
@@ -39,8 +40,7 @@ data ProblemBody =
     TypeMismatchReferenceArg String String String String String String | -- posEnds argExpr argTp expectedTp parid parPosEnds
     TypeMismatchPointer String String String  | -- posEnds expr actualTp
     InvalidLExpressionDereference String String | -- posEnds expr
-    TypeMismatchBooleanOperatorOne String String String String String | -- posEnds operatorStr leftOrRight exprStr exprType
-    TypeMismatchBooleanOperatorBoth  String String String String String String | -- posEnds operatorStr rightExpr rightTp leftExpr leftTp
+    TypeMismatchBooleanOperator String String String String String | -- posEnds operatorStr leftOrRight exprStr exprType
     TypeErrorConditionSelectionExpression String String String| --posEnds exprcond condtype
     TypeMismatchSelectionExpression String String String String String | --posEnds expr1 expr2 type1 type2
     BreakOutsideLoop | -- TODO: add pos info
@@ -52,9 +52,9 @@ instance Show ProblemBody where
     show ReturnInMain = "ERROR ReturnInMain: cannot have a return statement in the main begin-end block"
     show (MissingReturnInFunction pos name) = "ERROR MissingReturnInFunction at " ++ show pos ++ ": " ++ name ++ " does not have a return statement or not all the paths return a value" 
     show (UnexpectedReturnInProcedure pos name) = "ERROR UnexpectedReturn at " ++ show pos ++ ": " ++ name ++ " is a procedure so it cannot have a return statement. Transofrm it into a function or delete the return statement"
-    show (TypeMismatchIter posStr exprStr tpStr) = "ERROR TypeMismatchIter at " ++ posStr ++ ": condition " ++ exprStr ++ " must be of type boolean but it is of type " ++ tpStr
-    show (TypeMismatchSelection posStr exprStr tpStr) = "ERROR TypeMismatchSelection at " ++ posStr ++ ": condition " ++ exprStr ++ " must be of type boolean but it is of type " ++ tpStr
-    show (TypeMismatchReturn posStr funName tpExpected toActual) = "ERROR: TypeMismatchReturn at " ++ posStr ++ ": function " ++ funName ++ " must return a value of type " ++ tpExpected ++ " but it returns a value of type " ++ toActual
+    show (TypeMismatchIter posStr exprStr tpStr) = "ERROR TypeMismatchIter at " ++ posStr ++ ": condition " ++ exprStr ++ " must be of type Boolean but it is of type " ++ tpStr
+    show (TypeMismatchSelection posStr exprStr tpStr) = "ERROR TypeMismatchSelection at " ++ posStr ++ ": condition " ++ exprStr ++ " must be of type Boolean but it is of type " ++ tpStr
+    show (TypeMismatchReturn posStr funName tpExpected toActual) = "ERROR TypeMismatchReturn at " ++ posStr ++ ": function " ++ funName ++ " must return a value of type " ++ tpExpected ++ " but it returns a value of type " ++ toActual
     show (ExpectedTypeNotFound posStr) = "ERROR ExpectedTypeNotFound at " ++ posStr ++ ": can't find expected return type of current function in the environment while parsing the expression following the return"
     show (InvalidLValueAssignment posStr exprStr) = "ERROR InvalidLValueAssignment at " ++ posStr ++ ": expression " ++ exprStr ++ " is not a valid l-value for the assignment"
     show (TypeMismatchArrayAssignment posStr exprStr tpExpected tpAssigned) = "ERROR TypeMismatchArrayAssignment at " ++ posStr ++ ": l-expression " ++ exprStr ++ " is of type " ++ tpAssigned ++ " but it is assigned a value of type " ++ tpExpected
@@ -72,6 +72,7 @@ instance Show ProblemBody where
     show (NumOfArgsMismatch posStr funOrProc name) = "ERROR NumOfArgsMismatch at " ++ posStr ++ ": " ++ funOrProc ++ " " ++ name ++ " is called with a wrong number of arguments"
     show (TypeMismatchArgument posStr argExpr argTp expectedTp paramId paramPos) = "ERROR TypeMismatchArgument at " ++ posStr ++ ": argument " ++ argExpr ++ " is of type " ++ argTp ++ " but it is passed to parameter " ++ paramId ++ " of type " ++ expectedTp ++ " at " ++ paramPos
     show (TypeMismatchBinaryExpr posStr firstOrSecond operatorStr actualTp expectedTp) = "ERROR TypeMismatchBinaryExpr at " ++ posStr ++ ": " ++ firstOrSecond ++ " operand of operator " ++ operatorStr ++ " is of type " ++ actualTp ++ " but it should be of type " ++ expectedTp
+    show (TypeIncompatibleBinaryExpr posStr operatorStr exp1 exp2 type1 type2) = "ERROR TypeIncompatibleBinaryExpr at " ++ posStr ++ ": operands " ++ exp1++ " and "++  exp2 ++" of operator " ++ operatorStr ++ " are not compatible, as they are respectively of types " ++ type1 ++ " and " ++ type2
     show (TypeMismatchArrayIndex posStr exprTp) = "ERROR TypeMismatchArrayIndex at " ++ posStr ++ ": array index must be of numeric type but it is of type " ++ exprTp
     show (TypeMismatchNotArray posStr expr exprTp) = "ERROR TypeMismatchNotArray at " ++ posStr ++ ": expression " ++ expr ++ " is treated as an array but it is of type " ++ exprTp
     show (UninitializedVariable posStr idVal) = "ERROR UninitializedVariable at " ++ posStr ++ ": variable " ++ idVal ++ " has never been initialized"
@@ -79,8 +80,7 @@ instance Show ProblemBody where
     show (TypeMismatchReferenceArg  posEnds argExpr argTp expectedTp parid parPosEnds) = "ERROR TypeMismatchReferenceArg at " ++ posEnds ++ ": the argument " ++ argExpr ++ " is of type " ++ argTp ++ " but it should be of type " ++ expectedTp ++ " as specified by parameter " ++ parid ++ " passed by reference at " ++ parPosEnds
     show (TypeMismatchPointer posEnds expr actualTp) = "ERROR TypeMismatchPointer at " ++ posEnds ++ ": expression " ++ expr ++ " should be of type pointer but it is of type " ++ actualTp
     show (InvalidLExpressionDereference posEnds expr) = "ERROR InvalidLExpressionDereference at " ++ posEnds ++ ": expression " ++ expr ++ " is not a valid l-expression for the dereference '^' operator"
-    show (TypeMismatchBooleanOperatorOne posEnds operatorStr leftOrRight exprStr exprType) = "ERROR TypeMismatchBooleanOperatorOne at " ++ posEnds ++ ": cannot apply boolean operator " ++ operatorStr ++ " because " ++ leftOrRight ++ " expression " ++ exprStr ++ " is of type " ++ exprType ++ "instead of boolean"
-    show (TypeMismatchBooleanOperatorBoth posEnds operatorStr rightExpr rightTp leftExpr leftTp) = "ERROR TypeMismatchBooleanOperatorBoth at " ++ posEnds ++ ": cannot apply boolean operator " ++ operatorStr ++ " because right expression " ++ rightExpr ++ " is of type " ++ rightTp ++ " and left expression " ++ leftExpr ++ " is of type " ++ leftTp ++ " , but both should be boolean"
+    show (TypeMismatchBooleanOperator posEnds operatorStr leftOrRight exprStr exprType) = "ERROR TypeMismatchBooleanOperator at " ++ posEnds ++ ": cannot apply boolean operator " ++ operatorStr ++ " because " ++ leftOrRight ++ " expression " ++ exprStr ++ " is of type " ++ exprType ++ " instead of Boolean"
     show (TypeErrorConditionSelectionExpression posEnds exprcond condtype) = "ERROR TypeErrorConditionSelectionExpression at "++ posEnds ++": condition "++exprcond++" of expression selection is of type "++ condtype ++ " but it should be Boolean"
     show (TypeMismatchSelectionExpression posEnds expr1 expr2 type1 type2) = "ERROR TypeMismatchSelectionExpression at "++posEnds++": the types of the two branches of expression selection are not matching, as the expressions "++ expr1 ++ " and " ++ expr2 ++ " are respectively of types " ++ type1 ++ " and " ++ type2
     show BreakOutsideLoop = "ERROR BreakOutsideLoop at (TODO:implement pos for break stmt): break statemets are allowed only inside while-do and repeat-until loops"

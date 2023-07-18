@@ -3,7 +3,7 @@ program TACTest;
 {var b : ^integer;
 {TODO: mi dice che a non è mai stato inizializzato
 {var a:array[1..2] of integer;
-var c:real;
+{var c:real;
 var a:integer;
 
 {procedure p (var ptr :^integer);
@@ -11,7 +11,21 @@ var a:integer;
 
 begin
     
-    a:=5;
-    if a < 10 or a>20 and a<>89 then a:=5 else a:=9;
-    for a:=4 downto 2 do c:=9.9;
+    a := 0;
+    while a < 100 do
+    begin
+        a := a + 1;
+        if a > 10 then
+            begin
+                break;
+                a:=808;
+            end
+        else continue;
+        a := a-1;
+    end;
+    a:=9;
+
+    {a:=5;
+    {if a < 10 or a>20 and a<>89 then a:=5 else a:=9;
+    {for a:=4 downto 2 do c:=9.9;
 end.
