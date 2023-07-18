@@ -1136,7 +1136,7 @@ parseBinaryArithmeticExpression env op exp1 exp2 = do
                                     "first"
                                     (getStringFromOperator op) 
                                     (show exprTp) 
-                                    "numeric (integer or real)"):(errors state))}
+                                    "numeric (Integer or Real)"):(errors state))}
             return (
                 env3,  
                 (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
@@ -1152,7 +1152,7 @@ parseBinaryArithmeticExpression env op exp1 exp2 = do
                                     "second"
                                     (getStringFromOperator op)
                                     (show exprTp) 
-                                    "numeric (integer or real)"):(errors state))}
+                                    "numeric (Integer or Real)"):(errors state))}
                 return (
                     env3, 
                     (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
@@ -1198,53 +1198,158 @@ parseBinaryRelationExpression env op exp1 exp2 = do
     typeExpr1 <- getTypeFromExpression parsedexp1
     typeExpr2 <- getTypeFromExpression parsedexp2
     
-    -- 3 cases: 1) first element not numeric, 2) second argument not numeric, 3) no errors
-    if typeExpr1 /= TypeBaseType BaseType_integer && typeExpr1 /= TypeBaseType BaseType_real && typeExpr1 /= TypeBaseType BaseType_error 
-        then do
+    -- Eq and NotEq are compatible with any atomic base type (Integer, Real, Boolean, Char), the other operators are only compatible with numeric types (Integer, Real)
+    -- 3 cases: 1) first element not valid, 2) second argument not valid, 3) no errors
+    if op == Eq || op ==  NotEq
+    then case (isAtomicType typeExpr1, isAtomicType typeExpr2) of -- can only accept atomic types, otherwise error message is generated
+        (False, False) -> do
             state <- get
-            exprTp <- getTypeFromExpression parsedexp1
             put $ state { errors = ((Error, TypeMismatchBinaryExpr 
                                     (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                                     "first"
                                     (getStringFromOperator op)
-                                    (show exprTp) 
-                                    "numeric (integer or real)"):(errors state))}
-            return (
-                env3,  
-                (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
-                PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}
-                )
-
-        else if typeExpr2 /= TypeBaseType BaseType_integer && typeExpr2 /= TypeBaseType BaseType_real && typeExpr2 /= TypeBaseType BaseType_error 
-            then do
-                state <- get
-                exprTp <- getTypeFromExpression parsedexp2
-                put $ state { errors = ((Error, TypeMismatchBinaryExpr 
+                                    (show typeExpr1) 
+                                    "atomic (Integer, Real, Boolean or Char)"):(errors state))}
+            put $ state { errors = ((Error, TypeMismatchBinaryExpr 
                                     (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                                     "second"
                                     (getStringFromOperator op)
-                                    (show exprTp) 
-                                    "numeric (integer or real)"):(errors state))}
-                return (
-                    env3,
+                                    (show typeExpr2) 
+                                    "atomic (Integer, Real, Boolean or Char)"):(errors state))}
+            return (
+                    env3,  
                     (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
-                    PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}
-                    )
-            
-             -- result is of boolean type unless one of the expressions contains an error
-            else if typeExpr1 == TypeBaseType BaseType_error || typeExpr2 == TypeBaseType BaseType_error
-                then return (
+                    PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR} ) 
+
+        (False, True) -> do
+            state <- get
+            put $ state { errors = ((Error, TypeMismatchBinaryExpr 
+                                    (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
+                                    "first"
+                                    (getStringFromOperator op)
+                                    (show typeExpr1) 
+                                    "atomic (Integer, Real, Boolean or Char)"):(errors state))}
+            return (
+                    env3,  
+                    (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
+                    PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR} ) 
+
+        (True, False) -> do
+            state <- get
+            put $ state { errors = ((Error, TypeMismatchBinaryExpr 
+                                    (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
+                                    "second"
+                                    (getStringFromOperator op)
+                                    (show typeExpr2) 
+                                    "atomic (Integer, Real, Boolean or Char)"):(errors state))}
+            return (
+                    env3,  
+                    (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
+                    PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR} ) 
+                    
+        (True, True) -> 
+            if (sup typeExpr1 typeExpr2) == TypeBaseType BaseType_error && typeExpr1 /= TypeBaseType BaseType_error && typeExpr2 /= TypeBaseType BaseType_error then do
+                state <- get
+                put $ state { errors = ((Error, TypeIncompatibleBinaryExpr 
+                                        (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
+                                        (getStringFromOperator op)
+                                        (showExpr parsedexp1)
+                                        (showExpr parsedexp2)
+                                        (show typeExpr1)
+                                        (show typeExpr2)):(errors state))}
+                return (
                         env3,  
                         (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
-                        PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}
-                        ) 
-                else return (
+                        PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR} ) 
+                else if typeExpr1 == TypeBaseType BaseType_error || typeExpr2 == TypeBaseType BaseType_error
+                    then
+                        return (
+                                env3,  
+                                (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
+                                PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR} ) 
+                    else
+                        return (
+                                env3,  
+                                (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_boolean) ),
+                                PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR} ) 
+
+    -- other binary relations that are not Eq and NotEq
+    else 
+        case (isNumericType typeExpr1, isNumericType typeExpr2) of -- can only accept numeric types, otherwise error message is generated
+            -- consider every possible case to generate the correct number of error messages
+            (False, False) -> do
+                state <- get
+                put $ state { errors = ((Error, TypeMismatchBinaryExpr 
+                                        (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
+                                        "first"
+                                        (getStringFromOperator op)
+                                        (show typeExpr1) 
+                                        "numeric (Integer or Real)"):(errors state))}
+                put $ state { errors = ((Error, TypeMismatchBinaryExpr 
+                                        (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
+                                        "second"
+                                        (getStringFromOperator op)
+                                        (show typeExpr2) 
+                                        "numeric (Integer or Real)"):(errors state))}   
+                return (
                         env3,  
-                        (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_boolean) ),
-                        PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}
-                        )
-                
+                        (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
+                        PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR} )     
+       
+            (False, True) -> do
+                state <- get
+                put $ state { errors = ((Error, TypeMismatchBinaryExpr 
+                                        (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
+                                        "first"
+                                        (getStringFromOperator op)
+                                        (show typeExpr1) 
+                                        "numeric (Integer or Real)"):(errors state))} 
+                return (
+                        env3,  
+                        (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
+                        PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR} )
+
+            (True, False) -> do
+                state <- get
+                put $ state { errors = ((Error, TypeMismatchBinaryExpr 
+                                        (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
+                                        "second"
+                                        (getStringFromOperator op)
+                                        (show typeExpr2) 
+                                        "numeric (Integer or Real)"):(errors state))}   
+                return (
+                        env3,  
+                        (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
+                        PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR} )
+
+            (True, True) -> -- no new errors
+                if typeExpr1 == TypeBaseType BaseType_error || typeExpr2 == TypeBaseType BaseType_error
+                    then
+                        return (
+                                env3,  
+                                (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_error) ),
+                                PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR} ) 
+                    else
+                        return (
+                                env3,  
+                                (BinaryExpression op parsedexp1 parsedexp2 (TypeBaseType BaseType_boolean) ),
+                                PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR} ) 
+
     where
+        -- errors have to be considered valid types in order to avoid generating induced error messages
+        isAtomicType :: Type -> Bool
+        isAtomicType (TypeBaseType BaseType_integer) = True
+        isAtomicType (TypeBaseType BaseType_real) = True
+        isAtomicType (TypeBaseType BaseType_boolean) = True
+        isAtomicType (TypeBaseType BaseType_char) = True
+        isAtomicType (TypeBaseType BaseType_error) = True
+        isAtomicType _ = False
+
+        isNumericType :: Type -> Bool
+        isNumericType (TypeBaseType BaseType_integer) = True
+        isNumericType (TypeBaseType BaseType_real) = True
+        isNumericType (TypeBaseType BaseType_error) = True
+        isNumericType _ = False
 
         -- string form of operator for printing error messages 
         getStringFromOperator :: BinaryOperator -> [Char]

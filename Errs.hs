@@ -32,6 +32,7 @@ data ProblemBody =
     NumOfArgsMismatch String String String | --posEnds fun/proc name
     TypeMismatchArgument String String String String String String | --posEnds argExpr argTp expectedTp paramId paramPos
     TypeMismatchBinaryExpr String String String String String | --posEnds first/second operatorStr actualTp expectedTp
+    TypeIncompatibleBinaryExpr String String String String String String | --posEnds operatorStr exp1 exp2 typeexp1 typeexp2
     TypeMismatchArrayIndex String String | -- posEnds exprTp
     TypeMismatchNotArray String String String |  -- posEnds expr exprTp
     UninitializedVariable String String | -- posEnds idVal
@@ -54,7 +55,7 @@ instance Show ProblemBody where
     show (UnexpectedReturnInProcedure pos name) = "ERROR UnexpectedReturn at " ++ show pos ++ ": " ++ name ++ " is a procedure so it cannot have a return statement. Transofrm it into a function or delete the return statement"
     show (TypeMismatchIter posStr exprStr tpStr) = "ERROR TypeMismatchIter at " ++ posStr ++ ": condition " ++ exprStr ++ " must be of type boolean but it is of type " ++ tpStr
     show (TypeMismatchSelection posStr exprStr tpStr) = "ERROR TypeMismatchSelection at " ++ posStr ++ ": condition " ++ exprStr ++ " must be of type boolean but it is of type " ++ tpStr
-    show (TypeMismatchReturn posStr funName tpExpected toActual) = "ERROR: TypeMismatchReturn at " ++ posStr ++ ": function " ++ funName ++ " must return a value of type " ++ tpExpected ++ " but it returns a value of type " ++ toActual
+    show (TypeMismatchReturn posStr funName tpExpected toActual) = "ERROR TypeMismatchReturn at " ++ posStr ++ ": function " ++ funName ++ " must return a value of type " ++ tpExpected ++ " but it returns a value of type " ++ toActual
     show (ExpectedTypeNotFound posStr) = "ERROR ExpectedTypeNotFound at " ++ posStr ++ ": can't find expected return type of current function in the environment while parsing the expression following the return"
     show (InvalidLValueAssignment posStr exprStr) = "ERROR InvalidLValueAssignment at " ++ posStr ++ ": expression " ++ exprStr ++ " is not a valid l-value for the assignment"
     show (TypeMismatchArrayAssignment posStr exprStr tpExpected tpAssigned) = "ERROR TypeMismatchArrayAssignment at " ++ posStr ++ ": l-expression " ++ exprStr ++ " is of type " ++ tpAssigned ++ " but it is assigned a value of type " ++ tpExpected
@@ -72,6 +73,7 @@ instance Show ProblemBody where
     show (NumOfArgsMismatch posStr funOrProc name) = "ERROR NumOfArgsMismatch at " ++ posStr ++ ": " ++ funOrProc ++ " " ++ name ++ " is called with a wrong number of arguments"
     show (TypeMismatchArgument posStr argExpr argTp expectedTp paramId paramPos) = "ERROR TypeMismatchArgument at " ++ posStr ++ ": argument " ++ argExpr ++ " is of type " ++ argTp ++ " but it is passed to parameter " ++ paramId ++ " of type " ++ expectedTp ++ " at " ++ paramPos
     show (TypeMismatchBinaryExpr posStr firstOrSecond operatorStr actualTp expectedTp) = "ERROR TypeMismatchBinaryExpr at " ++ posStr ++ ": " ++ firstOrSecond ++ " operand of operator " ++ operatorStr ++ " is of type " ++ actualTp ++ " but it should be of type " ++ expectedTp
+    show (TypeIncompatibleBinaryExpr posStr operatorStr exp1 exp2 type1 type2) = "ERROR TypeIncompatibleBinaryExpr at " ++ posStr ++ ": operands " ++ exp1++ " and "++  exp2 ++" of operator " ++ operatorStr ++ " are not compatible, as they are respectively of types " ++ type1 ++ " and " ++ type2
     show (TypeMismatchArrayIndex posStr exprTp) = "ERROR TypeMismatchArrayIndex at " ++ posStr ++ ": array index must be of numeric type but it is of type " ++ exprTp
     show (TypeMismatchNotArray posStr expr exprTp) = "ERROR TypeMismatchNotArray at " ++ posStr ++ ": expression " ++ expr ++ " is treated as an array but it is of type " ++ exprTp
     show (UninitializedVariable posStr idVal) = "ERROR UninitializedVariable at " ++ posStr ++ ": variable " ++ idVal ++ " has never been initialized"

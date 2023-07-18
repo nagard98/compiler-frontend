@@ -26,7 +26,7 @@ begin
 
   {Test call by reference
   {c := incr(i);
-  i := true ? 1 : true;  
+  i := 'b'-1=1+true ? 1 : 2;  
     
 {*
   {Test loop
