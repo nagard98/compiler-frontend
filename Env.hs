@@ -6,6 +6,7 @@ import AbsGrammar
 import HelperTAC
 import Control.Monad.State.Strict
 import Errs
+import Data.Bits
 
 
 -------------------------Environment----------------------------------------------------------------
@@ -133,6 +134,23 @@ data SSAStateStruct = SSAStateStruct {
     unInitVars :: Stack Env
 }
 
+data BitVector
+    = BitVector {
+      size :: !Int,
+      value  :: !Integer  
+    } deriving (Show)
+
+zeros :: Int -> BitVector
+zeros n = BitVector n 0
+
+isAllOnes :: BitVector -> Bool
+isAllOnes bitVector = value bitVector ==  (2 ^ fromIntegral (size bitVector)) - 1
+
+setVectorBit :: BitVector -> Int -> BitVector
+setVectorBit bitVector bitIndex = if bitIndex < size bitVector 
+    then bitVector { value = setBit (value bitVector) bitIndex} 
+    else error "Setting bit in vector with out of bounds index"
+
 -- Returns annotated type for expressions
 getTypeFromExpression :: EXPR Type -> SSAState Type
 getTypeFromExpression (UnaryExpression op exp t) = return t
@@ -146,7 +164,7 @@ getTypeFromExpression (IntToReal _) = return $ TypeBaseType BaseType_real
 getTypeFromBaseExpression:: BEXPR Type -> Env -> SSAState Type
 getTypeFromBaseExpression (Identifier (TokIdent (tokpos, tokid)) ) env = 
     case Env.lookup tokid env of
-        Just (Variable _ _ envType _) -> return envType
+        Just (Variable _ _ envType _ ) -> return envType
         Just (Constant _ envType _) -> return envType
         Just _ -> return $ TypeBaseType BaseType_error
         Nothing -> return $ TypeBaseType BaseType_error
@@ -191,7 +209,7 @@ insertVar id entry = do
     newLocUninit <- Env.insert id entry locUninit
     newStack <- push newLocUninit poppedStack
     put (state {unInitVars = newStack})
-    return ()
+
 
 removeVar :: String -> SSAState ()
 removeVar id = do
@@ -225,7 +243,7 @@ popUninit = do
     where
         makeUninitErrs :: [(String, EnvData)] -> SSAState ()
         makeUninitErrs [] = return ()
-        makeUninitErrs ((id,(Variable _ pos@(x,y) _ _)):rest) = do
+        makeUninitErrs ((id, Variable _ pos@(x,y) _ _ ):rest) = do
             state <- get
             put $ state { errors = (Error, UninitializedVariable (show posEnds) id):errors state}
             makeUninitErrs rest
@@ -240,5 +258,14 @@ isInRange lit@(LiteralInteger _) (Array l_tok r_tok _) =
         indx = read (getLitValue lit) :: Int
         l_end = read (getTokValue (TokI l_tok)) :: Int
         r_end = read (getTokValue (TokI r_tok)) :: Int
+
+
+lengthForBitVector :: AbsGrammar.Type -> Int
+lengthForBitVector (AbsGrammar.TypeCompType cType) = case cType of
+    AbsGrammar.Array (TokInteger (_, start)) (TokInteger (_, end)) tp -> (((read end :: Int) - (read start :: Int)) + 1) + lengthForBitVector tp 
+    AbsGrammar.Pointer _-> 0
+
+lengthForBitVector _ = 0;
+
 
 ------------------------------------------------------------------------------------------

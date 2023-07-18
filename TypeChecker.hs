@@ -172,13 +172,22 @@ parseIds ( idElem@(IdElement (TokIdent (pos, id))):ids) mod typ env isVar = do
 
     if isVar
         then do
-            insertVar id (Variable mod pos typ idAddr)
-            (newEnv, newIds) <- parseIds ids mod typ tmpEnv isVar
-            return (newEnv, idElem:newIds)
+            case typ of
+                --TODO: gestire inizializzazione array
+                (TypeCompType (Array {}) ) -> do
+                    (newEnv, newIds) <- parseIds ids mod typ tmpEnv isVar
+                    return (newEnv, idElem:newIds)
+                _ -> do
+                    insertVar id (Variable mod pos typ idAddr)
+                    (newEnv, newIds) <- parseIds ids mod typ tmpEnv isVar
+                    return (newEnv, idElem:newIds)  
+            
         else do
             (newEnv, newIds) <- parseIds ids mod typ tmpEnv isVar
             return (newEnv, idElem:newIds) 
 
+    where
+        bitVector = zeros (lengthForBitVector typ)
 
 -- parse the begin-end block and check the statements for type errors
 parseBEBlock:: Env -> BEBlock env infType -> SSAState (Env, BEBlock Env Type, Bool)
@@ -468,6 +477,7 @@ parseAssignment expr1 expr2 env = case (expr1, expr2) of
                 (env3, parsedexpr, posEnds2) <- parseExpression env2 expr
                 parseIdExprAssignment tId parsedexpr env3 posEnds --TODO: ricavare il range corretto, anche nei casi successivi
             
+            ---TODO: credo ci sia confusione fra dereference e puntatore
             -- Puntatore è un l-value valido
             ( (UnaryExpression Dereference expr1 t), expr2 ) -> do
                 (env2, parsedexpr1, posEnds1) <- parseExpression env (UnaryExpression Dereference expr1 t)
@@ -483,7 +493,6 @@ parseAssignment expr1 expr2 env = case (expr1, expr2) of
             -- Array elements are valid l-values
             ( arr@(BaseExpr (ArrayElem idexpr iexpr) t), expr ) -> do
                 (env2, parsedexpr, posEnds1) <- parseExpression env expr
-                --(env3, err3, parsediexpr) <- parseExpression env2 err2 iexpr
                 (env3, parsedarrexpr, posEnds2) <- parseExpression env2 arr
                 
                 parseArrayAssignment parsedarrexpr parsedexpr env3 posEnds1
