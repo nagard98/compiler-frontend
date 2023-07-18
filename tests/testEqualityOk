@@ -1,0 +1,22 @@
+{only atomic types (boolean, char, integer, real) can be compared using the "=" operator}
+
+program Equality;
+var a, a1 : integer;
+var result : boolean;
+var b: ^real;
+var c: real;
+
+begin
+    a := 1;
+    a1 := 1;
+    result := a = a1; {this comparison is ok}
+
+    c := 3.2;
+    result := a = c; {this comparison is ok as well}
+
+    b := @c;
+    {result := a = b; {this will produce an error!}}
+
+
+
+end.

@@ -4,7 +4,7 @@ compile:
 	ghc TestGrammar.hs
 	@# TODO: compile main file here when we will have one
 
-# TODO: rename this to demo before submission
+
 test:
 	ghc TestGrammar.hs
 	@echo "******** TESTING GRAMMAR ON FILE testfile1"
@@ -18,12 +18,21 @@ test:
 	@echo "\n\n******** TESTING GRAMMAR ON FILE testfile5"
 	./TestGrammar < testfile5
 
-# make test on a single file with command:
-# make testSinge file=filename
+
+TESTSDIR = ./tests
+
+demo:
+ifeq ($(strip $(file)),)
+	$(foreach testFile, $(wildcard $(TESTSDIR)/*), make testSingle file=$(notdir $(testFile));)
+else
+	make testSingle $(file)
+endif
+
 testSingle:
 	ghc TestGrammar.hs
-	@echo "******** TESTING GRAMMAR ON FILE" $(file)
-	./TestGrammar < $(file)
+	@echo "\n\n********************** TESTING FILE" $(file) "**********************"
+	@echo "******************************************************************"
+	./TestGrammar < $(TESTSDIR)/$(file)
 
 clean:
 	rm -f info
