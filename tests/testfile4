@@ -35,7 +35,7 @@ begin
 *}    
     
     
-{* 
+{{* *}
     {Test pointers as l-values}
     var a: integer;
     var b: integer;
