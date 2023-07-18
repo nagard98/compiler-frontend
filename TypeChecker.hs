@@ -787,7 +787,7 @@ parseExpression env (UnaryExpression Reference exp t) = do
                 isPointerType _ = False
 
 
--- Literals (base case of recursions)
+-- Literals (base case of recursions on parseExpression)
 parseExpression env (ExprLiteral literal) = do
     return (env, (ExprLiteral literal), posEnds )
     where
@@ -824,6 +824,7 @@ parseExpression env (IntToReal expr) = do
             put $ state { errors = ((Warning, ImplicitCasting (show posEnds) "Integer" "Real"):(errors state))}
             return ( env2, (IntToReal parsedexpr), posEnds )
 
+-- Conditional expression
 parseExpression env (SelExpr cond expr1 expr2 t) = do
     (env2, parsedcond, posEndsC) <- parseExpression env cond
     (env3, parsedexpr1, posEnds1) <- parseExpression env2 expr1
@@ -852,21 +853,22 @@ parseExpression env (SelExpr cond expr1 expr2 t) = do
         getNewPosEnds PosEnds{leftmost=l1,rightmost=r1} PosEnds{leftmost=l2,rightmost=r2} = PosEnds{leftmost=l1,rightmost=r2}
 
 
--- parseExpression env errs expr = return (env, errs, (ExprLiteral (LiteralInteger (TokInteger ((0,0), "10")))) ) -- temporaneamente ogni espressione non specificata diventa il numero 10 (ora ridondante)
-
+-- Parse Function/Procedure call as a statement and return annotated tree
 parseStatementCall :: Env -> Call infType -> SSAState (Env, Stmt Env Type)
 parseStatementCall env (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) = do
     (env2, parsedcall, t, posEnds) <- parseCall env (CallArgs tkId args )
     return (env2, (StmtCall parsedcall) )
 
+-- Parse Function/Procedure call as an expression and return annotated tree
 parseExpressionCall :: Env -> Call infType -> SSAState (Env, EXPR Type, PosEnds)
 parseExpressionCall env (CallArgs tkId@(TokIdent (tokpos,tokid)) args ) = do
     (env2, parsedcall, t, posEnds) <- parseCall env (CallArgs tkId args )
     return (env2, (ExprCall parsedcall t), posEnds )
 
+-- Parse generic call and return annotated tree
 parseCall :: Env -> Call infType -> SSAState (Env, Call Type, Type, PosEnds)
 parseCall env call@(CallArgs tkId@(TokIdent (tokpos@(x,y),tokid)) args ) = do
-    --posEnds contiene la posizione dell'argomento più a destra
+    --posEnds contains position of rightmost argument
     (env2, parsedargs, posEndsArgs) <- parseArguments env args [] posEndsToken
 
     case Env.lookup tokid env of
@@ -1024,7 +1026,7 @@ compareArguments env p (expr:args) (Param m ((IdElement (TokIdent (parpos@(x,y),
     | otherwise = do
         argExprType <- getTypeFromExpression expr
 
-        -- confronto tra parametri, diversi casi: 1) int to real, 2) incompatibile
+        -- compare the parameters, possible cases: 1) type casting int to real, 2) incompatibile types
         if argExprType == t
             then
                 compareArguments env p args (Param m toks t) (pargs++[expr])
@@ -1051,7 +1053,7 @@ compareArguments env p (expr:args) (Param m ((IdElement (TokIdent (parpos@(x,y),
     where
         parPosEnds = PosEnds{ leftmost = parpos, rightmost = (x, y + length parid)}
 
-
+-- Given an expression, checks whether it is a valid l-expression
 validLExpr :: EXPR Type -> Bool
 validLExpr (BaseExpr (Identifier _) _) = True
 validLExpr (UnaryExpression Dereference _ _) = True
@@ -1493,7 +1495,7 @@ parseBaseExpression env (ArrayElem bexpr iexpr) = do
                 env3,
                 (ArrayElem parsedbexpr parsediexpr),
                 TypeBaseType BaseType_error,
-                PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}
+                ( newPosEnds PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                 )
 
         (TypeBaseType BaseType_error, _) ->
@@ -1501,44 +1503,49 @@ parseBaseExpression env (ArrayElem bexpr iexpr) = do
                 env3,
                 (ArrayElem parsedbexpr parsediexpr),
                 TypeBaseType BaseType_error,
-                PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}
+                ( newPosEnds PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                 )
 
         (TypeCompType (Array i1 i2 basetype), TypeBaseType BaseType_integer) ->
-            return (env3, (ArrayElem parsedbexpr parsediexpr), basetype, PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
+            return (env3, (ArrayElem parsedbexpr parsediexpr), basetype, ( newPosEnds PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}))
 
         (TypeCompType (Array i1 i2 basetype), _) -> do
             state <- get
             exprTp <- getTypeFromExpression parsediexpr
-            put $ state { errors = ((Error, TypeMismatchArrayIndex (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}) (show exprTp)):(errors state))}
+            put $ state { errors = ((Error, TypeMismatchArrayIndex (show ( newPosEnds PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})) (show exprTp)):(errors state))}
             return (
                 env3,
                 (ArrayElem parsedbexpr parsediexpr),
                 TypeBaseType BaseType_error,
-                PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}
+                ( newPosEnds PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                 )
 
         (_, TypeBaseType BaseType_integer) -> do
             state <- get
             exprTp <- getTypeFromExpression parsedbexpr
-            put $ state { errors = ((Error, TypeMismatchNotArray (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}) (showExpr parsedbexpr) (show exprTp)):(errors state))}
+            put $ state { errors = ((Error, TypeMismatchNotArray (show (newPosEnds PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})) (showExpr parsedbexpr) (show exprTp)):(errors state))}
             return (
                 env3,
                 (ArrayElem parsedbexpr parsediexpr),
                 TypeBaseType BaseType_error,
-                PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}
+                ( newPosEnds PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                 )
+
 
         _ -> do
             state <- get
             exprTp1 <- getTypeFromExpression parsedbexpr
             exprTp2 <- getTypeFromExpression parsediexpr
             put $ state { errors =
-                ((Error, TypeMismatchNotArray (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}) (showExpr parsedbexpr) (show exprTp1))
-                :((Error, TypeMismatchArrayIndex (show PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}) (show exprTp2)):(errors state)))}
+                ((Error, TypeMismatchNotArray (show ( newPosEnds PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})) (showExpr parsedbexpr) (show exprTp1))
+                :((Error, TypeMismatchArrayIndex (show ( newPosEnds PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})) (show exprTp2)):(errors state)))}
             return (
                 env3,
                 (ArrayElem parsedbexpr parsediexpr),
                 TypeBaseType BaseType_error,
-                PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR}
+                ( newPosEnds PosEnds { leftmost = leftmost posEndsL, rightmost = rightmost posEndsR})
                 )
+    where
+        -- expand posEnds of 1 to the right to account for closed bracket ] of array assignment 
+        newPosEnds :: PosEnds -> PosEnds
+        newPosEnds PosEnds{leftmost=(lr,lc),rightmost=(rr,rc)} = PosEnds{leftmost=(lr,lc),rightmost=(rr,rc+1)}
