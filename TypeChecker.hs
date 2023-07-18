@@ -521,6 +521,13 @@ parseAssignment expr1 expr2 env = case (expr1, expr2) of
                 return (env3, (StmtAssign parsedexpr1 parsedexpr2) )
 
 
+getIdExpr :: EXPR Type -> String
+getIdExpr (BaseExpr (Identifier (TokIdent (_,id))) _) = id
+getIdExpr (BaseExpr (ArrayElem idexpr iexpr) _) = getIdExpr idexpr
+getIdExpr (UnaryExpression Dereference expr _) = getIdExpr expr
+getIdExpr _ = error "Internal Error: Couldn't find id in expression" 
+
+
 -- Checks if r-expression matches typing with an l-expression that is an element of an array
 parseArrayAssignment:: EXPR Type -> EXPR Type -> Env -> PosEnds -> SSAState (Env, Stmt Env Type)
 parseArrayAssignment bExpr@(BaseExpr (ArrayElem bbexpr iiexpr) t) expr env posEnds = do
@@ -641,12 +648,15 @@ parseExprExprAssignment expr1 expr2 env posEnds = do
 
     -- if the types are the same, return annotated tree
     if typeExpr1 == typeExpr2
-        then return (env, (StmtAssign expr1 expr2) )
+        then do
+            removeVar (getIdExpr expr1)
+            return (env, (StmtAssign expr1 expr2) )
 
         else case (typeExpr1, typeExpr2) of
 
             -- type casting int to real
-            (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) ->
+            (TypeBaseType BaseType_real, TypeBaseType BaseType_integer) -> do
+                removeVar (getIdExpr expr1)
                 return (env, (StmtAssign expr1 (IntToReal expr2)))
 
             -- cases in which an error was previously generated: no new error messages, pass the error forwards

@@ -32,9 +32,9 @@ data EnvData =    Variable Modality Position Type Addr
 
 -- make EnvData printable
 instance Show EnvData where
-    show (Variable mod p (TypeBaseType t) adr) = "{variable, " ++ show p ++ ", " ++ show t ++ "}"
-    show (Variable mod p (TypeCompType (Pointer t)) adr) = "{variable, " ++ show p ++ ", pointer to " ++ show t ++ "}"
-    show (Variable mod p (TypeCompType (Array (TokInteger (_,i1)) (TokInteger (_,i2)) t)) adr) = "{variable, " ++ show p ++ ", Array ["++ i1++".."++ i2++ "] of " ++ show t ++ "}"
+    show (Variable mod p (TypeBaseType t) adr) = "{variable, " ++show mod ++" "++ show p ++ ", " ++ show t ++ "}"
+    show (Variable mod p (TypeCompType (Pointer t)) adr) = "{variable, " ++show mod ++" "++ show p ++ ", pointer to " ++ show t ++ "}"
+    show (Variable mod p (TypeCompType (Array (TokInteger (_,i1)) (TokInteger (_,i2)) t)) adr) = "{variable, "++ show mod ++" "++ show p ++ ", Array ["++ i1++".."++ i2++ "] of " ++ show t ++ "}"
     show (Constant p (TypeBaseType t) addr) = "{constant, " ++ show p ++ ", " ++ show t ++ "}"
     show (Function p prms tp _) = "{function, " ++ show p ++ ", " ++ show prms ++ ", " ++ show tp ++ "}"
     show (Procedure p prms _) = "{procedure, " ++ show p ++ ", " ++ show prms ++  "}"

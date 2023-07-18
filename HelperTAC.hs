@@ -19,7 +19,7 @@ data TACType = TACIntType | TACFloatType | TACCharType | TACBoolType | TACMemAdd
 makeTACLit :: AbsGrammar.Literal -> TACLiteral
 makeTACLit (AbsGrammar.LiteralInteger (TokInteger (_, val))) = TACIntLit (read val :: Int)
 makeTACLit (AbsGrammar.LiteralChar (TokChar (_, val))) = TACCharLit (read val :: Char)
-makeTACLit (AbsGrammar.LiteralBoolean (TokBoolean (_, val))) = TACBoolLit (read val :: Bool)
+makeTACLit (AbsGrammar.LiteralBoolean (TokBoolean (_, val))) = TACBoolLit (if val=="true" then True else False)
 makeTACLit (AbsGrammar.LiteralDouble (TokDouble (_, val))) = TACRealLit (read val :: Float)
 --makeTACLit (AbsGrammar.LiteralString (TokString (_, val))) = TACString (read val :: String)
 
@@ -304,6 +304,17 @@ unrToTACOp opr tacTp = case (opr, tacTp) of
     (AbsGrammar.Reference, _) -> TACRef
     (AbsGrammar.Dereference, _) -> TACDeref
 
+isGuardBinOp :: AbsGrammar.BinaryOperator -> Bool
+isGuardBinOp opr = case opr of
+    AbsGrammar.Eq -> True
+    AbsGrammar.NotEq -> True
+    AbsGrammar.EqLessT-> True
+    AbsGrammar.EqGreatT-> True
+    AbsGrammar.GreatT-> True
+    AbsGrammar.LessT-> True
+    AbsGrammar.And -> True
+    AbsGrammar.Or -> True
+    _ -> False
 
 notRel :: AbsGrammar.BinaryOperator -> TACType -> TACOp
 notRel opr tacTp = case (opr,tacTp) of
@@ -352,14 +363,13 @@ sizeof (AbsGrammar.TypeBaseType bType) = case bType of
     AbsGrammar.BaseType_char -> 1
     AbsGrammar.BaseType_integer -> 4
     AbsGrammar.BaseType_real -> 4
-    --AbsGrammar.BaseType_string -> 0
+    AbsGrammar.BaseType_string -> 4
     _ -> error "TODO: invalid type for sizeof"
 
---TODO: spiega nella relazione come vengono fatti accessi con indici, considerando che possono essere sfasati
--- (e.g. non partono da zero)
+
 sizeof (AbsGrammar.TypeCompType cType) = case cType of
     AbsGrammar.Array (TokInteger (_, start)) (TokInteger (_, end)) tp -> ((read end :: Int) - (read start :: Int)) * sizeof tp 
-    AbsGrammar.Pointer _-> error "TODO: sizeof -> implementare pointer; valuta se in grammatica può puntare a Type invece che BaseType "
+    AbsGrammar.Pointer tp-> sizeof tp
 
 
 getArrayRange :: AbsGrammar.CompType -> (TACLiteral, TACLiteral)
