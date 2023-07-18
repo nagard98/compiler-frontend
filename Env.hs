@@ -55,7 +55,9 @@ defaultEnv = foldl1 Map.union [ Map.singleton "writeInt" (Procedure (0,0) (Param
                                   Map.singleton "readInt" (Procedure (0,0) (Params [Param Modality_ref [IdElement (TokIdent ((0,0),"val"))] (TypeBaseType BaseType_integer)]) (ProgVar "readInt") ),
                                   Map.singleton "readReal" (Procedure (0,0) (Params [Param Modality_ref [IdElement (TokIdent ((0,0),"val"))] (TypeBaseType BaseType_real)]) (ProgVar "readReal") ),
                                   Map.singleton "readChar" (Procedure (0,0) (Params [Param Modality_ref [IdElement (TokIdent ((0,0),"val"))] (TypeBaseType BaseType_char)]) (ProgVar "readChar") ),
-                                  Map.singleton "readString" (Procedure (0,0) (Params [Param Modality_ref [IdElement (TokIdent ((0,0),"val"))] (TypeBaseType BaseType_string)]) (ProgVar "readString") ) ]
+                                  Map.singleton "readString" (Procedure (0,0) (Params [Param Modality_ref [IdElement (TokIdent ((0,0),"val"))] (TypeBaseType BaseType_string)]) (ProgVar "readString") ),
+                                  Map.singleton "errOutOfBounds" (Procedure (0,0) NoParams (ProgVar "errOutOfBounds") )
+                                  ]
 
 
 -- TODO : aggiungere generazione warning quando un identificatore nel env viene sovrascritto? Forse bisogna passare
@@ -65,8 +67,29 @@ mergeEnvs e1 e2 = return $ Map.union e1 e2
 
 -- TODO : aggiungere generazione warning quando un identificatore nel env viene sovrascritto? Forse bisogna passare
 -- anche errs come parametro?
-insert :: String -> EnvData -> Env -> State a Env
-insert id entry env = return $ Map.insert id entry env
+insert :: String -> EnvData -> Env -> SSAState Env
+insert id entry env = case Map.lookup id env of
+    (Just _) -> do
+        state <- get
+        put $ state {errors = (Error, DuplicateDeclaration (show $ getPosEntryEnv id entry) (getEntryKind entry) id ):(errors state)}
+        return $ Map.insert id entry env
+    Nothing -> return $ Map.insert id entry env 
+
+getPosEntryEnv :: String -> EnvData -> PosEnds
+getPosEntryEnv id (Variable _ pos@(x,y) _ _) = PosEnds{leftmost=pos, rightmost= (x, y + (length id) - 1 )}
+getPosEntryEnv id (Procedure pos@(x,y) _ _) = PosEnds{leftmost=pos, rightmost= (x, y + (length id) - 1 )}
+getPosEntryEnv id (Function pos@(x,y) _ _ _) = PosEnds{leftmost=pos, rightmost= (x, y + (length id) - 1 )}
+getPosEntryEnv id (Constant pos@(x,y) _ _) = PosEnds{leftmost=pos, rightmost= (x, y + (length id) - 1 )}
+getPosEntryEnv id (Return _ _ pos@(x,y)) = PosEnds{leftmost=pos, rightmost= (x, y + (length id) - 1 )}
+getPosEntryEnv _ _ = PosEnds{leftmost=(0,0), rightmost= (0,0)}
+
+getEntryKind ::  EnvData -> String
+getEntryKind  (Variable {}) = "variable"
+getEntryKind  (Procedure {}) = "procedure"
+getEntryKind  (Function {}) = "function"
+getEntryKind  (Constant {}) = "constant"
+getEntryKind  (Return {}) = "return"
+getEntryKind  _ = "break/continue"
 
 lookup :: String -> Env -> Maybe EnvData
 lookup = Map.lookup
