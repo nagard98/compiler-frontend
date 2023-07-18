@@ -1,0 +1,30 @@
+program TestLoop;
+
+var a,b:integer;
+
+begin
+    a := 0;
+    while a < 100 do
+    begin
+        a := a + 1;
+        if a > 10 then
+            break
+        else continue;
+    end;
+
+    {*
+    begin 
+        continue; {this will generate an error, not inside indetermiate loop}
+    end;
+    *}
+
+    {* break; {this will generate an error, not inside indetermiate loop} *}
+
+    b := 0;
+    repeat
+        begin
+            b := b + 1;
+            break;
+        end
+    until b=1000;
+end.
